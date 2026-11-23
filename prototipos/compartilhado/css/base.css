@@ -1,0 +1,218 @@
+/* ==========================================================================
+   PRONTITO · BASE + COMPONENTES COMPARTILHADOS
+   Usado pelas três telas (cliente, garçom e painel).
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: var(--fonte-texto);
+  font-size: 15px;
+  color: var(--texto);
+  background: var(--fundo);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--fonte-marca);
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.15;
+  color: var(--texto);
+}
+
+p { margin: 0; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+input, textarea, select { font: inherit; color: inherit; }
+img { max-width: 100%; display: block; }
+[hidden] { display: none !important; }
+
+/* ---------- Logo ---------- */
+.logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo__simbolo { width: 38px; height: 38px; flex: none; }
+.logo__nome {
+  font-family: var(--fonte-marca);
+  font-weight: 900;
+  font-size: 26px;
+  letter-spacing: -.5px;
+  color: var(--roxo);
+  position: relative;
+  padding-bottom: 4px;
+}
+.logo__nome::after {           /* "swoosh" laranja embaixo do nome */
+  content: "";
+  position: absolute;
+  left: 8%; right: 4%; bottom: -1px;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--laranja);
+  transform: rotate(-2deg);
+}
+.logo--claro .logo__nome { color: #fff; }
+
+/* ---------- Botões ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 46px; padding: 0 20px;
+  border-radius: var(--raio-pill);
+  font-family: var(--fonte-marca); font-weight: 800; font-size: 15px;
+  transition: transform var(--transicao), box-shadow var(--transicao), background var(--transicao);
+  white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn--primario { background: var(--laranja); color: #fff; box-shadow: var(--sombra-laranja); }
+.btn--primario:hover { background: var(--laranja-escuro); }
+.btn--roxo { background: var(--roxo); color: #fff; }
+.btn--roxo:hover { background: var(--roxo-escuro); }
+.btn--suave { background: var(--roxo-claro); color: var(--roxo); }
+.btn--contorno { border: 1.5px solid var(--borda); background: #fff; color: var(--texto); }
+.btn--verde { background: var(--verde); color: #fff; }
+.btn--bloco { width: 100%; }
+.btn--sm { height: 36px; padding: 0 14px; font-size: 13px; }
+.btn:disabled { opacity: .45; pointer-events: none; }
+
+.btn-icone {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: inline-grid; place-items: center;
+  background: #fff; border: 1.5px solid var(--borda); color: var(--texto);
+}
+
+/* ---------- Cartões ---------- */
+.card {
+  background: var(--superficie);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-sm);
+  border: 1px solid var(--borda);
+}
+
+/* ---------- Etiquetas de status ---------- */
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--raio-pill);
+  font-size: 12px; font-weight: 600;
+  background: var(--roxo-claro); color: var(--roxo);
+}
+.tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.tag--laranja  { background: var(--laranja-claro); color: var(--laranja-escuro); }
+.tag--verde    { background: var(--verde-claro); color: #15803D; }
+.tag--vermelho { background: var(--vermelho-claro); color: #B91C1C; }
+.tag--amarelo  { background: var(--amarelo-claro); color: #A16207; }
+.tag--cinza    { background: #F1EFF5; color: var(--texto-suave); }
+
+/* ---------- Chips (filtros / categorias) ---------- */
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  padding: 9px 16px; border-radius: var(--raio-pill);
+  background: #fff; border: 1.5px solid var(--borda);
+  font-weight: 600; font-size: 14px; color: var(--texto-suave);
+  transition: all var(--transicao);
+}
+.chip.ativo { background: var(--roxo); border-color: var(--roxo); color: #fff; }
+
+/* ---------- Campos ---------- */
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo label { font-size: 13px; font-weight: 600; color: var(--texto-suave); }
+.input {
+  height: 46px; padding: 0 14px;
+  border-radius: var(--raio-md);
+  border: 1.5px solid var(--borda);
+  background: #fff; outline: none;
+  transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+textarea.input { height: auto; padding: 12px 14px; resize: none; }
+.input:focus { border-color: var(--roxo-medio); box-shadow: 0 0 0 4px var(--roxo-claro); }
+
+/* ---------- Controle de quantidade ---------- */
+.qtd {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--roxo-claro); border-radius: var(--raio-pill); padding: 4px;
+}
+.qtd button {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #fff; color: var(--roxo); font-weight: 800; font-size: 17px;
+  display: grid; place-items: center; box-shadow: var(--sombra-sm);
+}
+.qtd span { min-width: 22px; text-align: center; font-weight: 700; color: var(--roxo); }
+
+/* ---------- Ilustração de produto (placeholder com emoji) ---------- */
+.foto {
+  display: grid; place-items: center;
+  border-radius: var(--raio-md);
+  background: linear-gradient(145deg, var(--laranja-claro), #FFE1BD);
+  font-size: 38px;
+  flex: none;
+}
+.foto--porcoes { background: linear-gradient(145deg, #FFF3C9, #FFE08A); }
+.foto--bebidas { background: linear-gradient(145deg, #E7F0FF, #CBDDFF); }
+.foto--lanches { background: linear-gradient(145deg, var(--laranja-claro), #FFD3A1); }
+
+/* ---------- Opções selecionáveis (pagamento etc.) ---------- */
+.opcao {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; border-radius: var(--raio-md);
+  border: 1.5px solid var(--borda); background: #fff;
+  text-align: left; width: 100%;
+  transition: all var(--transicao);
+}
+.opcao__icone {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center; font-size: 20px;
+  background: var(--roxo-claro); flex: none;
+}
+.opcao__texto { flex: 1; }
+.opcao__titulo { font-weight: 700; }
+.opcao__sub { font-size: 12.5px; color: var(--texto-suave); }
+.opcao__radio {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--borda); flex: none; position: relative;
+}
+.opcao.ativa { border-color: var(--roxo); background: #FBF9FF; }
+.opcao.ativa .opcao__radio { border-color: var(--roxo); }
+.opcao.ativa .opcao__radio::after {
+  content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--roxo);
+}
+
+/* ---------- Modal / folha inferior ---------- */
+.sobreposicao {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(31, 22, 56, .45);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: aparecer .2s ease;
+}
+.sobreposicao--centro { align-items: center; padding: 16px; }
+.folha {
+  background: #fff; width: 100%; max-width: 480px;
+  border-radius: var(--raio-xl) var(--raio-xl) 0 0;
+  padding: 24px; max-height: 92vh; overflow-y: auto;
+  animation: subir .25s ease;
+}
+.sobreposicao--centro .folha { border-radius: var(--raio-xl); }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  z-index: 100;
+  background: var(--texto); color: #fff;
+  padding: 12px 18px; border-radius: var(--raio-pill);
+  font-weight: 600; font-size: 14px; box-shadow: var(--sombra-lg);
+  display: flex; align-items: center; gap: 8px;
+  animation: subir .25s ease;
+}
+
+/* ---------- Utilitários ---------- */
+.linha { display: flex; align-items: center; gap: 8px; }
+.entre { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pilha { display: flex; flex-direction: column; }
+.suave { color: var(--texto-suave); }
+.pequeno { font-size: 13px; }
+.forte { font-weight: 700; }
+.preco { font-family: var(--fonte-marca); font-weight: 800; color: var(--roxo); }
+
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes subir { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pulsar { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }

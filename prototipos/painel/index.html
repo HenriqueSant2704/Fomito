@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prontito · Painel da Lanchonete</title>
+  <link rel="icon" href="../compartilhado/img/simbolo.svg">
+  <link rel="stylesheet" href="../compartilhado/css/tokens.css">
+  <link rel="stylesheet" href="../compartilhado/css/base.css">
+  <link rel="stylesheet" href="painel.css">
+</head>
+<body>
+
+  <!-- ============ MENU LATERAL ============ -->
+  <aside class="menu">
+    <div class="menu__logo" id="logo"></div>
+    <nav class="menu__nav" id="menu">
+      <button class="menu__item ativo" data-secao="dashboard"><span>🏠</span>Dashboard</button>
+      <button class="menu__item" data-secao="pedidos"><span>🧾</span>Pedidos <b class="menu__badge" id="badgeNovos">2</b></button>
+      <button class="menu__item" data-secao="comandas"><span>🍽️</span>Comandas</button>
+      <button class="menu__item" data-secao="cardapio"><span>📋</span>Cardápio</button>
+      <button class="menu__item" data-secao="configuracoes"><span>⚙️</span>Configurações</button>
+    </nav>
+    <div class="menu__rodape">
+      <span class="pequeno">Seu negócio sempre<br><b>no controle.</b></span>
+    </div>
+  </aside>
+
+  <!-- ============ ÁREA PRINCIPAL ============ -->
+  <main class="principal">
+    <header class="topo">
+      <div>
+        <h1 id="tituloSecao">Olá, parceiro! 👋</h1>
+        <p class="suave" id="subtituloSecao">Tudo certo por aqui.</p>
+      </div>
+      <div class="linha" style="gap:12px">
+        <label class="status-loja"><input type="checkbox" checked id="lojaAberta"><span class="status-loja__trilho"></span><span id="textoLoja">Loja aberta</span></label>
+        <button class="btn-icone" aria-label="Notificações">🔔</button>
+        <div class="avatar">Z</div>
+      </div>
+    </header>
+
+    <!-- Cada seção abaixo é preenchida pelo painel.js -->
+    <section class="secao" data-secao="dashboard"></section>
+    <section class="secao" data-secao="pedidos" hidden></section>
+    <section class="secao" data-secao="comandas" hidden></section>
+    <section class="secao" data-secao="cardapio" hidden></section>
+    <section class="secao" data-secao="configuracoes" hidden></section>
+  </main>
+
+  <script src="../compartilhado/js/dados.js"></script>
+  <script src="../compartilhado/js/utils.js"></script>
+  <script src="painel.js"></script>
+</body>
+</html>

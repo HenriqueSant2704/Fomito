@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prontito · Garçom</title>
+  <link rel="icon" href="../compartilhado/img/simbolo.svg">
+  <link rel="stylesheet" href="../compartilhado/css/tokens.css">
+  <link rel="stylesheet" href="../compartilhado/css/base.css">
+  <link rel="stylesheet" href="garcom.css">
+</head>
+<body>
+
+  <header class="barra">
+    <div id="logo"></div>
+    <div class="garcom-perfil">
+      <div class="pilha" style="text-align:right">
+        <span class="forte">Carlos</span>
+        <span class="pequeno suave">Garçom · turno da noite</span>
+      </div>
+      <div class="avatar">C</div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ============ LISTA DE MESAS ============ -->
+    <section class="mesas">
+      <div class="entre mesas__topo">
+        <div>
+          <h1>Mesas</h1>
+          <p class="suave pequeno" id="resumoMesas"></p>
+        </div>
+      </div>
+      <nav class="chips" id="filtros"></nav>
+      <div class="grade" id="grade"></div>
+    </section>
+
+    <!-- ============ COMANDA DA MESA SELECIONADA ============ -->
+    <aside class="comanda" id="comanda">
+      <div class="comanda__vazia">
+        <div style="font-size:56px">🍽️</div>
+        <h3>Selecione uma mesa</h3>
+        <p class="suave pequeno">Toque numa mesa para abrir a comanda,<br>lançar itens ou fechar a conta.</p>
+      </div>
+    </aside>
+
+  </div>
+
+  <script src="../compartilhado/js/dados.js"></script>
+  <script src="../compartilhado/js/utils.js"></script>
+  <script src="garcom.js"></script>
+</body>
+</html>

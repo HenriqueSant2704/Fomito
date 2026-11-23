@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prontito · App do Cliente</title>
+  <link rel="icon" href="../compartilhado/img/simbolo.svg">
+
+  <!-- Estilos: tokens da marca → base compartilhada → estilo desta tela -->
+  <link rel="stylesheet" href="../compartilhado/css/tokens.css">
+  <link rel="stylesheet" href="../compartilhado/css/base.css">
+  <link rel="stylesheet" href="cliente.css">
+</head>
+<body>
+
+  <!-- O app inteiro fica dentro deste "celular" -->
+  <main class="app" id="app">
+
+    <!-- ============ TELA 1: CARDÁPIO ============ -->
+    <section class="tela" data-tela="cardapio">
+      <header class="topo">
+        <div class="entre">
+          <div id="logo"></div>
+          <button class="btn-icone" aria-label="Meus pedidos" data-ir="acompanhamento">🧾</button>
+        </div>
+
+        <div class="loja">
+          <div class="loja__avatar">🍔</div>
+          <div class="pilha">
+            <h1 class="loja__nome" id="nomeLoja"></h1>
+            <span class="pequeno suave">⭐ 4,8 · <span id="tempoLoja"></span> · <span class="aberta">Aberto agora</span></span>
+          </div>
+        </div>
+
+        <!-- Entrega x Comer no local -->
+        <div class="modo" role="tablist">
+          <button class="modo__opcao ativo" data-modo="entrega">🛵 Entrega</button>
+          <button class="modo__opcao" data-modo="local">🍽️ Comer aqui</button>
+        </div>
+
+        <label class="busca">
+          <span>🔎</span>
+          <input type="search" id="busca" placeholder="Buscar lanche, porção, bebida...">
+        </label>
+      </header>
+
+      <nav class="chips categorias" id="categorias"></nav>
+
+      <div class="conteudo" id="listaProdutos"></div>
+
+      <!-- Barra do carrinho (aparece quando há itens) -->
+      <button class="barra-carrinho" id="barraCarrinho" data-ir="carrinho" hidden>
+        <span class="barra-carrinho__qtd" id="barraQtd">0</span>
+        <span>Ver carrinho</span>
+        <span id="barraTotal">R$ 0,00</span>
+      </button>
+    </section>
+
+    <!-- ============ TELA 2: CARRINHO ============ -->
+    <section class="tela" data-tela="carrinho" hidden>
+      <header class="cabecalho">
+        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar">←</button>
+        <h2>Seu carrinho</h2>
+        <span style="width:40px"></span>
+      </header>
+      <div class="conteudo" id="itensCarrinho"></div>
+      <footer class="rodape-fixo" id="resumoCarrinho"></footer>
+    </section>
+
+    <!-- ============ TELA 3: CHECKOUT ============ -->
+    <section class="tela" data-tela="checkout" hidden>
+      <header class="cabecalho">
+        <button class="btn-icone" data-ir="carrinho" aria-label="Voltar">←</button>
+        <h2>Finalizar pedido</h2>
+        <span style="width:40px"></span>
+      </header>
+      <div class="conteudo" id="checkout"></div>
+      <footer class="rodape-fixo" id="rodapeCheckout"></footer>
+    </section>
+
+    <!-- ============ TELA 4: ACOMPANHAMENTO ============ -->
+    <section class="tela" data-tela="acompanhamento" hidden>
+      <header class="cabecalho">
+        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar">←</button>
+        <h2>Seu pedido</h2>
+        <span style="width:40px"></span>
+      </header>
+      <div class="conteudo" id="acompanhamento"></div>
+    </section>
+
+  </main>
+
+  <!-- Scripts: dados → utilitários → lógica desta tela -->
+  <script src="../compartilhado/js/dados.js"></script>
+  <script src="../compartilhado/js/utils.js"></script>
+  <script src="cliente.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+/* ==========================================================================
+   PRONTITO · TOKENS DA MARCA
+   --------------------------------------------------------------------------
+   Este é o ÚNICO lugar onde cores, fontes, raios e sombras são definidos.
+   Para mudar o visual do sistema inteiro, altere os valores aqui.
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap");
+
+:root {
+  /* ---- Paleta oficial ---- */
+  --roxo: #4B2B8F;          /* Cor institucional */
+  --laranja: #FF8A00;       /* Destaques e energia */
+  --creme: #FFF7ED;         /* Fundos e leveza */
+  --verde: #22C55E;         /* Sucesso */
+  --vermelho: #EF4444;      /* Alerta */
+
+  /* ---- Variações (derivadas da paleta oficial) ---- */
+  --roxo-escuro: #2F1A63;
+  --roxo-medio: #6A47B8;
+  --roxo-claro: #EFE9FA;
+  --laranja-escuro: #E67A00;
+  --laranja-claro: #FFEED8;
+  --verde-claro: #DCFCE7;
+  --vermelho-claro: #FEE2E2;
+  --amarelo: #F5B300;
+  --amarelo-claro: #FFF5D1;
+
+  /* ---- Neutros ---- */
+  --texto: #1F1638;
+  --texto-suave: #6E6685;
+  --texto-fraco: #A39DB3;
+  --borda: #ECE6F3;
+  --superficie: #FFFFFF;
+  --fundo: #FBF8F4;
+
+  /* ---- Tipografia ---- */
+  --fonte-marca: "Nunito", system-ui, sans-serif;   /* títulos, chamadas */
+  --fonte-texto: "Inter", system-ui, sans-serif;    /* textos de apoio */
+
+  /* ---- Raios (visual arredondado) ---- */
+  --raio-sm: 10px;
+  --raio-md: 16px;
+  --raio-lg: 22px;
+  --raio-xl: 28px;
+  --raio-pill: 999px;
+
+  /* ---- Sombras ---- */
+  --sombra-sm: 0 1px 2px rgba(47, 26, 99, .06), 0 2px 6px rgba(47, 26, 99, .04);
+  --sombra-md: 0 4px 14px rgba(47, 26, 99, .08);
+  --sombra-lg: 0 14px 40px rgba(47, 26, 99, .16);
+  --sombra-laranja: 0 8px 20px rgba(255, 138, 0, .32);
+
+  /* ---- Espaçamentos ---- */
+  --esp-1: 4px;
+  --esp-2: 8px;
+  --esp-3: 12px;
+  --esp-4: 16px;
+  --esp-5: 24px;
+  --esp-6: 32px;
+
+  --transicao: 180ms ease;
+}

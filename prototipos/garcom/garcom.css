@@ -1,0 +1,121 @@
+/* ==========================================================================
+   PRONTITO · TELA DO GARÇOM
+   Tablet/celular. No tablet: mesas à esquerda e comanda à direita.
+   No celular: a comanda abre por cima, em tela cheia.
+   ========================================================================== */
+
+body { background: var(--fundo); min-height: 100vh; }
+
+/* ---------- Barra superior ---------- */
+.barra {
+  height: 72px; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff; border-bottom: 1px solid var(--borda);
+  position: sticky; top: 0; z-index: 10;
+}
+.garcom-perfil { display: flex; align-items: center; gap: 12px; }
+.avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--roxo); color: #fff;
+  display: grid; place-items: center;
+  font-family: var(--fonte-marca); font-weight: 900;
+}
+
+/* ---------- Layout em duas colunas ---------- */
+.layout { display: grid; grid-template-columns: 1fr 400px; min-height: calc(100vh - 72px); }
+
+.mesas { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+.mesas h1 { font-size: 28px; }
+
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+
+/* ---------- Cartão de mesa ---------- */
+.mesa {
+  position: relative; text-align: left;
+  background: #fff; border: 2px solid var(--borda);
+  border-radius: var(--raio-lg); padding: 16px;
+  display: flex; flex-direction: column; gap: 10px; min-height: 140px;
+  transition: all var(--transicao); box-shadow: var(--sombra-sm);
+}
+.mesa:hover { transform: translateY(-2px); box-shadow: var(--sombra-md); }
+.mesa__numero {
+  font-family: var(--fonte-marca); font-weight: 900; font-size: 34px; line-height: 1; color: var(--texto);
+}
+.mesa__numero small { font-size: 13px; font-weight: 700; color: var(--texto-suave); display: block; margin-bottom: 2px; }
+.mesa__rodape { margin-top: auto; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.mesa__rodape .preco { font-size: 17px; }
+.mesa .tag { align-self: flex-start; }
+
+.mesa--livre { background: #fff; border-style: dashed; }
+.mesa--livre .mesa__numero { color: var(--texto-fraco); }
+.mesa--ocupada { border-color: #D9CCF3; background: linear-gradient(160deg, #fff, #F7F3FE); }
+.mesa--conta { border-color: #FFC680; background: linear-gradient(160deg, #fff, var(--laranja-claro)); }
+.mesa--conta::after {
+  content: "💰"; position: absolute; top: 12px; right: 12px; font-size: 20px; animation: pulsar 1.4s infinite;
+}
+.mesa.selecionada { border-color: var(--roxo); box-shadow: 0 0 0 4px var(--roxo-claro); }
+
+/* ---------- Painel da comanda ---------- */
+.comanda {
+  background: #fff; border-left: 1px solid var(--borda);
+  display: flex; flex-direction: column;
+  position: sticky; top: 72px; height: calc(100vh - 72px);
+}
+.comanda__vazia {
+  margin: auto; text-align: center; padding: 24px;
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.comanda__topo {
+  padding: 20px 22px; display: flex; justify-content: space-between; align-items: flex-start;
+  background: linear-gradient(140deg, var(--roxo), var(--roxo-medio)); color: #fff;
+}
+.comanda__topo h2 { color: #fff; font-size: 26px; }
+.comanda__fechar-painel { color: #fff; background: rgba(255,255,255,.15); border: 0; }
+
+.comanda__itens { flex: 1; overflow-y: auto; padding: 16px 22px; display: flex; flex-direction: column; gap: 4px; }
+.linha-item { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--borda); }
+.linha-item .foto { width: 42px; height: 42px; font-size: 22px; border-radius: 12px; }
+.linha-item__info { flex: 1; min-width: 0; }
+
+.comanda__rodape {
+  padding: 18px 22px 22px; border-top: 1px solid var(--borda);
+  display: flex; flex-direction: column; gap: 12px; background: var(--fundo);
+}
+.comanda__total { font-size: 22px; }
+.comanda__acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ---------- Lançar itens (folha) ---------- */
+.lancar { display: flex; flex-direction: column; gap: 14px; }
+.lancar__lista { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.lancar__produto {
+  display: flex; align-items: center; gap: 12px; padding: 10px;
+  border: 1.5px solid var(--borda); border-radius: var(--raio-md);
+}
+.lancar__produto .foto { width: 46px; height: 46px; font-size: 24px; border-radius: 12px; }
+.lancar__produto.tem { border-color: var(--roxo); background: #FBF9FF; }
+
+/* ---------- Fechar conta ---------- */
+.conta { display: flex; flex-direction: column; gap: 14px; }
+.conta__total {
+  text-align: center; padding: 18px; border-radius: var(--raio-lg);
+  background: var(--creme); border: 1.5px dashed #FFC680;
+}
+.conta__total .preco { font-size: 34px; display: block; }
+.divisao { display: flex; align-items: center; justify-content: space-between; }
+.formas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.formas .opcao { padding: 10px; }
+.formas .opcao__icone { width: 34px; height: 34px; font-size: 17px; }
+.troco-caixa { background: var(--verde-claro); color: #166534; padding: 12px 14px; border-radius: var(--raio-md); font-weight: 600; }
+.troco-caixa.erro { background: var(--vermelho-claro); color: #B91C1C; }
+
+/* ---------- Celular ---------- */
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .barra { padding: 0 16px; }
+  .garcom-perfil .pilha { display: none; }
+  .mesas { padding: 16px; }
+  .grade { grid-template-columns: repeat(2, 1fr); }
+  .comanda { position: fixed; inset: 0; height: auto; z-index: 30; border: 0; display: none; }
+  .comanda.aberta { display: flex; }
+}
+@media (min-width: 861px) { .comanda__fechar-painel { display: none; } }
