@@ -1,14 +1,14 @@
 /* ==========================================================================
-   PRONTITO · ÍCONES DE LINHA
+   FOMITO · ÍCONES DE LINHA
    --------------------------------------------------------------------------
-   Uso no JS:   Prontito.icone("sacola")            → <svg ...>
+   Uso no JS:   Fomito.icone("sacola")            → <svg ...>
    Uso no HTML: <i data-icone="sacola"></i>          (trocado ao carregar)
    Para adicionar um ícone novo, inclua o desenho (viewBox 24x24) abaixo.
    ========================================================================== */
 
-window.Prontito = window.Prontito || {};
+window.Fomito = window.Fomito || {};
 
-Prontito.icones = {
+Fomito.icones = {
   inicio:     '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
   pedidos:    '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9.5 8h5M9.5 12h5"/>',
   mesa:       '<path d="M3 8h18M5 8v12M19 8v12M8 8V5h8v3"/><path d="M5 14h14"/>',
@@ -48,19 +48,23 @@ Prontito.icones = {
   info:       '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
   conta:      '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M14.5 8.5c-.3-.6-1-1-2-1-1.2 0-2 .6-2 1.5 0 2 4.5 1 4.5 3 0 .9-.9 1.5-2.2 1.5-1 0-1.8-.4-2.1-1M12.5 6.5v1M12.5 14v1"/>',
   grade:      '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
+  fotos:      '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m20.5 16-5-5-8.5 8"/>',
+  cadeado:    '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+  sair:       '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
+  equipe:     '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M19 8v6M16 11h6"/>',
   /* categorias */
   lanches:    '<path d="M4 11a8 5.5 0 0 1 16 0z"/><path d="M3 14h18"/><path d="M4.5 17h15a1.5 1.5 0 0 1-1.5 2.5H6A1.5 1.5 0 0 1 4.5 17z"/>',
   porcoes:    '<path d="M6 10h12l-1.8 10.5H7.8z"/><path d="M8.5 10 7.5 4M11 10V3.5M13.5 10l.8-5.5M16 10l1.2-4"/>',
   bebidas:    '<path d="M6.5 8h11l-1.4 12.5H7.9z"/><path d="M5.5 8h13M12 8l1.5-4.5H17"/>',
 };
 
-Prontito.icone = (nome, classe = "") =>
-  `<svg class="ic ${classe}" viewBox="0 0 24 24" aria-hidden="true">${Prontito.icones[nome] || ""}</svg>`;
+Fomito.icone = (nome, classe = "") =>
+  `<svg class="ic ${classe}" viewBox="0 0 24 24" aria-hidden="true">${Fomito.icones[nome] || ""}</svg>`;
 
 /* Troca todos os <i data-icone="..."> da página pelo SVG */
-Prontito.aplicarIcones = (raiz = document) =>
+Fomito.aplicarIcones = (raiz = document) =>
   raiz.querySelectorAll("i[data-icone]").forEach((el) => {
-    el.outerHTML = Prontito.icone(el.dataset.icone, el.className);
+    el.outerHTML = Fomito.icone(el.dataset.icone, el.className);
   });
 
-document.addEventListener("DOMContentLoaded", () => Prontito.aplicarIcones());
+document.addEventListener("DOMContentLoaded", () => Fomito.aplicarIcones());

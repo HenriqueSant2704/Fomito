@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PRONTITO · PAINEL DA LANCHONETE (computador)
+   FOMITO · PAINEL DA LANCHONETE (computador)
    ========================================================================== */
 
 body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
@@ -35,7 +35,8 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
   font-size: 11px; min-width: 20px; height: 20px; border-radius: 10px;
   display: grid; place-items: center; padding: 0 6px;
 }
-.menu__rodape { margin-top: auto; padding: 0 10px; font-size: 12px; color: rgba(255,255,255,.4); }
+.menu__rodape { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); }
+.menu__rodape .menu__item { text-decoration: none; color: rgba(255,255,255,.72); }
 
 /* ---------- Área principal ---------- */
 .principal { padding: 28px 36px 48px; display: flex; flex-direction: column; gap: 24px; min-width: 0; max-width: 1360px; }
@@ -129,6 +130,16 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 .mini-mesa.livre strong { color: var(--texto-fraco); }
 .mini-mesa.conta { border-color: #F3C58C; }
 
+/* ---------- Equipe ---------- */
+.membro { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--borda); }
+.membro:last-child { border-bottom: 0; }
+.membro .avatar { width: 36px; height: 36px; font-size: 12px; }
+.membro__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.regras { display: grid; gap: 10px; }
+.regra { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--texto-suave); }
+.regra .ic { color: var(--roxo); margin-top: 1px; }
+.form-erro { color: var(--vermelho-escuro); font-size: 13px; }
+
 /* ---------- Configurações ---------- */
 .form-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .config-pag { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borda); }
@@ -143,7 +154,8 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 @media (max-width: 760px) {
   body { grid-template-columns: 1fr; }
   .menu { height: auto; position: static; padding: 14px 16px; gap: 12px; }
-  .menu__loja, .menu__grupo, .menu__rodape { display: none; }
+  .menu__loja, .menu__grupo { display: none; }
+  .menu__rodape { flex-direction: row; border: 0; padding: 0; margin: 0; }
   .menu__nav { flex-direction: row; overflow-x: auto; }
   .menu__item { flex: none; }
   .principal { padding: 20px 16px; }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prontito · App do Cliente</title>
+  <title>Fomito · Cardápio</title>
   <link rel="icon" href="../compartilhado/img/simbolo.svg">
 
   <!-- Estilos: tokens da marca → base compartilhada → estilo desta tela -->
@@ -13,42 +13,70 @@
 </head>
 <body>
 
-  <!-- O app inteiro fica dentro deste "celular" -->
+  <!-- Tela inicial do sistema: o cardápio do cliente -->
   <main class="app" id="app">
 
     <!-- ============ TELA 1: CARDÁPIO ============ -->
     <section class="tela" data-tela="cardapio">
-      <header class="topo">
-        <div class="entre">
-          <div id="logo"></div>
-          <button class="btn-icone" aria-label="Meus pedidos" data-ir="acompanhamento"><i data-icone="pedidos"></i></button>
-        </div>
 
-        <div class="loja">
-          <h1 class="loja__nome" id="nomeLoja"></h1>
-          <div class="loja__meta">
-            <span class="linha"><i data-icone="estrela" class="ic--sm"></i>4,8</span>
-            <span class="linha"><i data-icone="relogio" class="ic--sm"></i><span id="tempoLoja"></span></span>
-            <span class="linha"><i data-icone="entrega" class="ic--sm"></i>Taxa <span id="taxaLoja"></span></span>
-            <span class="tag tag--verde">Aberto</span>
+      <!-- Vitrine: imagens que o dono escolhe para apresentar a casa -->
+      <header class="vitrine">
+        <div class="vitrine__trilho" id="vitrine"></div>
+        <div class="vitrine__topo">
+          <span class="vitrine__marca" id="logo"></span>
+          <button class="vitrine__botao" aria-label="Meus pedidos" data-ir="acompanhamento"><i data-icone="pedidos"></i></button>
+        </div>
+        <div class="vitrine__pontos" id="vitrinePontos"></div>
+      </header>
+
+      <!-- Cartão da loja, sobreposto à vitrine -->
+      <section class="loja">
+        <div class="entre" style="align-items:flex-start">
+          <div class="pilha" style="gap:2px;min-width:0">
+            <h1 class="loja__nome" id="nomeLoja"></h1>
+            <span class="suave pequeno" id="sloganLoja"></span>
           </div>
+          <span class="tag tag--verde">Aberto</span>
         </div>
-
-        <!-- Entrega x Comer no local -->
-        <div class="filtros modo" role="tablist">
+        <div class="loja__meta">
+          <span><i data-icone="estrela" class="ic--sm"></i><b>4,8</b> (320)</span>
+          <span><i data-icone="relogio" class="ic--sm"></i><span id="tempoLoja"></span></span>
+          <span><i data-icone="entrega" class="ic--sm"></i><span id="taxaLoja"></span></span>
+        </div>
+        <div class="filtros modo" role="tablist" aria-label="Como você quer pedir">
           <button class="filtro ativo" data-modo="entrega"><i data-icone="entrega" class="ic--sm"></i>Entrega</button>
           <button class="filtro" data-modo="local"><i data-icone="local" class="ic--sm"></i>Comer no local</button>
         </div>
+      </section>
 
+      <div class="conteudo">
         <label class="busca">
           <i data-icone="busca" class="ic--sm"></i>
-          <input type="search" id="busca" placeholder="Buscar no cardápio">
+          <input type="search" id="busca" placeholder="Buscar lanche, porção ou bebida">
         </label>
-      </header>
+
+        <!-- Mais pedidos: carrossel horizontal -->
+        <section class="destaques" id="blocoDestaques">
+          <div class="entre"><h2 class="titulo-secao">Os mais pedidos</h2><span class="pequeno fraco">Deslize</span></div>
+          <div class="destaques__trilho" id="destaques"></div>
+        </section>
+      </div>
 
       <nav class="abas categorias" id="categorias"></nav>
-
       <div class="conteudo" id="listaProdutos"></div>
+
+      <!-- Rodapé com o acesso discreto ao Portal da equipe -->
+      <footer class="rodape-loja">
+        <div class="pilha" style="gap:4px">
+          <span class="forte" id="rodapeNome"></span>
+          <span class="pequeno suave" id="rodapeEndereco"></span>
+          <span class="pequeno suave" id="rodapeHorario"></span>
+        </div>
+        <div class="entre rodape-loja__base">
+          <span class="pequeno fraco">Pedidos com Fomito</span>
+          <a class="portal-link" href="../portal/index.html"><i data-icone="cadeado" class="ic--sm"></i>Portal</a>
+        </div>
+      </footer>
 
       <!-- Barra da sacola (aparece quando há itens) -->
       <button class="barra-sacola" id="barraSacola" data-ir="carrinho" hidden>
@@ -57,7 +85,10 @@
       </button>
     </section>
 
-    <!-- ============ TELA 2: SACOLA ============ -->
+    <!-- ============ TELA 2: DETALHE DO PRODUTO ============ -->
+    <section class="tela tela--produto" data-tela="produto" hidden></section>
+
+    <!-- ============ TELA 3: SACOLA ============ -->
     <section class="tela" data-tela="carrinho" hidden>
       <header class="cabecalho">
         <button class="btn-icone" data-ir="cardapio" aria-label="Voltar"><i data-icone="voltar"></i></button>
@@ -68,7 +99,7 @@
       <footer class="rodape-fixo" id="resumoCarrinho"></footer>
     </section>
 
-    <!-- ============ TELA 3: FINALIZAR ============ -->
+    <!-- ============ TELA 4: FINALIZAR ============ -->
     <section class="tela" data-tela="checkout" hidden>
       <header class="cabecalho">
         <button class="btn-icone" data-ir="carrinho" aria-label="Voltar"><i data-icone="voltar"></i></button>
@@ -79,7 +110,7 @@
       <footer class="rodape-fixo" id="rodapeCheckout"></footer>
     </section>
 
-    <!-- ============ TELA 4: ACOMPANHAMENTO ============ -->
+    <!-- ============ TELA 5: ACOMPANHAMENTO ============ -->
     <section class="tela" data-tela="acompanhamento" hidden>
       <header class="cabecalho">
         <button class="btn-icone" data-ir="cardapio" aria-label="Voltar"><i data-icone="voltar"></i></button>
@@ -91,8 +122,9 @@
 
   </main>
 
-  <!-- Scripts: ícones → dados → utilitários → lógica desta tela -->
+  <!-- Scripts: ícones → ilustrações → dados → utilitários → lógica desta tela -->
   <script src="../compartilhado/js/icones.js"></script>
+  <script src="../compartilhado/js/ilustracoes.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
   <script src="cliente.js"></script>

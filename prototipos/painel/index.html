@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prontito · Painel da Lanchonete</title>
+  <title>Fomito · Painel da Lanchonete</title>
   <link rel="icon" href="../compartilhado/img/simbolo.svg">
   <link rel="stylesheet" href="../compartilhado/css/tokens.css">
   <link rel="stylesheet" href="../compartilhado/css/base.css">
@@ -27,10 +27,14 @@
       <button class="menu__item" data-secao="comandas"><i data-icone="mesa"></i>Comandas</button>
       <span class="menu__grupo">Gestão</span>
       <button class="menu__item" data-secao="cardapio"><i data-icone="cardapio"></i>Cardápio</button>
+      <button class="menu__item" data-secao="equipe"><i data-icone="equipe"></i>Equipe</button>
       <button class="menu__item" data-secao="configuracoes"><i data-icone="ajustes"></i>Configurações</button>
     </nav>
 
-    <div class="menu__rodape">Seu negócio sempre no controle.</div>
+    <div class="menu__rodape">
+      <a class="menu__item" href="../cliente/index.html"><i data-icone="externo"></i>Ver cardápio do cliente</a>
+      <button class="menu__item" id="btnSair"><i data-icone="sair"></i>Sair</button>
+    </div>
   </aside>
 
   <!-- ============ ÁREA PRINCIPAL ============ -->
@@ -43,7 +47,7 @@
       <div class="linha" style="gap:14px">
         <label class="status-loja"><input type="checkbox" checked id="lojaAberta"><span class="status-loja__trilho"></span><span id="textoLoja">Recebendo pedidos</span></label>
         <button class="btn-icone" aria-label="Notificações"><i data-icone="sino"></i></button>
-        <div class="avatar">ZS</div>
+        <div class="avatar" id="avatar" title="">ZS</div>
       </div>
     </header>
 
@@ -52,10 +56,13 @@
     <section class="secao" data-secao="pedidos" hidden></section>
     <section class="secao" data-secao="comandas" hidden></section>
     <section class="secao" data-secao="cardapio" hidden></section>
+    <section class="secao" data-secao="equipe" hidden></section>
     <section class="secao" data-secao="configuracoes" hidden></section>
   </main>
 
   <script src="../compartilhado/js/icones.js"></script>
+  <script src="../compartilhado/js/ilustracoes.js"></script>
+  <script src="../compartilhado/js/sessao.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
   <script src="painel.js"></script>

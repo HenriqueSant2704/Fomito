@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prontito · Garçom</title>
+  <title>Fomito · Garçom</title>
   <link rel="icon" href="../compartilhado/img/simbolo.svg">
   <link rel="stylesheet" href="../compartilhado/css/tokens.css">
   <link rel="stylesheet" href="../compartilhado/css/base.css">
@@ -15,14 +15,16 @@
     <div class="linha" style="gap:16px">
       <div id="logo"></div>
       <span class="barra__divisor"></span>
-      <span class="suave">Salão</span>
+      <span class="suave">Comandas</span>
     </div>
     <div class="garcom-perfil">
       <div class="pilha" style="text-align:right">
-        <span class="forte">Carlos Mendes</span>
-        <span class="pequeno suave">Garçom · turno da noite</span>
+        <span class="forte" id="nomeGarcom">Carlos Mendes</span>
+        <span class="pequeno suave" id="perfilGarcom">Garçom</span>
       </div>
-      <div class="avatar">CM</div>
+      <div class="avatar" id="avatarGarcom">CM</div>
+      <a class="btn-icone" id="voltarPainel" href="../painel/index.html" aria-label="Voltar ao painel" title="Voltar ao painel" hidden><i data-icone="inicio"></i></a>
+      <button class="btn-icone" id="btnSair" aria-label="Sair" title="Sair"><i data-icone="sair"></i></button>
     </div>
   </header>
 
@@ -52,6 +54,8 @@
   </div>
 
   <script src="../compartilhado/js/icones.js"></script>
+  <script src="../compartilhado/js/ilustracoes.js"></script>
+  <script src="../compartilhado/js/sessao.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
   <script src="garcom.js"></script>

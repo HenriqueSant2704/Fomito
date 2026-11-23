@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PRONTITO · TELA DO GARÇOM (lógica do protótipo)
+   FOMITO · TELA DO GARÇOM (lógica do protótipo)
    --------------------------------------------------------------------------
    Organização:
      1. Estado (mesas fictícias)
@@ -10,7 +10,10 @@
      6. Início
    ========================================================================== */
 
-const { dados, moeda, icone, $, $$, toast } = Prontito;
+const { dados, moeda, icone, $, $$, toast, sessao } = Fomito;
+
+/* Garçom e administrador podem usar as comandas */
+const usuarioLogado = sessao.exigir("garcom", "admin");
 
 /* ---------- 1. ESTADO ---------- */
 /* status: "livre" | "ocupada" | "conta" (cliente pediu a conta) */
@@ -31,7 +34,7 @@ ocupar(11, 1, 18, [[5, 1], [12, 1]]);
 
 const estado = { filtro: "todas", mesaAtual: null };
 
-const totalMesa = (m) => Prontito.totalItens(m.itens);
+const totalMesa = (m) => Fomito.totalItens(m.itens);
 const rotulo = { livre: "Livre", ocupada: "Ocupada", conta: "Conta" };
 const corTag = { livre: "cinza", ocupada: "roxo", conta: "laranja" };
 
@@ -89,10 +92,10 @@ function renderComanda() {
 
   const itensHtml = m.itens.length
     ? m.itens.map((item) => {
-        const p = Prontito.produto(item.id);
+        const p = Fomito.produto(item.id);
         return `
           <div class="linha-item">
-            ${Prontito.foto(p, 40)}
+            ${Fomito.foto(p, 40)}
             <div class="linha-item__info">
               <div class="forte">${item.qtd}× ${p.nome}</div>
               <span class="tag ${item.entregue ? "tag--verde" : "tag--amarelo"}">${item.entregue ? "Entregue" : "Na cozinha"}</span>
@@ -144,7 +147,7 @@ function abrirLancamento(mesa) {
         <div class="lancar__lista">
           ${dados.produtos.filter((p) => p.cat === categoria).map((p) => `
             <div class="lancar__produto ${pedido[p.id] ? "tem" : ""}">
-              ${Prontito.foto(p, 44)}
+              ${Fomito.foto(p, 44)}
               <div style="flex:1;min-width:0"><div class="forte">${p.nome}</div><span class="pequeno suave num">${moeda(p.preco)}</span></div>
               <div class="qtd"><button data-id="${p.id}" data-q="-1" aria-label="Diminuir">${icone("menos", "ic--sm")}</button><span>${pedido[p.id] || 0}</span><button data-id="${p.id}" data-q="1" aria-label="Aumentar">${icone("mais", "ic--sm")}</button></div>
             </div>`).join("")}
@@ -263,5 +266,12 @@ function atualizarTudo() {
   if (estado.mesaAtual) renderComanda();
 }
 
-$("#logo").innerHTML = Prontito.logo();
+$("#logo").innerHTML = Fomito.logo();
+if (usuarioLogado) {
+  $("#nomeGarcom").textContent = usuarioLogado.nome;
+  $("#perfilGarcom").textContent = usuarioLogado.perfil === "admin" ? "Administrador" : "Garçom";
+  $("#avatarGarcom").textContent = usuarioLogado.nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+  $("#voltarPainel").hidden = usuarioLogado.perfil !== "admin";
+}
+$("#btnSair").addEventListener("click", () => sessao.sair());
 atualizarTudo();

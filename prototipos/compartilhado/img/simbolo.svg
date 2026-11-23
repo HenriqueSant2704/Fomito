@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Prontito">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Fomito">
   <rect width="64" height="64" rx="18" fill="#FF8A00"/>
-  <!-- "P" arredondado -->
-  <path d="M22 50V18.5c0-1.4 1.1-2.5 2.5-2.5H34c7.2 0 12 4.6 12 11.2 0 6.7-4.8 11.3-12 11.3h-4.6V50c0 2-1.7 3.7-3.7 3.7S22 52 22 50zm7.4-17.7H33c3.1 0 5.2-2 5.2-5.1 0-3-2.1-5-5.2-5h-3.6z" fill="#fff"/>
+  <!-- "F" arredondado -->
+  <path d="M25 49V19h17M25 33.5h13" fill="none" stroke="#fff" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- faíscas de energia -->
   <g stroke="#FFE2B8" stroke-width="3.4" stroke-linecap="round">
-    <path d="M44 9.5l1.2 4.3"/>
-    <path d="M51.5 12.5l-2.8 3.4"/>
-    <path d="M55 20l-4.2.8"/>
+    <path d="M46 8.5l.8 4.4"/>
+    <path d="M53.5 11.8l-3 3.2"/>
+    <path d="M56.5 19.5l-4.3.6"/>
   </g>
 </svg>

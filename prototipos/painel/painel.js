@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PRONTITO · PAINEL DA LANCHONETE (lógica do protótipo)
+   FOMITO · PAINEL DA LANCHONETE (lógica do protótipo)
    --------------------------------------------------------------------------
    Organização:
      1. Dados fictícios do painel
@@ -8,11 +8,16 @@
      4. Pedidos em tempo real (quadro)
      5. Comandas
      6. Cardápio
-     7. Configurações
-     8. Início
+     7. Equipe (usuários garçom)
+     8. Configurações
+     9. Início
    ========================================================================== */
 
-const { dados, moeda, icone, $, $$, toast } = Prontito;
+const { dados, moeda, icone, $, $$, toast, sessao } = Fomito;
+
+/* Só o administrador entra no painel. Garçom ou visitante volta ao Portal. */
+const usuarioLogado = sessao.exigir("admin");
+const iniciais = (nome) => nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
 /* ---------- 1. DADOS ---------- */
 const vendasSemana = [
@@ -38,13 +43,14 @@ const colunas = [
   { id: "concluido", titulo: "Concluídos",      cor: "var(--verde-escuro)", acao: null },
 ];
 
-const totalPedido = (p) => Prontito.totalItens(p.itens.map(([id, qtd]) => ({ id, qtd }))) + (p.modo === "entrega" ? dados.lanchonete.taxaEntrega : 0);
+const totalPedido = (p) => Fomito.totalItens(p.itens.map(([id, qtd]) => ({ id, qtd }))) + (p.modo === "entrega" ? dados.lanchonete.taxaEntrega : 0);
 
 const titulos = {
   dashboard: ["Visão geral", "Resumo de hoje, segunda-feira, 23 de novembro."],
   pedidos: ["Pedidos", "Acompanhe e avance os pedidos em tempo real."],
   comandas: ["Comandas", "Situação das mesas do salão."],
-  cardapio: ["Cardápio", "Produtos, preços e disponibilidade."],
+  cardapio: ["Cardápio", "Produtos, fotos, preços e disponibilidade."],
+  equipe: ["Equipe", "Crie o acesso dos garçons. Eles entram pelo Portal e vão direto para as comandas."],
   configuracoes: ["Configurações", "Dados da lanchonete, entrega e pagamentos."],
 };
 
@@ -156,8 +162,8 @@ function renderDashboard() {
         <h3>Mais vendidos hoje</h3>
         <div class="ranking">
           ${maisVendidos.map(([id, qtd], i) => {
-            const p = Prontito.produto(id);
-            return `<div class="ranking__item"><span class="ranking__pos">${i + 1}</span>${Prontito.foto(p, 36)}<span style="flex:1" class="forte">${p.nome}</span><span class="suave pequeno num">${qtd} un.</span></div>`;
+            const p = Fomito.produto(id);
+            return `<div class="ranking__item"><span class="ranking__pos">${i + 1}</span>${Fomito.foto(p, 36)}<span style="flex:1" class="forte">${p.nome}</span><span class="suave pequeno num">${qtd} un.</span></div>`;
           }).join("")}
         </div>
       </div>
@@ -180,7 +186,7 @@ function cardPedido(p, coluna) {
     <div class="card pedido ${p.status === "novo" ? "pedido--novo" : ""}">
       <div class="entre"><span class="forte num">#${p.num}</span><span class="pequeno fraco">há ${p.min} min</span></div>
       <div class="entre"><span class="forte">${p.cliente}</span><span class="tag ${p.modo === "entrega" ? "tag--roxo" : "tag--cinza"}">${p.modo === "entrega" ? "Entrega" : "No local"}</span></div>
-      <div class="pedido__itens">${p.itens.map(([id, q]) => `${q}× ${Prontito.produto(id).nome}`).join("<br>")}</div>
+      <div class="pedido__itens">${p.itens.map(([id, q]) => `${q}× ${Fomito.produto(id).nome}`).join("<br>")}</div>
       <div class="pedido__pag">${pagamento}</div>
       <div class="entre"><span class="preco">${moeda(totalPedido(p))}</span>
         ${coluna.acao ? `<button class="btn ${p.status === "novo" ? "btn--primario" : "btn--contorno"} btn--sm" data-avancar="${p.num}">${coluna.acao}</button>` : ""}
@@ -250,7 +256,10 @@ function renderComandas() {
           <span class="preco pequeno">${v ? moeda(v) : "—"}</span>
         </div>`).join("")}
     </div>
-    <p class="pequeno fraco">Os garçons abrem, lançam e fecham as comandas pela tela do garçom.</p>`;
+    <div class="entre" style="flex-wrap:wrap">
+      <p class="pequeno fraco">Os garçons abrem, lançam e fecham as comandas pela tela de comandas.</p>
+      <a class="btn btn--contorno btn--sm" href="../garcom/index.html">${icone("mesa", "ic--sm")} Abrir tela de comandas</a>
+    </div>`;
 }
 
 /* ---------- 6. CARDÁPIO ---------- */
@@ -262,16 +271,17 @@ function renderCardapio() {
   $('[data-secao="cardapio"].secao').innerHTML = `
     <div class="entre" style="flex-wrap:wrap">
       <nav class="filtros" id="filtroCardapio">${cats.map((c) => `<button class="filtro ${filtroCardapio === c.id ? "ativo" : ""}" data-cat="${c.id}">${c.nome} <small>${conta(c.id)}</small></button>`).join("")}</nav>
-      <button class="btn btn--primario btn--sm" onclick="Prontito.toast('Protótipo: aqui abriria o cadastro de produto','info')">${icone("mais", "ic--sm")} Novo produto</button>
+      <button class="btn btn--primario btn--sm" onclick="Fomito.toast('Protótipo: aqui abriria o cadastro de produto','info')">${icone("mais", "ic--sm")} Novo produto</button>
     </div>
     <div class="card painel-card tabela-rolagem">
       <table class="tabela">
-        <thead><tr><th>Produto</th><th>Categoria</th><th class="dir">Preço</th><th>Disponível</th><th></th></tr></thead>
+        <thead><tr><th>Produto</th><th>Categoria</th><th>Fotos</th><th class="dir">Preço</th><th>Disponível</th><th></th></tr></thead>
         <tbody>
           ${lista.map((p) => `
             <tr>
-              <td><div class="linha" style="gap:12px">${Prontito.foto(p, 40)}<div style="min-width:0"><div class="forte">${p.nome}</div><div class="pequeno suave">${p.desc}</div></div></div></td>
+              <td><div class="linha" style="gap:12px">${Fomito.foto(p, 40)}<div style="min-width:0"><div class="forte">${p.nome}</div><div class="pequeno suave">${p.desc}</div></div></div></td>
               <td class="suave">${dados.categorias.find((c) => c.id === p.cat).nome}</td>
+              <td><span class="linha suave pequeno" style="gap:5px">${icone("fotos", "ic--sm")}${p.fotos.length}</span></td>
               <td class="dir preco">${moeda(p.preco)}</td>
               <td><label class="interruptor"><input type="checkbox" id="disp-${p.id}" ${p.id === 9 ? "" : "checked"}><span></span></label></td>
               <td class="dir"><button class="btn-icone" aria-label="Editar ${p.nome}">${icone("editar", "ic--sm")}</button></td>
@@ -285,7 +295,65 @@ function renderCardapio() {
   };
 }
 
-/* ---------- 7. CONFIGURAÇÕES ---------- */
+/* ---------- 7. EQUIPE ---------- */
+function renderEquipe() {
+  const usuarios = sessao.usuarios();
+  const rotulo = { admin: ["roxo", "Administrador"], garcom: ["laranja", "Garçom"] };
+  $('[data-secao="equipe"].secao').innerHTML = `
+    <div class="duas-colunas">
+      <div class="card painel-card">
+        <div class="painel-card__topo"><h3>Pessoas com acesso</h3><span class="pequeno fraco">${usuarios.length} usuários</span></div>
+        <div>
+          ${usuarios.map((u) => `
+            <div class="membro">
+              <span class="avatar">${iniciais(u.nome)}</span>
+              <div class="membro__info"><span class="forte">${u.nome}</span><span class="pequeno suave">Usuário: ${u.usuario}</span></div>
+              <span class="tag tag--${rotulo[u.perfil][0]}">${rotulo[u.perfil][1]}</span>
+              ${u.perfil === "garcom" ? `<button class="btn-icone" data-remover="${u.usuario}" aria-label="Remover ${u.nome}">${icone("lixo", "ic--sm")}</button>` : `<span style="width:38px"></span>`}
+            </div>`).join("")}
+        </div>
+      </div>
+
+      <form class="card painel-card" id="formGarcom" novalidate>
+        <div class="pilha" style="gap:2px"><h3>Novo garçom</h3><p class="pequeno suave">Crie o usuário e passe a senha para o garçom.</p></div>
+        <div class="campo"><label for="gNome">Nome</label><input class="input" id="gNome" placeholder="Ex.: Paula Souza"></div>
+        <div class="form-grade">
+          <div class="campo"><label for="gUsuario">Usuário</label><input class="input" id="gUsuario" placeholder="Ex.: paula" autocomplete="off"></div>
+          <div class="campo"><label for="gSenha">Senha</label><input class="input" id="gSenha" placeholder="Mínimo 4 caracteres" autocomplete="new-password"></div>
+        </div>
+        <p class="form-erro" id="gErro" hidden></p>
+        <button class="btn btn--primario" type="submit">${icone("mais", "ic--sm")} Criar acesso de garçom</button>
+        <div class="regras">
+          <span class="rotulo">O que o garçom pode fazer</span>
+          <span class="regra">${icone("check", "ic--sm")}Entrar pelo Portal e ir direto para as comandas</span>
+          <span class="regra">${icone("check", "ic--sm")}Abrir mesas, lançar itens e fechar contas</span>
+          <span class="regra">${icone("fechar", "ic--sm")}Não acessa o painel, o financeiro nem as configurações</span>
+        </div>
+      </form>
+    </div>`;
+
+  $("#formGarcom").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const nome = $("#gNome").value.trim();
+    const usuario = $("#gUsuario").value.trim().toLowerCase();
+    const senha = $("#gSenha").value;
+    const erro = !nome || !usuario ? "Preencha o nome e o usuário."
+      : senha.length < 4 ? "A senha precisa ter pelo menos 4 caracteres."
+      : sessao.criarUsuario({ nome, usuario, senha, perfil: "garcom" });
+    if (erro) { $("#gErro").textContent = erro; $("#gErro").hidden = false; return; }
+    renderEquipe();
+    toast(`Acesso criado para ${nome}. Usuário: ${usuario}`, "equipe");
+  });
+  $('[data-secao="equipe"].secao').onclick = (e) => {
+    const b = e.target.closest("[data-remover]");
+    if (!b) return;
+    sessao.removerUsuario(b.dataset.remover);
+    renderEquipe();
+    toast("Acesso removido", "lixo");
+  };
+}
+
+/* ---------- 8. CONFIGURAÇÕES ---------- */
 function renderConfiguracoes() {
   const l = dados.lanchonete;
   $('[data-secao="configuracoes"].secao').innerHTML = `
@@ -320,17 +388,23 @@ function renderConfiguracoes() {
         </div>
       </div>
     </div>
-    <div><button class="btn btn--primario" onclick="Prontito.toast('Configurações salvas')">Salvar alterações</button></div>`;
+    <div><button class="btn btn--primario" onclick="Fomito.toast('Configurações salvas')">Salvar alterações</button></div>`;
 }
 
-/* ---------- 8. INÍCIO ---------- */
+/* ---------- 9. INÍCIO ---------- */
 const renderizadores = {
   dashboard: renderDashboard,
   pedidos: renderPedidos,
   comandas: renderComandas,
   cardapio: renderCardapio,
+  equipe: renderEquipe,
   configuracoes: renderConfiguracoes,
 };
 
-$("#logo").innerHTML = Prontito.logo(true);
+$("#logo").innerHTML = Fomito.logo(true);
+if (usuarioLogado) {
+  $("#avatar").textContent = iniciais(usuarioLogado.nome);
+  $("#avatar").title = usuarioLogado.nome;
+}
+$("#btnSair").addEventListener("click", () => sessao.sair());
 abrirSecao(new URLSearchParams(location.search).get("secao") || "dashboard");

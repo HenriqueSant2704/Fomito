@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PRONTITO · BASE + COMPONENTES COMPARTILHADOS
+   FOMITO · BASE + COMPONENTES COMPARTILHADOS
    Usado pelas três telas (cliente, garçom e painel).
    ========================================================================== */
 
@@ -157,6 +157,8 @@ textarea.input { height: auto; padding: 10px 12px; resize: none; }
   color: var(--roxo-medio);
 }
 .foto .ic { width: 45%; height: 45%; stroke-width: 1.4; }
+.foto { overflow: hidden; }
+.foto > svg:not(.ic) { width: 100%; height: 100%; display: block; }
 
 /* ---------- Opções selecionáveis (pagamento etc.) ---------- */
 .opcao {
