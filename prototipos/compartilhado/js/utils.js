@@ -1,6 +1,6 @@
 /* ==========================================================================
    PRONTITO · FUNÇÕES UTILITÁRIAS
-   Pequenas funções usadas pelas três telas.
+   Pequenas funções usadas pelas três telas. Depende de icones.js.
    ========================================================================== */
 
 window.Prontito = window.Prontito || {};
@@ -14,11 +14,11 @@ Prontito.$ = (seletor, raiz = document) => raiz.querySelector(seletor);
 Prontito.$$ = (seletor, raiz = document) => [...raiz.querySelectorAll(seletor)];
 
 /* Mostra uma mensagem rápida no rodapé da tela */
-Prontito.toast = (mensagem, icone = "✅") => {
+Prontito.toast = (mensagem, icone = "check") => {
   document.querySelector(".toast")?.remove();
   const el = document.createElement("div");
   el.className = "toast";
-  el.innerHTML = `<span>${icone}</span>${mensagem}`;
+  el.innerHTML = `${Prontito.icone(icone, "ic--sm")}${mensagem}`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2600);
 };
@@ -29,6 +29,10 @@ Prontito.logo = (claro = false, base = "../compartilhado") => `
     <img class="logo__simbolo" src="${base}/img/simbolo.svg" alt="">
     <span class="logo__nome">Prontito</span>
   </span>`;
+
+/* Miniatura do produto (ícone da categoria até termos fotos reais) */
+Prontito.foto = (produto, tamanho = 56) =>
+  `<div class="foto" style="width:${tamanho}px;height:${tamanho}px">${Prontito.icone(produto.cat)}</div>`;
 
 /* Soma o total de uma lista de itens [{id, qtd}] */
 Prontito.totalItens = (itens) =>

@@ -6,13 +6,13 @@
      2. Navegação     → troca entre as telas
      3. Cardápio      → categorias, busca e lista de produtos
      4. Produto       → folha para escolher quantidade/observação
-     5. Carrinho
-     6. Checkout      → endereço/mesa, pagamento e troco
+     5. Sacola
+     6. Finalizar     → endereço/mesa, pagamento e troco
      7. Acompanhamento
      8. Início
    ========================================================================== */
 
-const { dados, moeda, $, $$, toast } = Prontito;
+const { dados, moeda, icone, $, $$, toast } = Prontito;
 
 /* ---------- 1. ESTADO ---------- */
 const estado = {
@@ -46,24 +46,24 @@ document.addEventListener("click", (e) => {
 
 /* ---------- 3. CARDÁPIO ---------- */
 function renderCategorias() {
-  const todas = [{ id: "todas", nome: "Todos", icone: "✨" }, ...dados.categorias];
+  const todas = [{ id: "todas", nome: "Todos" }, ...dados.categorias];
   $("#categorias").innerHTML = todas
-    .map((c) => `<button class="chip ${estado.categoria === c.id ? "ativo" : ""}" data-cat="${c.id}">${c.icone} ${c.nome}</button>`)
+    .map((c) => `<button class="aba ${estado.categoria === c.id ? "ativo" : ""}" data-cat="${c.id}">${c.nome}</button>`)
     .join("");
 }
 
-function cardProduto(p) {
+function linhaProduto(p) {
   return `
     <button class="produto" data-produto="${p.id}">
-      <div class="foto foto--${p.cat}">${p.emoji}</div>
       <div class="produto__info">
-        ${p.destaque ? `<span class="destaque">🔥 Mais pedido</span>` : ""}
+        ${p.destaque ? `<span class="selo">Mais pedido</span>` : ""}
         <span class="produto__nome">${p.nome}</span>
         <span class="produto__desc">${p.desc}</span>
-        <div class="produto__rodape">
-          <span class="preco">${moeda(p.preco)}</span>
-          <span class="produto__add">+</span>
-        </div>
+        <span class="produto__preco">${moeda(p.preco)}</span>
+      </div>
+      <div class="produto__midia">
+        ${Prontito.foto(p, 84)}
+        <span class="produto__add" aria-hidden="true">${icone("mais", "ic--sm")}</span>
       </div>
     </button>`;
 }
@@ -75,25 +75,25 @@ function renderProdutos() {
     .map((c) => {
       const itens = dados.produtos.filter((p) => p.cat === c.id && p.nome.toLowerCase().includes(termo));
       if (!itens.length) return "";
-      return `<h3 class="secao-titulo">${c.icone} ${c.nome}</h3>${itens.map(cardProduto).join("")}`;
+      return `<section class="secao"><h3 class="secao__titulo">${c.nome}</h3><div class="secao__lista">${itens.map(linhaProduto).join("")}</div></section>`;
     })
     .join("");
 
   $("#listaProdutos").innerHTML =
-    html || `<div class="vazio"><div class="vazio__emoji">🤔</div>Nada encontrado para "${estado.busca}".</div>`;
+    html || `<div class="vazio"><span class="vazio__icone">${icone("busca", "ic--lg")}</span>Nenhum item encontrado para “${estado.busca}”.</div>`;
 }
 
-function atualizarBarraCarrinho() {
+function atualizarBarraSacola() {
   const qtd = qtdItens();
-  $("#barraCarrinho").hidden = qtd === 0;
+  $("#barraSacola").hidden = qtd === 0;
   $("#barraQtd").textContent = qtd;
   $("#barraTotal").textContent = moeda(subtotal());
 }
 
 $("#categorias").addEventListener("click", (e) => {
-  const chip = e.target.closest("[data-cat]");
-  if (!chip) return;
-  estado.categoria = chip.dataset.cat;
+  const aba = e.target.closest("[data-cat]");
+  if (!aba) return;
+  estado.categoria = aba.dataset.cat;
   renderCategorias();
   renderProdutos();
 });
@@ -103,18 +103,18 @@ $("#busca").addEventListener("input", (e) => {
   renderProdutos();
 });
 
-$$(".modo__opcao").forEach((botao) =>
+$$("[data-modo]").forEach((botao) =>
   botao.addEventListener("click", () => {
     estado.modo = botao.dataset.modo;
-    $$(".modo__opcao").forEach((b) => b.classList.toggle("ativo", b === botao));
-    toast(estado.modo === "entrega" ? "Modo entrega: levamos até você" : "Modo comer aqui: pague com o garçom", estado.modo === "entrega" ? "🛵" : "🍽️");
+    $$("[data-modo]").forEach((b) => b.classList.toggle("ativo", b === botao));
+    toast(estado.modo === "entrega" ? "Pedido para entrega" : "Pedido para comer no local: pagamento com o garçom", estado.modo === "entrega" ? "entrega" : "local");
   })
 );
 
 /* ---------- 4. FOLHA DO PRODUTO ---------- */
 $("#listaProdutos").addEventListener("click", (e) => {
-  const card = e.target.closest("[data-produto]");
-  if (card) abrirProduto(Number(card.dataset.produto));
+  const linha = e.target.closest("[data-produto]");
+  if (linha) abrirProduto(Number(linha.dataset.produto));
 });
 
 function abrirProduto(id) {
@@ -124,20 +124,20 @@ function abrirProduto(id) {
   const camada = document.createElement("div");
   camada.className = "sobreposicao";
   camada.innerHTML = `
-    <div class="folha pilha" style="gap:16px">
-      <div class="foto foto--${p.cat}" style="height:170px;font-size:84px;border-radius:var(--raio-lg)">${p.emoji}</div>
+    <div class="folha pilha" style="gap:18px">
+      <div class="foto" style="height:180px;border-radius:var(--raio-lg)">${icone(p.cat)}</div>
       <div class="pilha" style="gap:6px">
-        <h2>${p.nome}</h2>
+        <h2 style="font-size:21px">${p.nome}</h2>
         <p class="suave">${p.desc}</p>
-        <span class="preco" style="font-size:22px">${moeda(p.preco)}</span>
+        <span class="preco" style="font-size:17px">${moeda(p.preco)}</span>
       </div>
       <div class="campo">
-        <label for="obs">Alguma observação?</label>
-        <textarea id="obs" class="input" rows="2" placeholder="Ex.: sem cebola, ponto da carne..."></textarea>
+        <label for="obs">Observações</label>
+        <textarea id="obs" class="input" rows="2" placeholder="Ex.: sem cebola, ponto da carne"></textarea>
       </div>
-      <div class="entre">
-        <div class="qtd"><button data-q="-1">−</button><span id="qtdFolha">1</span><button data-q="1">+</button></div>
-        <button class="btn btn--primario" id="adicionar" style="flex:1">Adicionar · <span id="precoFolha">${moeda(p.preco)}</span></button>
+      <div class="linha" style="gap:12px">
+        <div class="qtd"><button data-q="-1" aria-label="Diminuir">${icone("menos", "ic--sm")}</button><span id="qtdFolha">1</span><button data-q="1" aria-label="Aumentar">${icone("mais", "ic--sm")}</button></div>
+        <button class="btn btn--primario" id="adicionar" style="flex:1;justify-content:space-between">Adicionar <span id="precoFolha" class="num">${moeda(p.preco)}</span></button>
       </div>
     </div>`;
   document.body.appendChild(camada);
@@ -151,48 +151,52 @@ function abrirProduto(id) {
       $("#precoFolha", camada).textContent = moeda(p.preco * qtd);
     }
     if (e.target.closest("#adicionar")) {
-      adicionarAoCarrinho(id, qtd, $("#obs", camada).value.trim());
+      adicionarASacola(id, qtd, $("#obs", camada).value.trim());
       camada.remove();
     }
   });
 }
 
-function adicionarAoCarrinho(id, qtd, obs = "") {
+function adicionarASacola(id, qtd, obs = "") {
   const existente = estado.carrinho.find((i) => i.id === id && i.obs === obs);
   if (existente) existente.qtd += qtd;
   else estado.carrinho.push({ id, qtd, obs });
-  atualizarBarraCarrinho();
-  toast(`${Prontito.produto(id).nome} no carrinho`, "🛒");
+  atualizarBarraSacola();
+  toast(`${Prontito.produto(id).nome} adicionado à sacola`, "sacola");
 }
 
-/* ---------- 5. CARRINHO ---------- */
+/* ---------- 5. SACOLA ---------- */
 function renderCarrinho() {
   if (!estado.carrinho.length) {
     $("#itensCarrinho").innerHTML = `
-      <div class="vazio"><div class="vazio__emoji">🛒</div>
-      <p>Seu carrinho está vazio.</p><br>
-      <button class="btn btn--suave" data-ir="cardapio">Ver cardápio</button></div>`;
+      <div class="vazio"><span class="vazio__icone">${icone("sacola", "ic--lg")}</span>
+      <p>Sua sacola está vazia.</p>
+      <button class="btn btn--secundario" data-ir="cardapio">Ver cardápio</button></div>`;
     $("#resumoCarrinho").hidden = true;
     return;
   }
 
-  $("#itensCarrinho").innerHTML =
-    estado.carrinho
-      .map((item, i) => {
+  $("#itensCarrinho").innerHTML = `
+    <div class="lista-itens">
+      ${estado.carrinho.map((item, i) => {
         const p = Prontito.produto(item.id);
         return `
-        <div class="card item">
-          <div class="foto foto--${p.cat}">${p.emoji}</div>
-          <div class="item__info">
-            <div class="forte">${p.nome}</div>
-            ${item.obs ? `<div class="pequeno suave">“${item.obs}”</div>` : ""}
-            <div class="preco">${moeda(p.preco * item.qtd)}</div>
-          </div>
-          <div class="qtd"><button data-i="${i}" data-q="-1">${item.qtd === 1 ? "🗑" : "−"}</button><span>${item.qtd}</span><button data-i="${i}" data-q="1">+</button></div>
-        </div>`;
-      })
-      .join("") +
-    `<button class="btn btn--contorno" data-ir="cardapio">+ Adicionar mais itens</button>`;
+          <div class="item">
+            ${Prontito.foto(p, 52)}
+            <div class="item__info">
+              <div class="forte">${p.nome}</div>
+              ${item.obs ? `<div class="item__obs">${item.obs}</div>` : ""}
+              <div class="preco pequeno">${moeda(p.preco * item.qtd)}</div>
+            </div>
+            <div class="qtd">
+              <button data-i="${i}" data-q="-1" aria-label="Diminuir">${icone(item.qtd === 1 ? "lixo" : "menos", "ic--sm")}</button>
+              <span>${item.qtd}</span>
+              <button data-i="${i}" data-q="1" aria-label="Aumentar">${icone("mais", "ic--sm")}</button>
+            </div>
+          </div>`;
+      }).join("")}
+    </div>
+    <button class="btn btn--contorno" data-ir="cardapio">${icone("mais", "ic--sm")} Adicionar mais itens</button>`;
 
   $("#resumoCarrinho").hidden = false;
   $("#resumoCarrinho").innerHTML = `
@@ -202,9 +206,9 @@ function renderCarrinho() {
 
 function linhasResumo() {
   return `
-    <div class="entre pequeno"><span class="suave">Subtotal</span><span>${moeda(subtotal())}</span></div>
-    ${estado.modo === "entrega" ? `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span>${moeda(taxaEntrega())}</span></div>` : ""}
-    <div class="entre"><span class="forte">Total</span><span class="preco" style="font-size:20px">${moeda(total())}</span></div>`;
+    <div class="entre pequeno"><span class="suave">Subtotal</span><span class="num">${moeda(subtotal())}</span></div>
+    ${estado.modo === "entrega" ? `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span class="num">${moeda(taxaEntrega())}</span></div>` : ""}
+    <div class="entre linha-total"><span class="forte">Total</span><span class="preco">${moeda(total())}</span></div>`;
 }
 
 $("#itensCarrinho").addEventListener("click", (e) => {
@@ -213,39 +217,41 @@ $("#itensCarrinho").addEventListener("click", (e) => {
   const item = estado.carrinho[b.dataset.i];
   item.qtd += Number(b.dataset.q);
   if (item.qtd <= 0) estado.carrinho.splice(b.dataset.i, 1);
-  atualizarBarraCarrinho();
+  atualizarBarraSacola();
   renderCarrinho();
 });
 
-/* ---------- 6. CHECKOUT ---------- */
+/* ---------- 6. FINALIZAR ---------- */
 function renderCheckout() {
   const entrega = estado.modo === "entrega";
 
   const blocoLocal = `
-    <div class="card bloco">
-      <h3 class="bloco__titulo">🍽️ Comer aqui</h3>
-      <div class="campo"><label>Número da mesa</label><input class="input" type="number" placeholder="Ex.: 7" value="7"></div>
-      <div class="campo"><label>Seu nome</label><input class="input" placeholder="Para o garçom te chamar" value="Ana"></div>
-    </div>
-    <div class="aviso"><span>💡</span><span>No consumo local, o <b>pagamento é feito com o garçom</b> quando você pedir para fechar a conta.</span></div>`;
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("local")} Comer no local</h3>
+      <div class="duas">
+        <div class="campo"><label for="mesa">Número da mesa</label><input id="mesa" class="input" type="number" value="7"></div>
+        <div class="campo"><label for="nome">Seu nome</label><input id="nome" class="input" value="Ana"></div>
+      </div>
+      <div class="aviso">${icone("info", "ic--sm")}<span>No consumo local, o pagamento é feito com o garçom quando você pedir a conta.</span></div>
+    </div>`;
 
   const blocoEntrega = `
-    <div class="card bloco">
-      <h3 class="bloco__titulo">📍 Endereço de entrega</h3>
-      <div class="campo"><label>Rua e número</label><input class="input" value="Rua das Flores, 120"></div>
-      <div class="linha">
-        <div class="campo" style="flex:1"><label>Bairro</label><input class="input" value="Centro"></div>
-        <div class="campo" style="width:40%"><label>Complemento</label><input class="input" placeholder="Apto, bloco..."></div>
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("pin")} Endereço de entrega</h3>
+      <div class="campo"><label for="rua">Rua e número</label><input id="rua" class="input" value="Rua das Flores, 120"></div>
+      <div class="duas">
+        <div class="campo"><label for="bairro">Bairro</label><input id="bairro" class="input" value="Centro"></div>
+        <div class="campo"><label for="compl">Complemento</label><input id="compl" class="input" placeholder="Apto, bloco"></div>
       </div>
-      <div class="campo"><label>Telefone</label><input class="input" value="(11) 98888-7777"></div>
+      <div class="campo"><label for="tel">Telefone</label><input id="tel" class="input" value="(11) 98888-7777"></div>
     </div>
-    <div class="card bloco">
-      <h3 class="bloco__titulo">💰 Como vai pagar? <small>pagamento na entrega</small></h3>
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("dinheiro")} Pagamento <small>na entrega</small></h3>
       <div class="pilha" style="gap:8px" id="formasPagamento">
         ${dados.formasPagamento.map((f) => `
           <button class="opcao ${estado.pagamento === f.id ? "ativa" : ""}" data-pag="${f.id}">
-            <span class="opcao__icone">${f.icone}</span>
-            <span class="opcao__texto"><span class="opcao__titulo">${f.nome}</span><br><span class="opcao__sub">${f.sub}</span></span>
+            <span class="opcao__icone">${icone(f.icone)}</span>
+            <span class="opcao__texto"><span class="opcao__titulo">${f.nome}</span><span class="opcao__sub">${f.sub}</span></span>
             <span class="opcao__radio"></span>
           </button>
           ${f.id === "dinheiro" && estado.pagamento === "dinheiro" ? blocoTroco() : ""}`).join("")}
@@ -254,9 +260,9 @@ function renderCheckout() {
 
   $("#checkout").innerHTML = `
     ${entrega ? blocoEntrega : blocoLocal}
-    <div class="card resumo">
-      <h3 class="bloco__titulo">🧾 Resumo</h3>
-      ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Prontito.produto(i.id).nome}</span><span>${moeda(Prontito.produto(i.id).preco * i.qtd)}</span></div>`).join("")}
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("pedidos")} Resumo</h3>
+      ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Prontito.produto(i.id).nome}</span><span class="num">${moeda(Prontito.produto(i.id).preco * i.qtd)}</span></div>`).join("")}
     </div>`;
 
   renderRodapeCheckout();
@@ -268,11 +274,11 @@ function blocoTroco() {
     <div class="troco">
       <span class="troco__pergunta">Troco para quanto?</span>
       <div class="troco__valor">
-        <span class="forte suave">R$</span>
+        <span>R$</span>
         <input class="input" id="trocoPara" inputmode="decimal" placeholder="0,00" value="${estado.trocoPara}" ${estado.semTroco ? "disabled" : ""}>
       </div>
-      <div class="chips" id="sugestoesTroco">
-        ${sugestoesTroco().map((v) => `<button class="chip" data-troco="${v}">R$ ${v}</button>`).join("")}
+      <div class="troco__sugestoes">
+        ${sugestoesTroco().map((v) => `<button data-troco="${v}">R$ ${v}</button>`).join("")}
       </div>
       <label class="check"><input type="checkbox" id="semTroco" ${estado.semTroco ? "checked" : ""}> Não preciso de troco</label>
       <div id="resultadoTroco"></div>
@@ -294,7 +300,7 @@ function atualizarResultadoTroco() {
   if (estado.semTroco || !estado.trocoPara) return (el.innerHTML = "");
   const v = valorTroco();
   el.innerHTML = v < total()
-    ? `<span class="troco__erro">O valor precisa ser maior que o total (${moeda(total())}).</span>`
+    ? `<span class="troco__erro">O valor precisa ser maior que o total de ${moeda(total())}.</span>`
     : `<span class="troco__resultado">O entregador levará <strong>${moeda(v - total())}</strong> de troco.</span>`;
 }
 
@@ -341,7 +347,7 @@ function renderRodapeCheckout() {
   $("#rodapeCheckout").innerHTML = `
     ${linhasResumo()}
     <button class="btn btn--primario btn--bloco" id="confirmar" ${podeConfirmar() ? "" : "disabled"}>
-      ${estado.modo === "entrega" ? "Confirmar pedido" : "Enviar para a cozinha"}
+      ${estado.modo === "entrega" ? "Confirmar pedido" : "Enviar pedido para a cozinha"}
     </button>`;
   $("#confirmar").onclick = confirmarPedido;
 }
@@ -349,15 +355,15 @@ function renderRodapeCheckout() {
 /* ---------- 7. ACOMPANHAMENTO ---------- */
 const etapas = {
   entrega: [
-    { icone: "📝", titulo: "Pedido recebido", sub: "A lanchonete confirmou seu pedido", emoji: "📝" },
-    { icone: "🔥", titulo: "Em preparo", sub: "Seu lanche está na chapa", emoji: "👨‍🍳" },
-    { icone: "🛵", titulo: "Saiu para entrega", sub: "O entregador está a caminho", emoji: "🛵" },
-    { icone: "🏠", titulo: "Entregue", sub: "Bom apetite!", emoji: "😋" },
+    { icone: "recebido", titulo: "Pedido recebido", sub: "A lanchonete confirmou seu pedido" },
+    { icone: "chama", titulo: "Em preparo", sub: "Seu pedido está sendo preparado" },
+    { icone: "entrega", titulo: "Saiu para entrega", sub: "O entregador está a caminho" },
+    { icone: "inicio", titulo: "Entregue", sub: "Bom apetite!" },
   ],
   local: [
-    { icone: "📝", titulo: "Pedido recebido", sub: "A cozinha recebeu seu pedido", emoji: "📝" },
-    { icone: "🔥", titulo: "Em preparo", sub: "Está ficando pronto", emoji: "👨‍🍳" },
-    { icone: "🍽️", titulo: "Servido na mesa", sub: "Peça a conta ao garçom quando quiser", emoji: "😋" },
+    { icone: "recebido", titulo: "Pedido recebido", sub: "A cozinha recebeu seu pedido" },
+    { icone: "chama", titulo: "Em preparo", sub: "Está ficando pronto" },
+    { icone: "local", titulo: "Servido na mesa", sub: "Peça a conta ao garçom quando quiser" },
   ],
 };
 let timerPedido;
@@ -366,7 +372,7 @@ function confirmarPedido() {
   estado.pedido = { numero: 1000 + Math.floor(Math.random() * 900), modo: estado.modo, itens: [...estado.carrinho], total: total(), pagamento: estado.pagamento, troco: estado.semTroco ? null : valorTroco() };
   estado.carrinho = [];
   estado.etapaPedido = 0;
-  atualizarBarraCarrinho();
+  atualizarBarraSacola();
   irPara("acompanhamento");
 
   /* Demonstração: avança uma etapa a cada 4 segundos */
@@ -382,39 +388,41 @@ function confirmarPedido() {
 function renderAcompanhamento() {
   const pedido = estado.pedido;
   if (!pedido) {
-    $("#acompanhamento").innerHTML = `<div class="vazio"><div class="vazio__emoji">🧾</div><p>Você ainda não fez nenhum pedido.</p><br><button class="btn btn--suave" data-ir="cardapio">Ver cardápio</button></div>`;
+    $("#acompanhamento").innerHTML = `<div class="vazio"><span class="vazio__icone">${icone("pedidos", "ic--lg")}</span><p>Você ainda não fez nenhum pedido.</p><button class="btn btn--secundario" data-ir="cardapio">Ver cardápio</button></div>`;
     return;
   }
   const lista = etapas[pedido.modo];
   const atual = lista[estado.etapaPedido];
-  const progresso = ((estado.etapaPedido + 1) / lista.length) * 100;
   const forma = dados.formasPagamento.find((f) => f.id === pedido.pagamento);
 
+  const pagamento = pedido.modo === "entrega"
+    ? `Pagamento na entrega: <b>${forma?.nome}</b>${pedido.pagamento === "dinheiro" ? (pedido.troco ? `, troco para ${moeda(pedido.troco)} (o entregador leva ${moeda(pedido.troco - pedido.total)})` : ", sem troco") : ""}.`
+    : "Pagamento com o garçom ao fechar a conta.";
+
   $("#acompanhamento").innerHTML = `
-    <div class="status-topo">
-      <span class="status-topo__emoji">${atual.emoji}</span>
-      <span class="pequeno" style="opacity:.8">Pedido #${pedido.numero}</span>
-      <h3>${atual.titulo}</h3>
-      <span class="pequeno" style="opacity:.85">${pedido.modo === "entrega" ? `Previsão: ${dados.lanchonete.tempoEntrega}` : "Mesa 7"}</span>
-      <div class="status-topo__barra"><span style="width:${progresso}%"></span></div>
+    <div class="status">
+      <span class="rotulo">Pedido #${pedido.numero}</span>
+      <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">${atual.titulo}</h3>
+      <span class="suave">${pedido.modo === "entrega" ? `Previsão de entrega: ${dados.lanchonete.tempoEntrega}` : "Mesa 7"}</span>
+      <div class="status__progresso" style="grid-template-columns:repeat(${lista.length},1fr)">
+        ${lista.map((_, i) => `<span class="${i < estado.etapaPedido ? "feito" : i === estado.etapaPedido ? "atual" : ""}"></span>`).join("")}
+      </div>
     </div>
 
     <div class="card linha-tempo">
       ${lista.map((e, i) => `
         <div class="etapa ${i < estado.etapaPedido ? "feita" : ""} ${i === estado.etapaPedido ? "atual" : ""}">
-          <span class="etapa__ponto">${i < estado.etapaPedido ? "✓" : e.icone}</span>
+          <span class="etapa__ponto">${icone(i < estado.etapaPedido ? "check" : e.icone, "ic--sm")}</span>
           <div><div class="etapa__titulo">${e.titulo}</div><div class="pequeno suave">${e.sub}</div></div>
         </div>`).join("")}
     </div>
 
     <div class="card resumo">
-      <h3 class="bloco__titulo">🧾 Itens</h3>
-      ${pedido.itens.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Prontito.produto(i.id).nome}</span><span>${moeda(Prontito.produto(i.id).preco * i.qtd)}</span></div>`).join("")}
+      <span class="rotulo">Itens</span>
+      ${pedido.itens.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Prontito.produto(i.id).nome}</span><span class="num">${moeda(Prontito.produto(i.id).preco * i.qtd)}</span></div>`).join("")}
       <div class="entre resumo__total"><span class="forte">Total</span><span class="preco">${moeda(pedido.total)}</span></div>
-      ${pedido.modo === "entrega" ? `
-        <div class="aviso" style="margin-top:6px"><span>${forma?.icone}</span><span>Pagamento na entrega: <b>${forma?.nome}</b>${pedido.pagamento === "dinheiro" && pedido.troco ? ` · troco para ${moeda(pedido.troco)} (levar ${moeda(pedido.troco - pedido.total)})` : pedido.pagamento === "dinheiro" ? " · sem troco" : ""}.</span></div>`
-        : `<div class="aviso" style="margin-top:6px"><span>🙋</span><span>Pague com o garçom ao fechar a conta.</span></div>`}
     </div>
+    <div class="aviso">${icone(pedido.modo === "entrega" ? (forma?.icone || "dinheiro") : "usuario", "ic--sm")}<span>${pagamento}</span></div>
     <p class="demo">Protótipo: o status avança sozinho a cada 4 segundos.</p>`;
 }
 
@@ -422,6 +430,7 @@ function renderAcompanhamento() {
 $("#logo").innerHTML = Prontito.logo();
 $("#nomeLoja").textContent = dados.lanchonete.nome;
 $("#tempoLoja").textContent = dados.lanchonete.tempoEntrega;
+$("#taxaLoja").textContent = moeda(dados.lanchonete.taxaEntrega);
 renderCategorias();
 renderProdutos();
-atualizarBarraCarrinho();
+atualizarBarraSacola();

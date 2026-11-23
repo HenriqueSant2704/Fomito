@@ -8,10 +8,10 @@
   <link rel="stylesheet" href="compartilhado/css/tokens.css">
   <link rel="stylesheet" href="compartilhado/css/base.css">
   <style>
-    body { min-height: 100vh; background: linear-gradient(160deg, var(--creme), #F1EAFB); }
+    body { min-height: 100vh; }
     .hub { max-width: 1040px; margin: 0 auto; padding: 48px 24px; display: flex; flex-direction: column; gap: 36px; }
     .hero { display: flex; flex-direction: column; gap: 14px; }
-    .hero h1 { font-size: 44px; font-weight: 900; color: var(--roxo); }
+    .hero h1 { font-size: 40px; font-weight: 800; color: var(--texto); }
     .hero h1 em { font-style: normal; color: var(--laranja); }
     .telas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .tela-card {
@@ -20,7 +20,7 @@
       transition: transform var(--transicao), box-shadow var(--transicao);
     }
     .tela-card:hover { transform: translateY(-4px); box-shadow: var(--sombra-lg); }
-    .tela-card__icone { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; font-size: 30px; }
+    .tela-card__icone { width: 48px; height: 48px; border-radius: var(--raio-md); display: grid; place-items: center; background: var(--roxo-claro); color: var(--roxo); }
     .tela-card h2 { font-size: 22px; }
     .tela-card ul { margin: 0; padding-left: 18px; color: var(--texto-suave); font-size: 14px; line-height: 1.7; }
     .tela-card .btn { margin-top: auto; align-self: flex-start; }
@@ -38,29 +38,29 @@
     </span>
 
     <div class="hero">
-      <span class="tag tag--laranja" style="align-self:flex-start">Protótipos navegáveis · versão 1</span>
+      <span class="tag" style="align-self:flex-start">Protótipos navegáveis · versão 1</span>
       <h1>Seu negócio sempre <em>no controle.</em></h1>
       <p class="suave" style="max-width:640px">Três telas do sistema para validar visual e funcionamento antes de começar o código de verdade. Os dados são fictícios e nada é salvo.</p>
     </div>
 
     <div class="telas">
       <a class="card tela-card" href="cliente/index.html">
-        <span class="tela-card__icone" style="background:var(--laranja-claro)">📱</span>
+        <span class="tela-card__icone"><i data-icone="sacola" class="ic--lg"></i></span>
         <h2>App do cliente</h2>
         <ul><li>Entrega ou comer no local</li><li>Cardápio por categorias</li><li>Carrinho e checkout</li><li>Troco para quanto?</li><li>Acompanhar o pedido</li></ul>
-        <span class="btn btn--primario btn--sm">Abrir →</span>
+        <span class="btn btn--primario btn--sm">Abrir</span>
       </a>
       <a class="card tela-card" href="garcom/index.html">
-        <span class="tela-card__icone" style="background:var(--roxo-claro)">🙋</span>
+        <span class="tela-card__icone"><i data-icone="mesa" class="ic--lg"></i></span>
         <h2>Garçom</h2>
         <ul><li>Mesas por número</li><li>Abrir comanda</li><li>Lançar itens para a cozinha</li><li>Fechar conta, dividir e troco</li></ul>
-        <span class="btn btn--roxo btn--sm">Abrir →</span>
+        <span class="btn btn--contorno btn--sm">Abrir</span>
       </a>
       <a class="card tela-card" href="painel/index.html">
-        <span class="tela-card__icone" style="background:var(--verde-claro)">📊</span>
+        <span class="tela-card__icone"><i data-icone="inicio" class="ic--lg"></i></span>
         <h2>Painel da lanchonete</h2>
         <ul><li>Dashboard do dia</li><li>Pedidos em tempo real</li><li>Comandas do salão</li><li>Cardápio e configurações</li></ul>
-        <span class="btn btn--roxo btn--sm">Abrir →</span>
+        <span class="btn btn--contorno btn--sm">Abrir</span>
       </a>
     </div>
 
@@ -72,5 +72,6 @@
       <span class="cor"><i style="background:var(--vermelho)"></i>Vermelho #EF4444</span>
     </div>
   </div>
+  <script src="compartilhado/js/icones.js"></script>
 </body>
 </html>

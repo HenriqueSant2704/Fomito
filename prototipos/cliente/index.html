@@ -21,58 +21,59 @@
       <header class="topo">
         <div class="entre">
           <div id="logo"></div>
-          <button class="btn-icone" aria-label="Meus pedidos" data-ir="acompanhamento">🧾</button>
+          <button class="btn-icone" aria-label="Meus pedidos" data-ir="acompanhamento"><i data-icone="pedidos"></i></button>
         </div>
 
         <div class="loja">
-          <div class="loja__avatar">🍔</div>
-          <div class="pilha">
-            <h1 class="loja__nome" id="nomeLoja"></h1>
-            <span class="pequeno suave">⭐ 4,8 · <span id="tempoLoja"></span> · <span class="aberta">Aberto agora</span></span>
+          <h1 class="loja__nome" id="nomeLoja"></h1>
+          <div class="loja__meta">
+            <span class="linha"><i data-icone="estrela" class="ic--sm"></i>4,8</span>
+            <span class="linha"><i data-icone="relogio" class="ic--sm"></i><span id="tempoLoja"></span></span>
+            <span class="linha"><i data-icone="entrega" class="ic--sm"></i>Taxa <span id="taxaLoja"></span></span>
+            <span class="tag tag--verde">Aberto</span>
           </div>
         </div>
 
         <!-- Entrega x Comer no local -->
-        <div class="modo" role="tablist">
-          <button class="modo__opcao ativo" data-modo="entrega">🛵 Entrega</button>
-          <button class="modo__opcao" data-modo="local">🍽️ Comer aqui</button>
+        <div class="filtros modo" role="tablist">
+          <button class="filtro ativo" data-modo="entrega"><i data-icone="entrega" class="ic--sm"></i>Entrega</button>
+          <button class="filtro" data-modo="local"><i data-icone="local" class="ic--sm"></i>Comer no local</button>
         </div>
 
         <label class="busca">
-          <span>🔎</span>
-          <input type="search" id="busca" placeholder="Buscar lanche, porção, bebida...">
+          <i data-icone="busca" class="ic--sm"></i>
+          <input type="search" id="busca" placeholder="Buscar no cardápio">
         </label>
       </header>
 
-      <nav class="chips categorias" id="categorias"></nav>
+      <nav class="abas categorias" id="categorias"></nav>
 
       <div class="conteudo" id="listaProdutos"></div>
 
-      <!-- Barra do carrinho (aparece quando há itens) -->
-      <button class="barra-carrinho" id="barraCarrinho" data-ir="carrinho" hidden>
-        <span class="barra-carrinho__qtd" id="barraQtd">0</span>
-        <span>Ver carrinho</span>
-        <span id="barraTotal">R$ 0,00</span>
+      <!-- Barra da sacola (aparece quando há itens) -->
+      <button class="barra-sacola" id="barraSacola" data-ir="carrinho" hidden>
+        <span class="linha"><i data-icone="sacola"></i><span>Ver sacola</span><span class="barra-sacola__qtd" id="barraQtd">0</span></span>
+        <span class="num" id="barraTotal">R$ 0,00</span>
       </button>
     </section>
 
-    <!-- ============ TELA 2: CARRINHO ============ -->
+    <!-- ============ TELA 2: SACOLA ============ -->
     <section class="tela" data-tela="carrinho" hidden>
       <header class="cabecalho">
-        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar">←</button>
-        <h2>Seu carrinho</h2>
-        <span style="width:40px"></span>
+        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar"><i data-icone="voltar"></i></button>
+        <h2>Sacola</h2>
+        <span class="cabecalho__espaco"></span>
       </header>
       <div class="conteudo" id="itensCarrinho"></div>
       <footer class="rodape-fixo" id="resumoCarrinho"></footer>
     </section>
 
-    <!-- ============ TELA 3: CHECKOUT ============ -->
+    <!-- ============ TELA 3: FINALIZAR ============ -->
     <section class="tela" data-tela="checkout" hidden>
       <header class="cabecalho">
-        <button class="btn-icone" data-ir="carrinho" aria-label="Voltar">←</button>
+        <button class="btn-icone" data-ir="carrinho" aria-label="Voltar"><i data-icone="voltar"></i></button>
         <h2>Finalizar pedido</h2>
-        <span style="width:40px"></span>
+        <span class="cabecalho__espaco"></span>
       </header>
       <div class="conteudo" id="checkout"></div>
       <footer class="rodape-fixo" id="rodapeCheckout"></footer>
@@ -81,16 +82,17 @@
     <!-- ============ TELA 4: ACOMPANHAMENTO ============ -->
     <section class="tela" data-tela="acompanhamento" hidden>
       <header class="cabecalho">
-        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar">←</button>
-        <h2>Seu pedido</h2>
-        <span style="width:40px"></span>
+        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar"><i data-icone="voltar"></i></button>
+        <h2>Acompanhar pedido</h2>
+        <span class="cabecalho__espaco"></span>
       </header>
       <div class="conteudo" id="acompanhamento"></div>
     </section>
 
   </main>
 
-  <!-- Scripts: dados → utilitários → lógica desta tela -->
+  <!-- Scripts: ícones → dados → utilitários → lógica desta tela -->
+  <script src="../compartilhado/js/icones.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
   <script src="cliente.js"></script>

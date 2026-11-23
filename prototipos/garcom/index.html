@@ -12,13 +12,17 @@
 <body>
 
   <header class="barra">
-    <div id="logo"></div>
+    <div class="linha" style="gap:16px">
+      <div id="logo"></div>
+      <span class="barra__divisor"></span>
+      <span class="suave">Salão</span>
+    </div>
     <div class="garcom-perfil">
       <div class="pilha" style="text-align:right">
-        <span class="forte">Carlos</span>
+        <span class="forte">Carlos Mendes</span>
         <span class="pequeno suave">Garçom · turno da noite</span>
       </div>
-      <div class="avatar">C</div>
+      <div class="avatar">CM</div>
     </div>
   </header>
 
@@ -26,27 +30,28 @@
 
     <!-- ============ LISTA DE MESAS ============ -->
     <section class="mesas">
-      <div class="entre mesas__topo">
+      <div class="mesas__topo">
         <div>
           <h1>Mesas</h1>
-          <p class="suave pequeno" id="resumoMesas"></p>
+          <p class="suave" id="resumoMesas"></p>
         </div>
+        <nav class="filtros" id="filtros"></nav>
       </div>
-      <nav class="chips" id="filtros"></nav>
       <div class="grade" id="grade"></div>
     </section>
 
     <!-- ============ COMANDA DA MESA SELECIONADA ============ -->
     <aside class="comanda" id="comanda">
       <div class="comanda__vazia">
-        <div style="font-size:56px">🍽️</div>
-        <h3>Selecione uma mesa</h3>
-        <p class="suave pequeno">Toque numa mesa para abrir a comanda,<br>lançar itens ou fechar a conta.</p>
+        <span class="vazio__icone"><i data-icone="mesa" class="ic--lg"></i></span>
+        <h3>Nenhuma mesa selecionada</h3>
+        <p class="suave pequeno">Selecione uma mesa para abrir a comanda,<br>lançar itens ou fechar a conta.</p>
       </div>
     </aside>
 
   </div>
 
+  <script src="../compartilhado/js/icones.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
   <script src="garcom.js"></script>

@@ -25,6 +25,7 @@ prototipos/
 │   │   ├── tokens.css         ← CORES, FONTES, RAIOS, SOMBRAS (identidade da marca)
 │   │   └── base.css           ← botões, cartões, campos, etiquetas, modais...
 │   ├── js/
+│   │   ├── icones.js          ← ícones de linha (SVG) usados em todas as telas
 │   │   ├── dados.js           ← cardápio e dados de exemplo
 │   │   └── utils.js           ← funções pequenas (moeda, toast, logo...)
 │   └── img/simbolo.svg        ← símbolo "P" da marca
@@ -41,6 +42,7 @@ Os arquivos JS são divididos em seções numeradas no topo, para achar rápido 
 - **Cores e fontes:** só em `compartilhado/css/tokens.css`. Mudou ali, muda em todas as telas.
 - **Produtos do cardápio:** `compartilhado/js/dados.js`.
 - **Componentes (botão, cartão, campo):** `compartilhado/css/base.css`.
+- **Ícones:** `compartilhado/js/icones.js`. No HTML use `<i data-icone="nome"></i>`, no JS `Prontito.icone("nome")`.
 
 ## Identidade da marca
 

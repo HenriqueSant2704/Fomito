@@ -14,29 +14,36 @@
   <!-- ============ MENU LATERAL ============ -->
   <aside class="menu">
     <div class="menu__logo" id="logo"></div>
-    <nav class="menu__nav" id="menu">
-      <button class="menu__item ativo" data-secao="dashboard"><span>🏠</span>Dashboard</button>
-      <button class="menu__item" data-secao="pedidos"><span>🧾</span>Pedidos <b class="menu__badge" id="badgeNovos">2</b></button>
-      <button class="menu__item" data-secao="comandas"><span>🍽️</span>Comandas</button>
-      <button class="menu__item" data-secao="cardapio"><span>📋</span>Cardápio</button>
-      <button class="menu__item" data-secao="configuracoes"><span>⚙️</span>Configurações</button>
-    </nav>
-    <div class="menu__rodape">
-      <span class="pequeno">Seu negócio sempre<br><b>no controle.</b></span>
+
+    <div class="menu__loja">
+      <span class="menu__loja-avatar">LB</span>
+      <div class="pilha"><span class="forte">Lanchonete do Bairro</span><span class="pequeno">Plano Pro</span></div>
     </div>
+
+    <nav class="menu__nav" id="menu">
+      <span class="menu__grupo">Operação</span>
+      <button class="menu__item ativo" data-secao="dashboard"><i data-icone="inicio"></i>Visão geral</button>
+      <button class="menu__item" data-secao="pedidos"><i data-icone="pedidos"></i>Pedidos <b class="menu__badge" id="badgeNovos">2</b></button>
+      <button class="menu__item" data-secao="comandas"><i data-icone="mesa"></i>Comandas</button>
+      <span class="menu__grupo">Gestão</span>
+      <button class="menu__item" data-secao="cardapio"><i data-icone="cardapio"></i>Cardápio</button>
+      <button class="menu__item" data-secao="configuracoes"><i data-icone="ajustes"></i>Configurações</button>
+    </nav>
+
+    <div class="menu__rodape">Seu negócio sempre no controle.</div>
   </aside>
 
   <!-- ============ ÁREA PRINCIPAL ============ -->
   <main class="principal">
     <header class="topo">
       <div>
-        <h1 id="tituloSecao">Olá, parceiro! 👋</h1>
-        <p class="suave" id="subtituloSecao">Tudo certo por aqui.</p>
+        <h1 id="tituloSecao">Visão geral</h1>
+        <p class="suave" id="subtituloSecao"></p>
       </div>
-      <div class="linha" style="gap:12px">
-        <label class="status-loja"><input type="checkbox" checked id="lojaAberta"><span class="status-loja__trilho"></span><span id="textoLoja">Loja aberta</span></label>
-        <button class="btn-icone" aria-label="Notificações">🔔</button>
-        <div class="avatar">Z</div>
+      <div class="linha" style="gap:14px">
+        <label class="status-loja"><input type="checkbox" checked id="lojaAberta"><span class="status-loja__trilho"></span><span id="textoLoja">Recebendo pedidos</span></label>
+        <button class="btn-icone" aria-label="Notificações"><i data-icone="sino"></i></button>
+        <div class="avatar">ZS</div>
       </div>
     </header>
 
@@ -48,6 +55,7 @@
     <section class="secao" data-secao="configuracoes" hidden></section>
   </main>
 
+  <script src="../compartilhado/js/icones.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
   <script src="painel.js"></script>
