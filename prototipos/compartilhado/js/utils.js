@@ -23,12 +23,15 @@ Fomito.toast = (mensagem, icone = "check") => {
   setTimeout(() => el.remove(), 2600);
 };
 
-/* HTML do logo (símbolo + nome) para reaproveitar em qualquer tela */
-Fomito.logo = (claro = false, base = "../compartilhado") => `
+/* HTML do logo do restaurante (símbolo + nome), vindo das Configurações */
+Fomito.logo = (claro = false) => {
+  const marca = Fomito.config.ler().marca;
+  return `
   <span class="logo ${claro ? "logo--claro" : ""}">
-    <img class="logo__simbolo" src="${base}/img/simbolo.svg" alt="">
-    <span class="logo__nome">Fomito</span>
+    ${Fomito.config.simbolo(marca)}
+    <span class="logo__nome">${marca.nome}</span>
   </span>`;
+};
 
 /* Miniatura do produto: usa a primeira foto da galeria (depende de ilustracoes.js) */
 Fomito.foto = (produto, tamanho = 56) => {

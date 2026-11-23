@@ -31,6 +31,8 @@ prototipos/
 │   │   └── base.css           ← botões, cartões, campos, etiquetas, modais...
 │   ├── js/
 │   │   ├── icones.js          ← ícones de linha (SVG)
+│   │   ├── config.js          ← MARCA DO RESTAURANTE (nome, logo, cores, fontes) + WhatsApp, impressora e som
+│   │   ├── alertas.js         ← som de pedido novo, cupom de 80mm e mensagens de WhatsApp
 │   │   ├── ilustracoes.js     ← "fotos" ilustradas dos produtos e da vitrine
 │   │   ├── sessao.js          ← login, perfis (admin/garçom) e proteção das telas
 │   │   ├── dados.js           ← cardápio, fotos, adicionais e dados de exemplo
@@ -45,14 +47,70 @@ prototipos/
 Cada tela tem **3 arquivos com o mesmo nome da pasta**: o HTML (estrutura), o CSS (visual) e o JS (comportamento).
 Os arquivos JS são divididos em seções numeradas no topo, para achar rápido o que mudar.
 
+## Marca própria de cada restaurante (white-label)
+
+**Fomito é a plataforma.** Cada restaurante coloca a própria marca em **Painel → Configurações → Sua marca**:
+nome, frase, logo (imagem), cor principal, cor de destaque e as fontes de títulos e textos.
+Ao salvar, o cardápio, o Portal, o painel, as comandas, o cupom e as mensagens de WhatsApp passam a usar essa marca.
+Só o rodapé discreto "Pedidos com Fomito" fica com o nome da plataforma.
+
+Como funciona por dentro (`compartilhado/js/config.js`):
+- As configurações ficam salvas no navegador (`localStorage`, chave `fomito.config`). No sistema real viram a tabela `configuracoes` no Neon, uma linha por restaurante.
+- A partir das 2 cores escolhidas, o sistema gera os tons mais claros e mais escuros e troca as variáveis `--roxo*` e `--laranja*` de `tokens.css`.
+- As fontes vêm do Google Fonts e só carregam quando são usadas.
+- Sem logo enviada, o símbolo é um quadrado com a inicial do nome.
+
+## Pedido novo: som, cupom e WhatsApp
+
+| O que acontece | Quando | Onde configurar |
+|---|---|---|
+| Toca um "ding-dong" | Chega pedido novo | Configurações → Impressora e som |
+| Imprime o cupom (80mm) | O pedido é **aceito** | Configurações → Impressora e som |
+| Mensagem no WhatsApp do cliente | Recebido, em preparo, saiu para entrega e entregue | Configurações → WhatsApp |
+
+No protótipo, um pedido novo chega sozinho 7 segundos depois de abrir o painel (e outro aos 45 segundos).
+O navegador só libera som depois do primeiro clique na página, então clique em qualquer lugar do painel antes.
+
+### Impressora térmica (POS-80)
+
+No protótipo o cupom é montado em 42 colunas (largura do papel de 80mm) e o painel chama a impressão do navegador,
+com o CSS `@page { size: 80mm auto }`. Dentro do visualizador do Claude a janela de impressão é bloqueada:
+abra `painel/index.html` direto no navegador para testar com a impressora de verdade.
+
+Para o sistema real, há dois caminhos. O servidor no Render **não enxerga** a impressora que está no balcão, então a impressão sempre sai do computador da loja:
+
+1. **Pelo navegador (mais simples).** Instale a POS-80 no Windows como impressora padrão e abra o Chrome com
+   `--kiosk-printing`. Assim `window.print()` imprime direto, sem abrir a janela. Não precisa instalar nada além do driver.
+2. **ESC/POS direto (mais profissional).** Um programinha no computador da loja recebe o pedido e manda os comandos
+   ESC/POS para a impressora (corte de papel, negrito, abrir gaveta). Opções: **QZ Tray**, ou um serviço Node.js local
+   com a biblioteca `node-thermal-printer`, que escuta o painel ou o servidor por WebSocket.
+
+### WhatsApp (Evolution API)
+
+Igual ao BarberFlow. Em **Configurações → WhatsApp** ficam a URL da API, a chave, o nome da instância e o QR Code
+para conectar o número da loja. As mensagens têm modelos editáveis com as variáveis
+`{nome}`, `{pedido}`, `{loja}`, `{total}`, `{previsao}` e `{pagamento}`.
+
+No protótipo a conexão e os envios são **simulados** (o painel mostra "WhatsApp enviado" no card do pedido).
+No sistema real quem envia é o servidor Node.js, nunca o navegador, para a chave não vazar:
+
+```
+POST {URL_DA_API}/message/sendText/{instancia}
+headers: { "apikey": "<chave>" }
+body:    { "number": "5511988887777", "text": "Olá, Ana! Seu pedido #1042 saiu para entrega..." }
+```
+
+A chave vai no `.env` do servidor (documentada no `.env.example`, nunca no GitHub).
+
 ## Como mudar o visual
 
-- **Cores e fontes:** só em `compartilhado/css/tokens.css`. Mudou ali, muda em todas as telas.
+- **Marca do restaurante:** pelo próprio painel, em Configurações (veja acima). O padrão fica em `compartilhado/js/config.js`.
+- **Cores e fontes base:** `compartilhado/css/tokens.css`.
 - **Produtos, fotos e adicionais:** `compartilhado/js/dados.js`.
 - **Componentes (botão, cartão, campo):** `compartilhado/css/base.css`.
 - **Ícones:** `compartilhado/js/icones.js`. No HTML use `<i data-icone="nome"></i>`, no JS `Fomito.icone("nome")`.
 
-## Identidade da marca
+## Identidade da plataforma (marca padrão)
 
 - Nome: **Fomito** · Slogan: "Seu negócio sempre no controle."
 - Roxo `#4B2B8F` (institucional) · Laranja `#FF8A00` (destaques) · Creme `#FFF7ED` (fundos)

@@ -108,5 +108,11 @@ Fomito.dados = {
   ],
 };
 
+/* Nome e slogan vêm das Configurações do restaurante (marca própria) */
+if (Fomito.config) Object.assign(Fomito.dados.lanchonete, {
+  nome: Fomito.config.ler().marca.nome,
+  slogan: Fomito.config.ler().marca.slogan,
+});
+
 /* Atalho: busca um produto pelo id */
 Fomito.produto = (id) => Fomito.dados.produtos.find((p) => p.id === id);

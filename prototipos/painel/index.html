@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fomito · Painel da Lanchonete</title>
-  <link rel="icon" href="../compartilhado/img/simbolo.svg">
   <link rel="stylesheet" href="../compartilhado/css/tokens.css">
   <link rel="stylesheet" href="../compartilhado/css/base.css">
   <link rel="stylesheet" href="painel.css">
@@ -16,8 +15,8 @@
     <div class="menu__logo" id="logo"></div>
 
     <div class="menu__loja">
-      <span class="menu__loja-avatar">LB</span>
-      <div class="pilha"><span class="forte">Lanchonete do Bairro</span><span class="pequeno">Plano Pro</span></div>
+      <span class="menu__loja-avatar" id="menuLojaAvatar">FO</span>
+      <div class="pilha"><span class="forte" id="menuLojaNome">Fomito</span><span class="pequeno">Plano Pro</span></div>
     </div>
 
     <nav class="menu__nav" id="menu">
@@ -46,7 +45,7 @@
       </div>
       <div class="linha" style="gap:14px">
         <label class="status-loja"><input type="checkbox" checked id="lojaAberta"><span class="status-loja__trilho"></span><span id="textoLoja">Recebendo pedidos</span></label>
-        <button class="btn-icone" aria-label="Notificações"><i data-icone="sino"></i></button>
+        <button class="btn-icone" id="btnSom" aria-label="Som de novo pedido" title="Som de novo pedido"><i data-icone="sino"></i></button>
         <div class="avatar" id="avatar" title="">ZS</div>
       </div>
     </header>
@@ -61,10 +60,12 @@
   </main>
 
   <script src="../compartilhado/js/icones.js"></script>
+  <script src="../compartilhado/js/config.js"></script>
   <script src="../compartilhado/js/ilustracoes.js"></script>
   <script src="../compartilhado/js/sessao.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
+  <script src="../compartilhado/js/alertas.js"></script>
   <script src="painel.js"></script>
 </body>
 </html>

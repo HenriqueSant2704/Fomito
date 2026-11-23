@@ -52,6 +52,10 @@ Fomito.icones = {
   cadeado:    '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
   sair:       '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
   equipe:     '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M19 8v6M16 11h6"/>',
+  whatsapp:   '<path d="M4 20l1.3-4A8 8 0 1 1 8 18.8z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.6-2-1-1 .8c-1-.5-1.8-1.3-2.2-2.2l.8-1-1-2z"/>',
+  impressora: '<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/><path d="M17 12h.01"/>',
+  somoff:     '<path d="M6 9a6 6 0 0 1 9.5-4.9M18 9c0 6 2.5 8 2.5 8H8"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M3 3l18 18"/>',
+  paleta:     '<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1-.8-1.4-.8-2.3 0-1 .8-1.7 1.8-1.7h2.2a3.5 3.5 0 0 0 3.5-3.5c0-4.3-3.8-7.8-8.5-7.8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7.3" r="1"/><circle cx="14.5" cy="7.3" r="1"/>',
   /* categorias */
   lanches:    '<path d="M4 11a8 5.5 0 0 1 16 0z"/><path d="M3 14h18"/><path d="M4.5 17h15a1.5 1.5 0 0 1-1.5 2.5H6A1.5 1.5 0 0 1 4.5 17z"/>',
   porcoes:    '<path d="M6 10h12l-1.8 10.5H7.8z"/><path d="M8.5 10 7.5 4M11 10V3.5M13.5 10l.8-5.5M16 10l1.2-4"/>',

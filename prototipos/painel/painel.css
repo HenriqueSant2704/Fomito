@@ -144,6 +144,73 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 .form-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .config-pag { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borda); }
 .config-pag:last-child { border-bottom: 0; padding-bottom: 0; }
+.aba { display: inline-flex; align-items: center; gap: 8px; }
+.aba .ic { color: inherit; opacity: .8; }
+
+/* Barra fixa "Salvar alterações" */
+.barra-salvar {
+  position: sticky; bottom: 16px; z-index: 5;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px 14px 12px 18px; background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: var(--raio-lg); box-shadow: var(--sombra-md);
+}
+
+/* Envio da logo */
+.logo-envio { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px dashed var(--borda-forte); border-radius: var(--raio-md); }
+.logo-envio__previa { width: 64px; height: 64px; flex: none; display: grid; place-items: center; }
+.logo-envio__previa .logo__simbolo { width: 64px; height: 64px; border-radius: 16px; }
+
+/* Cor: amostra clicável + código */
+.cor-campo { display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px 0 6px; border: 1px solid var(--borda); border-radius: var(--raio-md); background: var(--superficie); }
+.cor-campo input[type=color] { width: 30px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; }
+.cor-campo input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+.cor-campo input[type=color]::-webkit-color-swatch { border: 1px solid rgba(0,0,0,.08); border-radius: 7px; }
+.cor-campo .num { font-size: 13px; color: var(--texto-suave); }
+.paletas { display: flex; flex-wrap: wrap; gap: 8px; }
+.paleta { display: flex; width: 54px; height: 30px; border-radius: var(--raio-sm); overflow: hidden; border: 1px solid var(--borda); transition: transform var(--transicao), box-shadow var(--transicao); }
+.paleta span { flex: 1; }
+.paleta span:first-child { flex: 1.6; }
+.paleta:hover { transform: translateY(-1px); box-shadow: var(--sombra-sm); }
+
+/* Prévia de como o cliente vê */
+.previa-app { border: 1px solid var(--borda); border-radius: var(--raio-xl); overflow: hidden; background: var(--fundo); max-width: 360px; width: 100%; align-self: center; box-shadow: var(--sombra-md); }
+.previa-app__topo { height: 110px; padding: 14px; display: flex; align-items: flex-start; }
+.previa-app__topo .logo__simbolo { width: 26px; height: 26px; }
+.previa-app__corpo { margin: -26px 12px 14px; padding: 16px; background: var(--superficie); border-radius: var(--raio-lg); box-shadow: var(--sombra-sm); display: flex; flex-direction: column; gap: 10px; }
+.previa-app__item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--borda); }
+.previa-app__item .foto { width: 56px; height: 56px; border-radius: var(--raio-md); flex: none; }
+
+/* WhatsApp: conexão e modelos */
+.whats-conectado { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--raio-md); background: #ECFDF3; border: 1px solid #BBF7D0; }
+.whats-conectado > .ic { color: #16A34A; }
+.qr { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.qr svg { width: 120px; height: 120px; flex: none; background: #fff; padding: 6px; border-radius: var(--raio-sm); border: 1px solid var(--borda); }
+.modelo { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--borda); }
+.modelo:last-child { border-bottom: 0; padding-bottom: 0; }
+.modelo textarea { resize: vertical; min-height: 60px; font-size: 13px; }
+.bolha {
+  align-self: flex-start; max-width: 92%; position: relative;
+  background: #DCF8C6; color: #111B21; font-size: 13px; line-height: 1.45;
+  padding: 8px 10px; border-radius: 10px 10px 10px 2px; box-shadow: 0 1px 1px rgba(0,0,0,.08);
+}
+
+/* Linha do WhatsApp no card do pedido */
+.pedido__whats { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #15803D; }
+.pedido__whats .ic { width: 14px; height: 14px; }
+
+/* Cupom de 80mm (prévia em papel) */
+.cupom { display: flex; justify-content: center; padding: 16px; background: var(--superficie-2); border-radius: var(--raio-md); max-height: 62vh; overflow: auto; }
+.cupom pre {
+  margin: 0; box-sizing: content-box; width: 42ch; flex: none; padding: 16px 14px 22px; background: #fff; color: #111;
+  font: 11.5px/1.4 "Courier New", ui-monospace, monospace; white-space: pre-wrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x;
+}
+
+/* Sino: pisca quando chega pedido */
+#btnSom.tocando { color: var(--laranja); animation: balancar .5s ease 4; }
+@keyframes balancar { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
 
 /* ---------- Telas menores ---------- */
 @media (max-width: 1180px) {
@@ -152,7 +219,7 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
   .mini-mesas { grid-template-columns: repeat(4, 1fr); }
 }
 @media (max-width: 760px) {
-  body { grid-template-columns: 1fr; }
+  body { grid-template-columns: minmax(0, 1fr); }
   .menu { height: auto; position: static; padding: 14px 16px; gap: 12px; }
   .menu__loja, .menu__grupo { display: none; }
   .menu__rodape { flex-direction: row; border: 0; padding: 0; margin: 0; }
@@ -160,6 +227,8 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
   .menu__item { flex: none; }
   .principal { padding: 20px 16px; }
   .topo { flex-direction: column; align-items: flex-start; }
-  .kpis, .duas-colunas, .kanban, .form-grade { grid-template-columns: 1fr; }
+  .kpis, .duas-colunas, .kanban, .form-grade { grid-template-columns: minmax(0, 1fr); }
+  .barra-salvar { position: static; }
+  .qr { flex-direction: column; align-items: flex-start; }
   .mini-mesas { grid-template-columns: repeat(2, 1fr); }
 }

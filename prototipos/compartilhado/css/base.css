@@ -47,6 +47,15 @@ img { max-width: 100%; display: block; }
   letter-spacing: -.4px; color: var(--roxo);
 }
 .logo--claro .logo__nome { color: #fff; }
+.logo__simbolo--img { object-fit: cover; border-radius: 9px; background: #fff; }
+
+/* ---------- Impressão do cupom (impressora térmica 80mm) ---------- */
+#areaImpressao { display: none; }
+@media print {
+  @page { size: 80mm auto; margin: 3mm; }
+  body > *:not(#areaImpressao) { display: none !important; }
+  #areaImpressao { display: block; margin: 0; width: 74mm; font: 11px/1.35 "Courier New", ui-monospace, monospace; white-space: pre-wrap; color: #000; }
+}
 
 /* ---------- Botões ---------- */
 .btn {
