@@ -33,14 +33,15 @@ Fomito.logo = (claro = false) => {
   </span>`;
 };
 
-/* Miniatura do produto: usa a primeira foto da galeria (depende de ilustracoes.js) */
-Fomito.foto = (produto, tamanho = 56) => {
-  const capa = produto.fotos?.[0];
-  const conteudo = capa && Fomito.cena
-    ? Fomito.cena(capa.desenho, capa.cena, produto.cat)
-    : Fomito.icone(produto.cat);
-  return `<div class="foto" style="width:${tamanho}px;height:${tamanho}px">${conteudo}</div>`;
+/* Uma foto da galeria: imagem enviada pelo dono (src) ou ilustração (desenho + cena) */
+Fomito.imagemFoto = (foto, categoria) => {
+  if (foto?.src) return `<img class="foto__img" src="${foto.src}" alt="${foto.legenda || ""}">`;
+  return foto && Fomito.cena ? Fomito.cena(foto.desenho, foto.cena, categoria) : Fomito.icone(categoria);
 };
+
+/* Miniatura do produto: usa a primeira foto da galeria (a capa) */
+Fomito.foto = (produto, tamanho = 56) =>
+  `<div class="foto" style="width:${tamanho}px;height:${tamanho}px">${Fomito.imagemFoto(produto.fotos?.[0], produto.cat)}</div>`;
 
 /* Soma o total de uma lista de itens [{id, qtd}] */
 Fomito.totalItens = (itens) =>

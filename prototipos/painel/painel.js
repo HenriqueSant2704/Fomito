@@ -7,7 +7,8 @@
      3. Visão geral (dashboard)
      4. Pedidos em tempo real (quadro)
      5. Comandas
-     6. Cardápio
+     6. Cardápio, Clientes, detalhe e lançamento de pedido → arquivos próprios
+        (cardapio.js · clientes.js · pedido.js, carregados antes deste)
      7. Equipe (usuários garçom)
      8. Configurações (marca, WhatsApp, impressão e som)
      9. Início
@@ -57,7 +58,8 @@ const titulos = {
   dashboard: ["Visão geral", "Resumo de hoje, segunda-feira, 23 de novembro."],
   pedidos: ["Pedidos", "Acompanhe e avance os pedidos em tempo real."],
   comandas: ["Comandas", "Situação das mesas do salão."],
-  cardapio: ["Cardápio", "Produtos, fotos, preços e disponibilidade."],
+  cardapio: ["Cardápio", "Produtos, fotos, categorias, adicionais e a vitrine do topo."],
+  clientes: ["Clientes", "Cadastros feitos pelo telefone no finalizar pedido, com os endereços salvos."],
   equipe: ["Equipe", "Crie o acesso dos garçons. Eles entram pelo Portal e vão direto para as comandas."],
   configuracoes: ["Configurações", "Sua marca, WhatsApp, impressora e o funcionamento da loja."],
 };
@@ -189,9 +191,9 @@ function cardPedido(p, coluna) {
   const forma = dados.formasPagamento.find((f) => f.id === p.pag);
   const pagamento = p.modo === "local"
     ? `${icone("usuario", "ic--sm")}<span>Pagamento com o garçom</span>`
-    : `${icone(forma.icone, "ic--sm")}<span>${forma.nome} na entrega${p.pag === "dinheiro" ? `<br>Troco para ${moeda(p.troco)}: levar <b>${moeda(p.troco - totalPedido(p))}</b>` : ""}</span>`;
+    : `${icone(forma.icone, "ic--sm")}<span>${forma.nome} na entrega${p.pag === "dinheiro" && p.troco ? `<br>Troco para ${moeda(p.troco)}: levar <b>${moeda(p.troco - totalPedido(p))}</b>` : ""}</span>`;
   return `
-    <div class="card pedido ${p.status === "novo" ? "pedido--novo" : ""}">
+    <div class="card pedido ${p.status === "novo" ? "pedido--novo" : ""}" data-pedido="${p.num}" title="Ver detalhes do pedido">
       <div class="entre"><span class="forte num">#${p.num}</span><span class="pequeno fraco">há ${p.min} min</span></div>
       <div class="entre"><span class="forte">${p.cliente}</span><span class="tag ${p.modo === "entrega" ? "tag--roxo" : "tag--cinza"}">${p.modo === "entrega" ? "Entrega" : "No local"}</span></div>
       <div class="pedido__itens">${p.itens.map(([id, q, extras = [], obs]) => `${q}× ${Fomito.produto(id).nome}${extras.length ? ` <span class="fraco">+ ${extras.length} adicional</span>` : ""}${obs ? `<br><span class="fraco">Obs.: ${obs}</span>` : ""}`).join("<br>")}</div>
@@ -208,6 +210,10 @@ function cardPedido(p, coluna) {
 
 function renderPedidos() {
   $('[data-secao="pedidos"].secao').innerHTML = `
+    <div class="entre" style="flex-wrap:wrap">
+      <span class="pequeno suave">Clique num pedido para ver os detalhes. Pedido por telefone ou no balcão? Lance aqui.</span>
+      <button class="btn btn--primario btn--sm" data-lancar-pedido>${icone("mais", "ic--sm")} Lançar pedido</button>
+    </div>
     <div class="kanban">
       ${colunas.map((c) => {
         const lista = pedidos.filter((p) => p.status === c.id);
@@ -329,38 +335,8 @@ function renderComandas() {
     </div>`;
 }
 
-/* ---------- 6. CARDÁPIO ---------- */
-let filtroCardapio = "todas";
-function renderCardapio() {
-  const cats = [{ id: "todas", nome: "Todos" }, ...dados.categorias];
-  const conta = (id) => dados.produtos.filter((p) => id === "todas" || p.cat === id).length;
-  const lista = dados.produtos.filter((p) => filtroCardapio === "todas" || p.cat === filtroCardapio);
-  $('[data-secao="cardapio"].secao').innerHTML = `
-    <div class="entre" style="flex-wrap:wrap">
-      <nav class="filtros" id="filtroCardapio">${cats.map((c) => `<button class="filtro ${filtroCardapio === c.id ? "ativo" : ""}" data-cat="${c.id}">${c.nome} <small>${conta(c.id)}</small></button>`).join("")}</nav>
-      <button class="btn btn--primario btn--sm" onclick="Fomito.toast('Protótipo: aqui abriria o cadastro de produto','info')">${icone("mais", "ic--sm")} Novo produto</button>
-    </div>
-    <div class="card painel-card tabela-rolagem">
-      <table class="tabela">
-        <thead><tr><th>Produto</th><th>Categoria</th><th>Fotos</th><th class="dir">Preço</th><th>Disponível</th><th></th></tr></thead>
-        <tbody>
-          ${lista.map((p) => `
-            <tr>
-              <td><div class="linha" style="gap:12px">${Fomito.foto(p, 40)}<div style="min-width:0"><div class="forte">${p.nome}</div><div class="pequeno suave">${p.desc}</div></div></div></td>
-              <td class="suave">${dados.categorias.find((c) => c.id === p.cat).nome}</td>
-              <td><span class="linha suave pequeno" style="gap:5px">${icone("fotos", "ic--sm")}${p.fotos.length}</span></td>
-              <td class="dir preco">${moeda(p.preco)}</td>
-              <td><label class="interruptor"><input type="checkbox" id="disp-${p.id}" ${p.id === 9 ? "" : "checked"}><span></span></label></td>
-              <td class="dir"><button class="btn-icone" aria-label="Editar ${p.nome}">${icone("editar", "ic--sm")}</button></td>
-            </tr>`).join("")}
-        </tbody>
-      </table>
-    </div>`;
-  $("#filtroCardapio").onclick = (e) => {
-    const c = e.target.closest("[data-cat]");
-    if (c) { filtroCardapio = c.dataset.cat; renderCardapio(); }
-  };
-}
+/* ---------- 6. CARDÁPIO e CLIENTES ----------
+   Ficam em arquivos próprios: cardapio.js, clientes.js e pedido.js */
 
 /* ---------- 7. EQUIPE ---------- */
 function renderEquipe() {
@@ -716,6 +692,7 @@ const renderizadores = {
   pedidos: renderPedidos,
   comandas: renderComandas,
   cardapio: renderCardapio,
+  clientes: renderClientes,
   equipe: renderEquipe,
   configuracoes: renderConfiguracoes,
 };

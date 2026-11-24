@@ -7,7 +7,7 @@
      3. Cardápio      → categorias, busca e lista de produtos
      4. Produto       → tela com galeria de fotos, ingredientes e adicionais
      5. Sacola
-     6. Finalizar     → endereço/mesa, pagamento e troco
+     6. Finalizar     → entrega ou local, cadastro pelo telefone, endereços, pagamento e troco
      7. Acompanhamento
      8. Início
    ========================================================================== */
@@ -16,7 +16,7 @@ const { dados, moeda, icone, $, $$, toast } = Fomito;
 
 /* ---------- 1. ESTADO ---------- */
 const estado = {
-  modo: "entrega",          // "entrega" | "local"
+  modo: "entrega",          // "entrega" | "local" (escolhido no finalizar pedido)
   categoria: "todas",
   busca: "",
   carrinho: [],             // [{ id, qtd, obs, extras: [ids] }]
@@ -24,7 +24,16 @@ const estado = {
   trocoPara: "",
   semTroco: false,
   etapaPedido: 0,
+  /* Finalizar pedido */
+  etapaCliente: "telefone", // "telefone" → "identificado"
+  telefone: "",
+  cliente: null,            // cadastro encontrado ou criado (clientes.js)
+  enderecoId: null,
+  novoEndereco: false,      // formulário de "Adicionar novo endereço" aberto?
+  mesa: "7",
+  nomeLocal: "",
 };
+const iniciais = (nome) => nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
 const taxaEntrega = () => (estado.modo === "entrega" ? dados.lanchonete.taxaEntrega : 0);
 /* Preço de uma unidade do item, já com os adicionais escolhidos */
@@ -154,14 +163,6 @@ $("#busca").addEventListener("input", (e) => {
   $("#blocoDestaques").hidden = !!estado.busca;
   renderProdutos();
 });
-
-$$("[data-modo]").forEach((botao) =>
-  botao.addEventListener("click", () => {
-    estado.modo = botao.dataset.modo;
-    $$("[data-modo]").forEach((b) => b.classList.toggle("ativo", b === botao));
-    toast(estado.modo === "entrega" ? "Pedido para entrega" : "Pedido para comer no local: pagamento com o garçom", estado.modo === "entrega" ? "entrega" : "local");
-  })
-);
 
 /* ---------- 4. DETALHE DO PRODUTO ---------- */
 /* Qualquer clique num produto (lista ou destaques) abre o detalhe */
@@ -323,7 +324,8 @@ function renderCarrinho() {
 
   $("#resumoCarrinho").hidden = false;
   $("#resumoCarrinho").innerHTML = `
-    ${linhasResumo()}
+    <div class="entre linha-total"><span class="forte">Subtotal</span><span class="preco">${moeda(subtotal())}</span></div>
+    <span class="pequeno fraco">Entrega ou comer no local: você escolhe no próximo passo.</span>
     <button class="btn btn--primario btn--bloco" data-ir="checkout">Continuar</button>`;
 }
 
@@ -344,30 +346,145 @@ $("#itensCarrinho").addEventListener("click", (e) => {
   renderCarrinho();
 });
 
-/* ---------- 6. FINALIZAR ---------- */
+/* ---------- 6. FINALIZAR ----------
+   Ordem da tela:
+     a) Como você quer receber? (Entrega ou Comer no local)
+     b) Entrega → telefone → cadastro novo OU endereços salvos → pagamento
+        Local   → mesa e nome (paga com o garçom)
+     c) Resumo do pedido
+*/
+const { clientes } = Fomito;
+
 function renderCheckout() {
   const entrega = estado.modo === "entrega";
-
-  const blocoLocal = `
+  $("#checkout").innerHTML = `
     <div class="bloco">
-      <h3 class="bloco__titulo">${icone("local")} Comer no local</h3>
+      <h3 class="bloco__titulo">Como você quer receber?</h3>
+      <div class="modo-escolha">
+        <button class="modo-card ${entrega ? "ativo" : ""}" data-modo="entrega">
+          <span class="modo-card__icone">${icone("entrega")}</span>
+          <b>Entrega</b><span>${dados.lanchonete.tempoEntrega} · ${moeda(dados.lanchonete.taxaEntrega)}</span>
+        </button>
+        <button class="modo-card ${!entrega ? "ativo" : ""}" data-modo="local">
+          <span class="modo-card__icone">${icone("local")}</span>
+          <b>Comer no local</b><span>Na mesa · sem taxa</span>
+        </button>
+      </div>
+    </div>
+    ${entrega ? blocoCliente() + (estado.cliente ? blocoPagamento() : "") : blocoLocal()}
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("pedidos")} Resumo</h3>
+      ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
+    </div>`;
+  renderRodapeCheckout();
+  ligarEventosTroco();
+}
+
+/* --- Comer no local --- */
+function blocoLocal() {
+  return `
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("local")} Sua mesa</h3>
       <div class="duas">
-        <div class="campo"><label for="mesa">Número da mesa</label><input id="mesa" class="input" type="number" value="7"></div>
-        <div class="campo"><label for="nome">Seu nome</label><input id="nome" class="input" value="Ana"></div>
+        <div class="campo"><label for="mesa">Número da mesa</label><input id="mesa" class="input" type="number" min="1" value="${estado.mesa}"></div>
+        <div class="campo"><label for="nomeLocal">Seu nome</label><input id="nomeLocal" class="input" placeholder="Como te chamamos" value="${estado.nomeLocal}"></div>
       </div>
       <div class="aviso">${icone("info", "ic--sm")}<span>No consumo local, o pagamento é feito com o garçom quando você pedir a conta.</span></div>
     </div>`;
+}
 
-  const blocoEntrega = `
+/* --- Entrega: identificação pelo telefone --- */
+function blocoCliente() {
+  const c = estado.cliente;
+
+  /* 1) Ainda não informou o telefone */
+  if (estado.etapaCliente === "telefone") return `
     <div class="bloco">
-      <h3 class="bloco__titulo">${icone("pin")} Endereço de entrega</h3>
-      <div class="campo"><label for="rua">Rua e número</label><input id="rua" class="input" value="Rua das Flores, 120"></div>
-      <div class="duas">
-        <div class="campo"><label for="bairro">Bairro</label><input id="bairro" class="input" value="Centro"></div>
-        <div class="campo"><label for="compl">Complemento</label><input id="compl" class="input" placeholder="Apto, bloco"></div>
+      <h3 class="bloco__titulo">${icone("usuario")} Seu celular</h3>
+      <p class="pequeno suave">Se você já pediu aqui, puxamos seu nome e seus endereços salvos.</p>
+      <div class="busca-tel">
+        <input id="tel" class="input" inputmode="tel" autocomplete="tel" placeholder="(11) 90000-0000" value="${clientes.formatarTelefone(estado.telefone)}">
+        <button class="btn btn--primario" id="buscarTel">Continuar</button>
       </div>
-      <div class="campo"><label for="tel">Telefone</label><input id="tel" class="input" value="(11) 98888-7777"></div>
+      <p class="demo">Teste: (11) 98888-7777 já tem cadastro com 2 endereços. Qualquer outro número abre o cadastro novo.</p>
+    </div>`;
+
+  const topo = `
+    <div class="cliente-topo">
+      <span class="cliente-topo__avatar">${c ? iniciais(c.nome) : icone("usuario", "ic--sm")}</span>
+      <div class="pilha" style="gap:0;flex:1;min-width:0">
+        <span class="forte">${c ? `Olá, ${c.nome.split(" ")[0]}!` : "Primeira vez por aqui?"}</span>
+        <span class="pequeno suave">${clientes.formatarTelefone(estado.telefone)}</span>
+      </div>
+      <button class="link" id="trocarTel">Trocar</button>
+    </div>`;
+
+  /* 2) Telefone novo: cadastro com nome + primeiro endereço */
+  if (!c) return `
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("usuario")} Seu cadastro</h3>
+      ${topo}
+      <p class="pequeno suave">Preencha só desta vez. Nos próximos pedidos é só informar o celular.</p>
+      <div class="campo"><label for="cadNome">Seu nome</label><input id="cadNome" class="input" autocomplete="name" placeholder="Nome e sobrenome"></div>
+      ${formEndereco("Casa")}
+      <p class="form-erro" id="erroCadastro" hidden></p>
+      <button class="btn btn--secundario btn--bloco" id="salvarCadastro">${icone("check", "ic--sm")} Salvar cadastro</button>
+    </div>`;
+
+  /* 3) Cliente encontrado: escolhe o endereço ou cadastra outro */
+  if (!c.enderecos.some((e) => e.id === estado.enderecoId)) estado.enderecoId = c.enderecos[0].id;
+  return `
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("pin")} Entregar em</h3>
+      ${topo}
+      <div class="pilha" style="gap:8px" id="enderecos">
+        ${c.enderecos.map((e) => `
+          <button class="opcao ${e.id === estado.enderecoId ? "ativa" : ""}" data-endereco="${e.id}">
+            <span class="opcao__icone">${icone(e.apelido === "Trabalho" ? "loja" : "pin")}</span>
+            <span class="opcao__texto"><span class="opcao__titulo">${e.apelido}</span><span class="opcao__sub">${clientes.textoEndereco(e)}${e.ref ? `<br>Ref.: ${e.ref}` : ""}</span></span>
+            <span class="opcao__radio"></span>
+          </button>`).join("")}
+      </div>
+      ${estado.novoEndereco ? `
+        <div class="novo-endereco">
+          <span class="forte">Novo endereço</span>
+          ${formEndereco("Trabalho")}
+          <p class="form-erro" id="erroCadastro" hidden></p>
+          <div class="duas"><button class="btn btn--contorno" id="cancelarEndereco">Cancelar</button><button class="btn btn--secundario" id="salvarEndereco">Salvar endereço</button></div>
+        </div>`
+        : `<button class="btn btn--contorno" id="novoEndereco">${icone("mais", "ic--sm")} Adicionar novo endereço</button>`}
+    </div>`;
+}
+
+/* Campos de endereço (usados no cadastro e no "novo endereço") */
+function formEndereco(apelidoPadrao) {
+  return `
+    <div class="campo"><label>Nome do endereço</label>
+      <div class="apelidos" id="apelidos">${["Casa", "Trabalho", "Outro"].map((a) => `<button class="apelido ${a === apelidoPadrao ? "ativo" : ""}" data-apelido="${a}">${a}</button>`).join("")}</div>
     </div>
+    <div class="campo"><label for="endRua">Rua e número</label><input id="endRua" class="input" autocomplete="street-address" placeholder="Ex.: Rua das Flores, 120"></div>
+    <div class="duas">
+      <div class="campo"><label for="endBairro">Bairro</label><input id="endBairro" class="input" placeholder="Bairro"></div>
+      <div class="campo"><label for="endCompl">Complemento</label><input id="endCompl" class="input" placeholder="Apto, bloco"></div>
+    </div>
+    <div class="campo"><label for="endRef">Ponto de referência <span class="fraco">(opcional)</span></label><input id="endRef" class="input" placeholder="Ex.: portão verde"></div>`;
+}
+
+/* Lê os campos de endereço. Retorna null (e mostra o erro) se faltar algo. */
+function lerEndereco() {
+  const valor = (id) => $(id).value.trim();
+  const endereco = { apelido: $(".apelido.ativo").dataset.apelido, rua: valor("#endRua"), bairro: valor("#endBairro"), compl: valor("#endCompl"), ref: valor("#endRef") };
+  if (!endereco.rua || !endereco.bairro) return mostrarErro("Preencha a rua com número e o bairro."), null;
+  return endereco;
+}
+function mostrarErro(texto) {
+  $("#erroCadastro").textContent = texto;
+  $("#erroCadastro").hidden = false;
+}
+
+/* --- Pagamento na entrega --- */
+function blocoPagamento() {
+  return `
     <div class="bloco">
       <h3 class="bloco__titulo">${icone("dinheiro")} Pagamento <small>na entrega</small></h3>
       <div class="pilha" style="gap:8px" id="formasPagamento">
@@ -380,19 +497,72 @@ function renderCheckout() {
           ${f.id === "dinheiro" && estado.pagamento === "dinheiro" ? blocoTroco() : ""}`).join("")}
       </div>
     </div>`;
-
-  $("#checkout").innerHTML = `
-    ${entrega ? blocoEntrega : blocoLocal}
-    <div class="bloco">
-      <h3 class="bloco__titulo">${icone("pedidos")} Resumo</h3>
-      ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
-    </div>`;
-
-  renderRodapeCheckout();
-  ligarEventosTroco();
 }
 
+/* --- Cliques e digitação da tela de finalizar --- */
+function buscarTelefone() {
+  estado.telefone = clientes.soDigitos($("#tel").value);
+  if (!clientes.telefoneValido(estado.telefone)) return toast("Digite o celular com DDD", "info");
+  estado.cliente = clientes.buscar(estado.telefone);
+  estado.etapaCliente = "identificado";
+  renderCheckout();
+  if (estado.cliente) toast(`Cadastro encontrado: ${estado.cliente.enderecos.length} endereço(s) salvo(s)`, "check");
+}
+
+$("#checkout").addEventListener("click", (e) => {
+  const modo = e.target.closest("[data-modo]");
+  if (modo) { estado.modo = modo.dataset.modo; return renderCheckout(); }
+
+  if (e.target.closest("#buscarTel")) return buscarTelefone();
+  if (e.target.closest("#trocarTel")) {
+    Object.assign(estado, { etapaCliente: "telefone", cliente: null, novoEndereco: false });
+    renderCheckout();
+    return $("#tel").focus();
+  }
+
+  const apelido = e.target.closest("[data-apelido]");
+  if (apelido) return $$(".apelido").forEach((a) => a.classList.toggle("ativo", a === apelido));
+
+  const endereco = e.target.closest("[data-endereco]");
+  if (endereco) { estado.enderecoId = Number(endereco.dataset.endereco); return renderCheckout(); }
+
+  if (e.target.closest("#novoEndereco")) { estado.novoEndereco = true; renderCheckout(); return $("#endRua").focus(); }
+  if (e.target.closest("#cancelarEndereco")) { estado.novoEndereco = false; return renderCheckout(); }
+
+  if (e.target.closest("#salvarEndereco")) {
+    const end = lerEndereco();
+    if (!end) return;
+    estado.enderecoId = clientes.adicionarEndereco(estado.telefone, end).id;
+    estado.cliente = clientes.buscar(estado.telefone);
+    estado.novoEndereco = false;
+    renderCheckout();
+    return toast("Endereço salvo no seu cadastro", "pin");
+  }
+
+  if (e.target.closest("#salvarCadastro")) {
+    const nome = $("#cadNome").value.trim();
+    if (nome.length < 3) return mostrarErro("Digite seu nome.");
+    const end = lerEndereco();
+    if (!end) return;
+    estado.cliente = clientes.cadastrar({ telefone: estado.telefone, nome, endereco: end });
+    estado.enderecoId = estado.cliente.enderecos[0].id;
+    renderCheckout();
+    return toast("Cadastro salvo! Da próxima vez é só o celular.", "check");
+  }
+});
+
+$("#checkout").addEventListener("input", (e) => {
+  if (e.target.id === "tel") e.target.value = clientes.formatarTelefone(e.target.value);
+  if (e.target.id === "mesa") estado.mesa = e.target.value;
+  if (e.target.id === "nomeLocal") estado.nomeLocal = e.target.value;
+  if (e.target.id === "mesa" || e.target.id === "nomeLocal") renderRodapeCheckout();
+});
+$("#checkout").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.id === "tel") buscarTelefone();
+});
+
 function blocoTroco() {
+
   return `
     <div class="troco">
       <span class="troco__pergunta">Troco para quanto?</span>
@@ -460,7 +630,8 @@ function ligarEventosTroco() {
 }
 
 function podeConfirmar() {
-  if (estado.modo === "local") return true;
+  if (estado.modo === "local") return Number(estado.mesa) > 0 && estado.nomeLocal.trim().length > 1;
+  if (!estado.cliente || estado.novoEndereco) return false;
   if (!estado.pagamento) return false;
   if (estado.pagamento === "dinheiro") return estado.semTroco || valorTroco() >= total();
   return true;
@@ -492,7 +663,14 @@ const etapas = {
 let timerPedido;
 
 function confirmarPedido() {
-  estado.pedido = { numero: 1000 + Math.floor(Math.random() * 900), modo: estado.modo, itens: [...estado.carrinho], total: total(), pagamento: estado.pagamento, troco: estado.semTroco ? null : valorTroco() };
+  const endereco = estado.cliente?.enderecos.find((e) => e.id === estado.enderecoId);
+  estado.pedido = {
+    numero: 1000 + Math.floor(Math.random() * 900), modo: estado.modo, itens: [...estado.carrinho], total: total(),
+    pagamento: estado.pagamento, troco: estado.semTroco ? null : valorTroco(),
+    cliente: estado.modo === "entrega" ? estado.cliente.nome : estado.nomeLocal.trim(),
+    endereco: endereco ? `${endereco.apelido}: ${clientes.textoEndereco(endereco)}` : null,
+    mesa: estado.mesa,
+  };
   estado.carrinho = [];
   estado.etapaPedido = 0;
   atualizarBarraSacola();
@@ -526,7 +704,7 @@ function renderAcompanhamento() {
     <div class="status">
       <span class="rotulo">Pedido #${pedido.numero}</span>
       <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">${atual.titulo}</h3>
-      <span class="suave">${pedido.modo === "entrega" ? `Previsão de entrega: ${dados.lanchonete.tempoEntrega}` : "Mesa 7"}</span>
+      <span class="suave">${pedido.modo === "entrega" ? `Previsão de entrega: ${dados.lanchonete.tempoEntrega}` : `Mesa ${pedido.mesa} · ${pedido.cliente}`}</span>
       <div class="status__progresso" style="grid-template-columns:repeat(${lista.length},1fr)">
         ${lista.map((_, i) => `<span class="${i < estado.etapaPedido ? "feito" : i === estado.etapaPedido ? "atual" : ""}"></span>`).join("")}
       </div>
@@ -545,13 +723,14 @@ function renderAcompanhamento() {
       ${pedido.itens.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
       <div class="entre resumo__total"><span class="forte">Total</span><span class="preco">${moeda(pedido.total)}</span></div>
     </div>
+    ${pedido.endereco ? `<div class="aviso">${icone("pin", "ic--sm")}<span>Entregar para <b>${pedido.cliente}</b> em ${pedido.endereco}</span></div>` : ""}
     <div class="aviso">${icone(pedido.modo === "entrega" ? (forma?.icone || "dinheiro") : "usuario", "ic--sm")}<span>${pagamento}</span></div>
     <p class="demo">Protótipo: o status avança sozinho a cada 4 segundos.</p>`;
 }
 
 /* ---------- 8. INÍCIO ---------- */
 const loja = dados.lanchonete;
-$("#logo").innerHTML = Fomito.logo();
+$("#logo").innerHTML = Fomito.config.simbolo(Fomito.config.ler().marca);
 $("#nomeLoja").textContent = loja.nome;
 $("#sloganLoja").textContent = loja.slogan;
 $("#tempoLoja").textContent = loja.tempoEntrega;

@@ -33,6 +33,7 @@ prototipos/
 │   │   ├── icones.js          ← ícones de linha (SVG)
 │   │   ├── config.js          ← MARCA DO RESTAURANTE (nome, logo, cores, fontes) + WhatsApp, impressora e som
 │   │   ├── alertas.js         ← som de pedido novo, cupom de 80mm e mensagens de WhatsApp
+│   │   ├── clientes.js        ← cadastro de clientes pelo telefone, com vários endereços
 │   │   ├── ilustracoes.js     ← "fotos" ilustradas dos produtos e da vitrine
 │   │   ├── sessao.js          ← login, perfis (admin/garçom) e proteção das telas
 │   │   ├── dados.js           ← cardápio, fotos, adicionais e dados de exemplo
@@ -42,10 +43,33 @@ prototipos/
 ├── portal/    (index.html · portal.css · portal.js)
 ├── garcom/    (index.html · garcom.css · garcom.js)
 └── painel/    (index.html · painel.css · painel.js)
+    ├── cardapio.js            ← produtos (cadastro com fotos), categorias, adicionais e vitrine
+    ├── clientes.js            ← lista de clientes e ficha com endereços
+    └── pedido.js              ← detalhe do pedido e "Lançar pedido" (telefone, balcão, mesa)
 ```
 
 Cada tela tem **3 arquivos com o mesmo nome da pasta**: o HTML (estrutura), o CSS (visual) e o JS (comportamento).
 Os arquivos JS são divididos em seções numeradas no topo, para achar rápido o que mudar.
+
+## Finalizar pedido e cadastro do cliente
+
+A escolha **Entrega** ou **Comer no local** fica no finalizar pedido (sacola → Continuar), não mais na tela inicial.
+
+Na entrega, o cliente se identifica pelo **celular**:
+1. Digita o telefone. Se já pediu antes, aparecem o nome e os **endereços salvos** para escolher.
+2. Se é a primeira vez, preenche nome e endereço e o **cadastro** é salvo.
+3. Pode **adicionar um novo endereço** (Casa, Trabalho, Outro) a qualquer momento e escolher em qual receber.
+
+Teste com `(11) 98888-7777` (já tem 2 endereços) ou qualquer outro número. O cadastro aparece no **Painel → Clientes**.
+No sistema real o telefone deve ser confirmado por um código no WhatsApp antes de mostrar os endereços, para ninguém ver o endereço de outra pessoa só sabendo o número.
+
+## Painel completo (visualização)
+
+- **Pedidos:** clique num card para ver o detalhe (cliente, itens, troco, andamento, mensagens). **Lançar pedido** registra pedidos por telefone, balcão ou mesa.
+- **Cardápio:** abas Produtos, Categorias, Adicionais e Vitrine. O cadastro de produto tem fotos (a primeira é a capa), descrição, ingredientes, adicionais, disponibilidade e a prévia de como o cliente vê.
+- **Clientes:** indicadores, busca por nome ou telefone e a ficha com endereços e pedidos.
+
+Neste protótipo o que se cadastra no painel vale só enquanto a página está aberta (os clientes ficam salvos no navegador).
 
 ## Marca própria de cada restaurante (white-label)
 

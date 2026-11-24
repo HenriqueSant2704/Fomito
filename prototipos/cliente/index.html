@@ -22,7 +22,7 @@
       <header class="vitrine">
         <div class="vitrine__trilho" id="vitrine"></div>
         <div class="vitrine__topo">
-          <span class="vitrine__marca" id="logo"></span>
+          <span class="vitrine__marca" id="logo" aria-label="Logo do restaurante"></span>
           <button class="vitrine__botao" aria-label="Meus pedidos" data-ir="acompanhamento"><i data-icone="pedidos"></i></button>
         </div>
         <div class="vitrine__pontos" id="vitrinePontos"></div>
@@ -41,10 +41,7 @@
           <span><i data-icone="estrela" class="ic--sm"></i><b>4,8</b> (320)</span>
           <span><i data-icone="relogio" class="ic--sm"></i><span id="tempoLoja"></span></span>
           <span><i data-icone="entrega" class="ic--sm"></i><span id="taxaLoja"></span></span>
-        </div>
-        <div class="filtros modo" role="tablist" aria-label="Como você quer pedir">
-          <button class="filtro ativo" data-modo="entrega"><i data-icone="entrega" class="ic--sm"></i>Entrega</button>
-          <button class="filtro" data-modo="local"><i data-icone="local" class="ic--sm"></i>Comer no local</button>
+          <span><i data-icone="local" class="ic--sm"></i>Salão com mesas</span>
         </div>
       </section>
 
@@ -127,6 +124,7 @@
   <script src="../compartilhado/js/ilustracoes.js"></script>
   <script src="../compartilhado/js/dados.js"></script>
   <script src="../compartilhado/js/utils.js"></script>
+  <script src="../compartilhado/js/clientes.js"></script>
   <script src="cliente.js"></script>
 </body>
 </html>
