@@ -116,6 +116,7 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 .coluna__topo h3::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--cor-coluna, var(--texto-fraco)); }
 .coluna__qtd { font-size: 12px; font-weight: 600; color: var(--texto-fraco); font-variant-numeric: tabular-nums; }
 .pedido { padding: 14px; display: flex; flex-direction: column; gap: 10px; animation: subir .25s ease; }
+.pedido--comanda { border-left: 3px solid var(--roxo); }
 .pedido--novo { border-color: #F3C58C; box-shadow: 0 0 0 1px #F3C58C; }
 .pedido__itens { font-size: 13px; color: var(--texto-suave); line-height: 1.6; }
 .pedido__pag { font-size: 12.5px; color: var(--texto-suave); display: flex; gap: 8px; align-items: flex-start; padding-top: 10px; border-top: 1px solid var(--borda); }
@@ -126,6 +127,9 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 .mini-mesas { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
 .mini-mesa { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .mini-mesa strong { font-family: var(--fonte-marca); font-size: 24px; font-weight: 800; line-height: 1; }
+.mini-mesa { text-align: left; }
+button.mini-mesa:not(:disabled) { cursor: pointer; }
+button.mini-mesa:not(:disabled):hover { border-color: var(--roxo-medio); box-shadow: var(--sombra-md); }
 .mini-mesa.livre { background: transparent; border-style: dashed; }
 .mini-mesa.livre strong { color: var(--texto-fraco); }
 .mini-mesa.conta { border-color: #F3C58C; }
@@ -343,3 +347,11 @@ body { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
   .mini-mesas { grid-template-columns: repeat(2, 1fr); }
 }
 .entre > .filtros { min-width: 0; max-width: 100%; }
+
+/* QR Code da mesa */
+.qr-mesa { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.qr-mesa__cartao { width: 170px; padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio-lg); display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; background: #fff; box-shadow: var(--sombra-sm); }
+.qr-mesa__cartao svg { width: 120px; height: 120px; }
+.qr-mesa__cartao b { font-family: var(--fonte-marca); font-size: 18px; }
+.qr-mesa__cartao span { font-size: 11.5px; color: var(--texto-suave); }
+.qr-mesa__link { font-size: 12.5px; background: var(--superficie-2); padding: 6px 10px; border-radius: var(--raio-sm); }

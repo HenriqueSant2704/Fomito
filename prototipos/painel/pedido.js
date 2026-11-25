@@ -248,7 +248,11 @@ function confirmarNovo() {
     const troco = parseFloat(String(novo.troco).replace(",", ".")) || null;
     Object.assign(base, { cliente: c.nome, modo: "entrega", telefone: Fomito.clientes.formatarTelefone(c.telefone), endereco: [e.rua, e.compl, e.bairro].filter(Boolean).join(", "), pag: novo.pag, troco });
   } else if (novo.modo === "mesa") {
-    Object.assign(base, { cliente: `Mesa ${String(novo.mesa).padStart(2, "0")}${novo.nome ? ` · ${novo.nome}` : ""}`, modo: "local", pag: null });
+    /* Mesa não vira pedido solto: entra na comanda da mesa */
+    Fomito.comandas.lancar(novo.mesa, itensNovo().map(([id, qtd]) => ({ id, qtd })), { nome: novo.nome, por: "garcom" });
+    $("#lancarPedido").remove();
+    renderPedidos();
+    return toast(`Itens lançados na comanda da ${Fomito.comandas.mesaTexto(novo.mesa)}`, "mesa");
   } else {
     Object.assign(base, { cliente: `Balcão · ${novo.nome || "Retirada"}`, modo: "local", pag: null });
   }

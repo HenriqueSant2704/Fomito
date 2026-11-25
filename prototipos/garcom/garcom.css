@@ -103,3 +103,12 @@ body { background: var(--fundo); min-height: 100vh; }
   .comanda.aberta { display: flex; }
 }
 @media (min-width: 861px) { .comanda__fechar-painel { display: none !important; } }
+
+/* ---------- Rodadas da comanda (cada vez que a mesa pediu) ---------- */
+.rodada-garcom { display: flex; flex-direction: column; padding: 14px 0 10px; border-bottom: 1px dashed var(--borda-forte); }
+.rodada-garcom:last-child { border-bottom: 0; }
+.rodada-garcom .linha-item { padding: 8px 0; border-bottom: 0; }
+.rodada-garcom .btn { align-self: flex-start; margin-top: 4px; }
+.mesa__cozinha { color: var(--laranja-escuro); font-weight: 600; }
+.mesa__meta .mesa__cozinha .ic { color: var(--laranja); }
+.aviso--conta { margin: 0 22px; }

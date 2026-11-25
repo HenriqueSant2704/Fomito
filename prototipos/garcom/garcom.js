@@ -2,7 +2,7 @@
    FOMITO · TELA DO GARÇOM (lógica do protótipo)
    --------------------------------------------------------------------------
    Organização:
-     1. Estado (mesas fictícias)
+     1. Estado (mesas a partir das comandas compartilhadas)
      2. Lista de mesas
      3. Comanda da mesa
      4. Lançar itens
@@ -15,26 +15,32 @@ const { dados, moeda, icone, $, $$, toast, sessao } = Fomito;
 /* Garçom e administrador podem usar as comandas */
 const usuarioLogado = sessao.exigir("garcom", "admin");
 
-/* ---------- 1. ESTADO ---------- */
-/* status: "livre" | "ocupada" | "conta" (cliente pediu a conta) */
-const mesas = Array.from({ length: 12 }, (_, i) => ({ numero: i + 1, status: "livre", pessoas: 0, desde: null, itens: [] }));
+/* ---------- 1. ESTADO ----------
+   As comandas ficam em compartilhado/js/comandas.js: as mesmas que o
+   cliente abre pelo QR Code da mesa e que o painel acompanha.
+   status da mesa: "livre" | "ocupada" | "conta" (cliente pediu a conta) */
+const { comandas } = Fomito;
+const TOTAL_MESAS = 12;
 
-function ocupar(numero, pessoas, minutos, itens, status = "ocupada") {
-  Object.assign(mesas[numero - 1], {
-    status, pessoas, desde: minutos,
-    itens: itens.map(([id, qtd, entregue = true]) => ({ id, qtd, entregue })),
+function lerMesas() {
+  return Array.from({ length: TOTAL_MESAS }, (_, i) => {
+    const c = comandas.daMesa(i + 1);
+    return {
+      numero: i + 1,
+      comanda: c,
+      status: !c ? "livre" : c.pediuConta ? "conta" : "ocupada",
+      pessoas: c?.pessoas || 0,
+      desde: c ? Math.max(0, Math.round((Date.now() - c.abertaEm) / 60000)) : null,
+      pelaMesa: c?.rodadas.some((r) => r.por === "qr"),
+      naCozinha: c ? c.rodadas.filter((r) => r.status !== "servido").length : 0,
+    };
   });
 }
-ocupar(2, 4, 48, [[3, 2], [6, 1], [13, 4]], "conta");
-ocupar(3, 2, 25, [[1, 1], [2, 1], [10, 2]]);
-ocupar(5, 3, 12, [[7, 1], [11, 3, false]]);
-ocupar(7, 2, 5,  [[2, 2, false], [10, 2]]);
-ocupar(9, 6, 70, [[8, 2], [9, 1], [13, 8]], "conta");
-ocupar(11, 1, 18, [[5, 1], [12, 1]]);
+let mesas = lerMesas();
 
 const estado = { filtro: "todas", mesaAtual: null };
 
-const totalMesa = (m) => Fomito.totalItens(m.itens);
+const totalMesa = (m) => (m.comanda ? comandas.total(m.comanda) : 0);
 const rotulo = { livre: "Livre", ocupada: "Ocupada", conta: "Conta" };
 const corTag = { livre: "cinza", ocupada: "roxo", conta: "laranja" };
 
@@ -62,7 +68,7 @@ function renderMesas() {
         <span class="mesa__rodape">
           ${m.status === "livre"
             ? `<span class="pequeno fraco">Disponível</span>`
-            : `<span class="mesa__meta"><span>${icone("pessoas")}${m.pessoas}</span><span>${icone("relogio")}${m.desde} min</span></span><span class="mesa__valor">${moeda(totalMesa(m))}</span>`}
+            : `<span class="mesa__meta"><span>${icone("pessoas")}${m.pessoas}</span><span>${icone("relogio")}${m.desde} min</span>${m.naCozinha ? `<span class="mesa__cozinha">${icone("chama")}${m.naCozinha}</span>` : ""}</span><span class="mesa__valor">${moeda(totalMesa(m))}</span>`}
         </span>
       </button>`)
     .join("");
@@ -84,49 +90,68 @@ $("#grade").addEventListener("click", (e) => {
   renderComanda();
 });
 
-/* ---------- 3. COMANDA ---------- */
+/* ---------- 3. COMANDA ----------
+   Os itens aparecem por rodada (cada vez que a mesa pediu), dizendo se
+   veio do QR Code da mesa ou do garçom e em que pé está na cozinha. */
 function renderComanda() {
   const m = mesas[estado.mesaAtual - 1];
+  const c = m.comanda;
   const painel = $("#comanda");
   painel.classList.add("aberta");
 
-  const itensHtml = m.itens.length
-    ? m.itens.map((item) => {
-        const p = Fomito.produto(item.id);
+  const itensHtml = c
+    ? c.rodadas.map((r, i) => {
+        const st = comandas.STATUS[r.status];
         return `
-          <div class="linha-item">
-            ${Fomito.foto(p, 40)}
-            <div class="linha-item__info">
-              <div class="forte">${item.qtd}× ${p.nome}</div>
-              <span class="tag ${item.entregue ? "tag--verde" : "tag--amarelo"}">${item.entregue ? "Entregue" : "Na cozinha"}</span>
+          <div class="rodada-garcom">
+            <div class="entre">
+              <span class="forte pequeno">${i + 1}º pedido · ${comandas.hora(r.hora)}</span>
+              <span class="linha" style="gap:6px"><span class="tag tag--cinza">${r.por === "qr" ? "QR da mesa" : "Garçom"}</span><span class="tag tag--${st.cor}">${st.nome}</span></span>
             </div>
-            <span class="preco">${moeda(p.preco * item.qtd)}</span>
+            ${r.itens.map((item) => {
+              const p = Fomito.produto(item.id);
+              return `
+                <div class="linha-item">
+                  ${Fomito.foto(p, 40)}
+                  <div class="linha-item__info"><div class="forte">${item.qtd}× ${p.nome}</div>${item.obs ? `<span class="pequeno suave">Obs.: ${item.obs}</span>` : ""}</div>
+                  <span class="preco">${moeda(comandas.precoItem(item))}</span>
+                </div>`;
+            }).join("")}
+            ${r.status === "pronto" ? `<button class="btn btn--sucesso btn--sm" data-servir="${i}">${icone("check", "ic--sm")} Marcar como servido</button>` : ""}
           </div>`;
       }).join("")
-    : `<div class="comanda__vazia"><span class="vazio__icone">${icone("pedidos", "ic--lg")}</span><p class="suave">Comanda vazia.<br>Lance o primeiro pedido da mesa.</p></div>`;
+    : `<div class="comanda__vazia"><span class="vazio__icone">${icone("pedidos", "ic--lg")}</span><p class="suave">Mesa livre.<br>A comanda abre quando o cliente pede pelo QR Code ou quando você lança o primeiro pedido.</p></div>`;
 
   painel.innerHTML = `
     <div class="comanda__topo">
       <div class="pilha">
         <span class="rotulo">Comanda</span>
         <h2>Mesa ${String(m.numero).padStart(2, "0")}</h2>
-        <span class="pequeno suave">${m.status === "livre" ? "Mesa livre" : `${m.pessoas} pessoas · aberta há ${m.desde} min`}</span>
+        <span class="pequeno suave">${!c ? "Mesa livre" : `${c.nome ? c.nome + " · " : ""}${m.pessoas} pessoas · aberta às ${comandas.hora(c.abertaEm)}`}</span>
       </div>
-      <span class="tag tag--${corTag[m.status]}">${rotulo[m.status]}</span>
+      <span class="tag tag--${corTag[m.status]}">${m.status === "conta" ? "Pediu a conta" : rotulo[m.status]}</span>
       <button class="btn-icone comanda__fechar-painel" id="voltarMesas" aria-label="Voltar">${icone("fechar")}</button>
     </div>
+    ${m.status === "conta" ? `<div class="aviso aviso--conta">${icone("conta", "ic--sm")}<span>O cliente pediu a conta pelo celular.</span></div>` : ""}
     <div class="comanda__itens">${itensHtml}</div>
     <div class="comanda__rodape">
       <div class="entre"><span class="forte">Total da mesa</span><span class="preco comanda__total">${moeda(totalMesa(m))}</span></div>
       <div class="comanda__acoes">
         <button class="btn btn--contorno" id="btnLancar">${icone("mais", "ic--sm")} Lançar itens</button>
-        <button class="btn btn--primario" id="btnFechar" ${m.itens.length ? "" : "disabled"}>Fechar conta</button>
+        <button class="btn btn--primario" id="btnFechar" ${c ? "" : "disabled"}>Fechar conta</button>
       </div>
     </div>`;
 
   $("#btnLancar").onclick = () => abrirLancamento(m);
   $("#btnFechar").onclick = () => abrirFechamento(m);
   $("#voltarMesas").onclick = () => painel.classList.remove("aberta");
+  painel.onclick = (e) => {
+    const servir = e.target.closest("[data-servir]");
+    if (!servir) return;
+    comandas.statusRodada(m.numero, Number(servir.dataset.servir), "servido");
+    atualizarTudo();
+    toast(`Pedido servido na mesa ${m.numero}`, "check");
+  };
 }
 
 /* ---------- 4. LANÇAR ITENS ---------- */
@@ -168,9 +193,8 @@ function abrirLancamento(mesa) {
       return render();
     }
     if (e.target.closest("[data-enviar]")) {
-      Object.entries(pedido).filter(([, qtd]) => qtd > 0)
-        .forEach(([id, qtd]) => mesa.itens.push({ id: Number(id), qtd, entregue: false }));
-      if (mesa.status === "livre") Object.assign(mesa, { status: "ocupada", pessoas: 2, desde: 0 });
+      const itens = Object.entries(pedido).filter(([, qtd]) => qtd > 0).map(([id, qtd]) => ({ id: Number(id), qtd }));
+      comandas.lancar(mesa.numero, itens, { por: "garcom" });
       camada.remove();
       atualizarTudo();
       toast(`Pedido da mesa ${mesa.numero} enviado para a cozinha`, "chama");
@@ -242,7 +266,8 @@ function abrirFechamento(mesa) {
     const f = e.target.closest("[data-forma]");
     if (f) { conta.forma = f.dataset.forma; return render(); }
     if (e.target.closest("[data-confirmar]")) {
-      Object.assign(mesa, { status: "livre", pessoas: 0, desde: null, itens: [] });
+      /* A comanda fecha e vira um pedido antigo no histórico */
+      comandas.fechar(mesa.numero, { forma: conta.forma, total: totalFinal() });
       camada.remove();
       atualizarTudo();
       toast(`Mesa ${mesa.numero} paga e liberada`);
@@ -261,6 +286,7 @@ function abrirFechamento(mesa) {
 
 /* ---------- 6. INÍCIO ---------- */
 function atualizarTudo() {
+  mesas = lerMesas();
   renderFiltros();
   renderMesas();
   if (estado.mesaAtual) renderComanda();
@@ -275,3 +301,20 @@ if (usuarioLogado) {
 }
 $("#btnSair").addEventListener("click", () => sessao.sair());
 atualizarTudo();
+
+/* O cliente pede pelo celular: confere as comandas a cada 3 segundos */
+let versaoComandas = JSON.stringify(comandas.abertas());
+setInterval(() => {
+  const agora = JSON.stringify(comandas.abertas());
+  if (agora === versaoComandas) return;
+  const antes = JSON.parse(versaoComandas);
+  versaoComandas = agora;
+  /* Avisa o garçom do que mudou pelo QR Code */
+  comandas.abertas().forEach((c) => {
+    const velha = antes.find((x) => x.mesa === c.mesa);
+    if (!velha) toast(`Mesa ${c.mesa} abriu comanda pelo QR Code`, "mesa");
+    else if (c.rodadas.length > velha.rodadas.length) toast(`Mesa ${c.mesa} pediu mais itens`, "chama");
+    else if (c.pediuConta && !velha.pediuConta) toast(`Mesa ${c.mesa} pediu a conta`, "conta");
+  });
+  atualizarTudo();
+}, 3000);

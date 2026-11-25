@@ -272,3 +272,28 @@ body { background: var(--fundo); }
 .resumo { padding: 18px; display: flex; flex-direction: column; gap: 8px; }
 .resumo__total { padding-top: 10px; margin-top: 2px; border-top: 1px solid var(--borda); }
 .demo { font-size: 12px; color: var(--texto-fraco); text-align: center; }
+
+/* ---------- Comanda da mesa (comer no local) ---------- */
+.conteudo--comanda:empty { display: none; }
+.conteudo--comanda { margin-bottom: 18px; }
+.comanda-cliente {
+  display: flex; flex-direction: column; gap: 12px; padding: 16px;
+  border-radius: var(--raio-xl); background: var(--superficie);
+  border: 1px solid var(--roxo-medio); box-shadow: 0 0 0 3px var(--roxo-claro);
+}
+.comanda-cliente__topo { display: flex; align-items: center; gap: 12px; }
+.comanda-cliente__topo strong { font-family: var(--fonte-marca); font-size: 19px; font-weight: 800; }
+.comanda-cliente__icone { width: 42px; height: 42px; border-radius: var(--raio-md); background: var(--roxo); color: #fff; display: grid; place-items: center; flex: none; }
+.comanda-cliente__info { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--texto-suave); padding: 10px 12px; background: var(--superficie-2); border-radius: var(--raio-md); }
+.comanda-cliente__info .ic { color: var(--roxo); }
+.aviso--mesa { background: var(--roxo-claro); border-color: transparent; color: var(--roxo-escuro); }
+.comanda-resumo { display: flex; justify-content: space-between; padding: 12px 14px; background: var(--superficie-2); border-radius: var(--raio-md); font-size: 14px; }
+.rodadas { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.rodada { display: flex; flex-direction: column; gap: 6px; padding-bottom: 14px; border-bottom: 1px dashed var(--borda); }
+.divisor { border: 0; border-top: 1px solid var(--borda); margin: 6px 0; }
+.demo-link { align-self: center; font-weight: 500; font-size: 12.5px; }
+.anterior { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.anterior__icone { width: 36px; height: 36px; border-radius: var(--raio-md); background: var(--superficie-2); color: var(--texto-suave); display: grid; place-items: center; flex: none; }
+#botaoMeusPedidos { position: relative; }
+#botaoMeusPedidos.tem-comanda::after { content: ""; position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--laranja); border: 2px solid #fff; }
+.rodada:has(+ .resumo__total) { border-bottom: 0; padding-bottom: 0; }

@@ -192,6 +192,7 @@ textarea.input { height: auto; padding: 10px 12px; resize: none; }
 .opcao.ativa .opcao__radio { border-color: var(--roxo); }
 .opcao.ativa .opcao__radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--roxo); }
 
+a.btn, a.btn:hover { text-decoration: none; }
 .link { color: var(--roxo); font-weight: 600; font-size: 13px; }
 .link:hover { text-decoration: underline; }
 .corta { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }

@@ -8,7 +8,7 @@
      4. Produto       → tela com galeria de fotos, ingredientes e adicionais
      5. Sacola
      6. Finalizar     → entrega ou local, cadastro pelo telefone, endereços, pagamento e troco
-     7. Acompanhamento
+     7. Meus pedidos  → comanda da mesa (comer no local), entrega e pedidos anteriores
      8. Início
    ========================================================================== */
 
@@ -30,9 +30,11 @@ const estado = {
   cliente: null,            // cadastro encontrado ou criado (clientes.js)
   enderecoId: null,
   novoEndereco: false,      // formulário de "Adicionar novo endereço" aberto?
-  mesa: "7",
+  mesaQR: Number(new URLSearchParams(location.search).get("mesa")) || null, // mesa lida pelo QR Code (?mesa=7)
+  mesa: "",
   nomeLocal: "",
 };
+if (estado.mesaQR) estado.mesa = String(estado.mesaQR);
 const iniciais = (nome) => nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
 const taxaEntrega = () => (estado.modo === "entrega" ? dados.lanchonete.taxaEntrega : 0);
@@ -48,6 +50,7 @@ function irPara(nomeTela) {
   $$(".tela").forEach((t) => (t.hidden = t.dataset.tela !== nomeTela));
   $("#barraSacola").style.display = nomeTela === "cardapio" ? "" : "none";
   window.scrollTo(0, 0);
+  if (nomeTela === "checkout" && (estado.mesaQR || minhaComanda())) estado.modo = "local";
   const renderizar = { carrinho: renderCarrinho, checkout: renderCheckout, acompanhamento: renderAcompanhamento };
   renderizar[nomeTela]?.();
 }
@@ -367,7 +370,7 @@ function renderCheckout() {
         </button>
         <button class="modo-card ${!entrega ? "ativo" : ""}" data-modo="local">
           <span class="modo-card__icone">${icone("local")}</span>
-          <b>Comer no local</b><span>Na mesa · sem taxa</span>
+          <b>Comer no local</b><span>Abre a comanda da mesa</span>
         </button>
       </div>
     </div>
@@ -380,18 +383,7 @@ function renderCheckout() {
   ligarEventosTroco();
 }
 
-/* --- Comer no local --- */
-function blocoLocal() {
-  return `
-    <div class="bloco">
-      <h3 class="bloco__titulo">${icone("local")} Sua mesa</h3>
-      <div class="duas">
-        <div class="campo"><label for="mesa">Número da mesa</label><input id="mesa" class="input" type="number" min="1" value="${estado.mesa}"></div>
-        <div class="campo"><label for="nomeLocal">Seu nome</label><input id="nomeLocal" class="input" placeholder="Como te chamamos" value="${estado.nomeLocal}"></div>
-      </div>
-      <div class="aviso">${icone("info", "ic--sm")}<span>No consumo local, o pagamento é feito com o garçom quando você pedir a conta.</span></div>
-    </div>`;
-}
+/* --- Comer no local: veja a seção 7 (comanda da mesa) --- */
 
 /* --- Entrega: identificação pelo telefone --- */
 function blocoCliente() {
@@ -630,7 +622,7 @@ function ligarEventosTroco() {
 }
 
 function podeConfirmar() {
-  if (estado.modo === "local") return Number(estado.mesa) > 0 && estado.nomeLocal.trim().length > 1;
+  if (estado.modo === "local") return !!minhaComanda() || (Number(estado.mesa) > 0 && estado.nomeLocal.trim().length > 1);
   if (!estado.cliente || estado.novoEndereco) return false;
   if (!estado.pagamento) return false;
   if (estado.pagamento === "dinheiro") return estado.semTroco || valorTroco() >= total();
@@ -641,36 +633,118 @@ function renderRodapeCheckout() {
   $("#rodapeCheckout").innerHTML = `
     ${linhasResumo()}
     <button class="btn btn--primario btn--bloco" id="confirmar" ${podeConfirmar() ? "" : "disabled"}>
-      ${estado.modo === "entrega" ? "Confirmar pedido" : "Enviar pedido para a cozinha"}
+      ${estado.modo === "entrega" ? "Confirmar pedido" : minhaComanda() ? "Adicionar à comanda" : "Abrir comanda e enviar para a cozinha"}
     </button>`;
   $("#confirmar").onclick = confirmarPedido;
 }
 
-/* ---------- 7. ACOMPANHAMENTO ---------- */
-const etapas = {
-  entrega: [
-    { icone: "recebido", titulo: "Pedido recebido", sub: "A lanchonete confirmou seu pedido" },
-    { icone: "chama", titulo: "Em preparo", sub: "Seu pedido está sendo preparado" },
-    { icone: "entrega", titulo: "Saiu para entrega", sub: "O entregador está a caminho" },
-    { icone: "inicio", titulo: "Entregue", sub: "Bom apetite!" },
-  ],
-  local: [
-    { icone: "recebido", titulo: "Pedido recebido", sub: "A cozinha recebeu seu pedido" },
-    { icone: "chama", titulo: "Em preparo", sub: "Está ficando pronto" },
-    { icone: "local", titulo: "Servido na mesa", sub: "Peça a conta ao garçom quando quiser" },
-  ],
-};
-let timerPedido;
+/* ---------- 7. MEUS PEDIDOS: COMANDA DA MESA E ENTREGA ----------
+   Comer no local NÃO gera um pedido solto: abre (ou aumenta) a COMANDA
+   da mesa. O cliente vê a comanda no início e em "Meus pedidos", pede
+   mais quando quiser e pede a conta. Quando o garçom fecha a conta, a
+   comanda vira um pedido antigo e some do início.
+*/
+const { comandas } = Fomito;
+const CHAVE_MINHA = "fomito.minhaComanda";   // { mesa, abertaEm } da comanda deste celular
+const CHAVE_ANTERIORES = "fomito.meusPedidos";
+const guardar = (chave, valor) => { try { valor == null ? localStorage.removeItem(chave) : localStorage.setItem(chave, JSON.stringify(valor)); } catch { /* segue em memória */ } };
+const recuperar = (chave, padrao) => { try { return JSON.parse(localStorage.getItem(chave)) ?? padrao; } catch { return padrao; } };
+
+let minha = recuperar(CHAVE_MINHA, null);
+let anteriores = recuperar(CHAVE_ANTERIORES, []);
+
+/** A comanda aberta deste cliente (ou null se não tem / já foi fechada) */
+function minhaComanda() {
+  if (!minha) return null;
+  const c = comandas.daMesa(minha.mesa);
+  return c && c.abertaEm === minha.abertaEm ? c : null;
+}
+
+/** Se o garçom fechou a conta, a comanda vira pedido antigo */
+function verificarFechamento() {
+  if (!minha || minhaComanda()) return;
+  const fechada = comandas.fechadas().find((f) => f.mesa === minha.mesa && f.abertaEm === minha.abertaEm);
+  if (fechada && !anteriores.some((a) => a.numero === fechada.numero)) {
+    anteriores.unshift({ tipo: "comanda", numero: fechada.numero, titulo: `Comanda · ${comandas.mesaTexto(fechada.mesa)}`, data: fechada.fechadaEm, itens: comandas.qtdItens(fechada), total: fechada.total, forma: fechada.forma });
+    guardar(CHAVE_ANTERIORES, anteriores);
+    toast(`Conta da ${comandas.mesaTexto(fechada.mesa)} fechada. Obrigado pela visita!`, "check");
+  }
+  minha = null;
+  guardar(CHAVE_MINHA, null);
+}
+
+/* --- Cartão da comanda no início (abaixo do cartão da loja) --- */
+function renderMinhaComanda() {
+  verificarFechamento();
+  const c = minhaComanda();
+  const el = $("#minhaComanda");
+  if (c) {
+    const ultima = c.rodadas[c.rodadas.length - 1];
+    const st = comandas.STATUS[ultima.status];
+    el.innerHTML = `
+      <div class="comanda-cliente">
+        <div class="comanda-cliente__topo">
+          <span class="comanda-cliente__icone">${icone("mesa")}</span>
+          <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="rotulo">Sua comanda</span><strong>${comandas.mesaTexto(c.mesa)}</strong></div>
+          <span class="tag tag--${c.pediuConta ? "laranja" : "verde"}">${c.pediuConta ? "Conta pedida" : "Aberta"}</span>
+        </div>
+        <div class="comanda-cliente__info">
+          <span>${comandas.qtdItens(c)} itens · ${c.rodadas.length} ${c.rodadas.length > 1 ? "pedidos" : "pedido"} · desde ${comandas.hora(c.abertaEm)}</span>
+          <span class="linha" style="gap:5px">${icone(st.icone, "ic--sm")}Último pedido: <b>${st.nome}</b></span>
+        </div>
+        <div class="entre"><span class="suave">Total até agora</span><span class="preco">${moeda(comandas.total(c))}</span></div>
+        <div class="duas">
+          <button class="btn btn--contorno" data-ir="acompanhamento">Ver comanda</button>
+          <button class="btn btn--primario" data-pedir-mais>${icone("mais", "ic--sm")} Pedir mais</button>
+        </div>
+      </div>`;
+  } else if (estado.mesaQR) {
+    el.innerHTML = `
+      <div class="aviso aviso--mesa">${icone("mesa", "ic--sm")}<span>Você está na <b>${comandas.mesaTexto(estado.mesaQR)}</b>. Escolha seus itens: ao finalizar, eles abrem a comanda da mesa.</span></div>`;
+  } else el.innerHTML = "";
+  $("#botaoMeusPedidos").classList.toggle("tem-comanda", !!c);
+}
+
+/* --- Comer no local, no finalizar pedido --- */
+function blocoLocal() {
+  const c = minhaComanda();
+  if (c) return `
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("mesa")} Comanda da ${comandas.mesaTexto(c.mesa)}</h3>
+      <div class="comanda-resumo"><span>Já na comanda: ${comandas.qtdItens(c)} itens</span><span class="num forte">${moeda(comandas.total(c))}</span></div>
+      <div class="aviso">${icone("info", "ic--sm")}<span>Estes itens entram na sua comanda aberta. Você paga tudo junto no final, com o garçom.</span></div>
+    </div>`;
+  const pelaMesa = !!estado.mesaQR;
+  return `
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("mesa")} Sua mesa</h3>
+      <div class="duas">
+        <div class="campo"><label for="mesa">Número da mesa</label><input id="mesa" class="input" type="number" min="1" value="${estado.mesa}" ${pelaMesa ? "readonly" : ""}>${pelaMesa ? `<span class="pequeno fraco">Pelo QR Code da mesa</span>` : ""}</div>
+        <div class="campo"><label for="nomeLocal">Seu nome</label><input id="nomeLocal" class="input" placeholder="Como te chamamos" value="${estado.nomeLocal}"></div>
+      </div>
+      <div class="aviso">${icone("info", "ic--sm")}<span>Vamos abrir uma <b>comanda</b> para a sua mesa. Você pode pedir mais vezes e paga tudo no final, com o garçom.</span></div>
+    </div>`;
+}
+
+/* --- Confirmar (entrega vira pedido; local vai para a comanda) --- */
+const etapas = [
+  { icone: "recebido", titulo: "Pedido recebido", sub: "A lanchonete confirmou seu pedido" },
+  { icone: "chama", titulo: "Em preparo", sub: "Seu pedido está sendo preparado" },
+  { icone: "entrega", titulo: "Saiu para entrega", sub: "O entregador está a caminho" },
+  { icone: "inicio", titulo: "Entregue", sub: "Bom apetite!" },
+];
+let timerPedido, timerCozinha;
 
 function confirmarPedido() {
-  const endereco = estado.cliente?.enderecos.find((e) => e.id === estado.enderecoId);
+  if (estado.modo === "local") return enviarParaComanda();
+  const endereco = estado.cliente.enderecos.find((e) => e.id === estado.enderecoId);
   estado.pedido = {
-    numero: 1000 + Math.floor(Math.random() * 900), modo: estado.modo, itens: [...estado.carrinho], total: total(),
+    numero: 1000 + Math.floor(Math.random() * 900), itens: [...estado.carrinho], total: total(),
     pagamento: estado.pagamento, troco: estado.semTroco ? null : valorTroco(),
-    cliente: estado.modo === "entrega" ? estado.cliente.nome : estado.nomeLocal.trim(),
-    endereco: endereco ? `${endereco.apelido}: ${clientes.textoEndereco(endereco)}` : null,
-    mesa: estado.mesa,
+    cliente: estado.cliente.nome, endereco: `${endereco.apelido}: ${clientes.textoEndereco(endereco)}`,
   };
+  anteriores.unshift({ tipo: "entrega", numero: estado.pedido.numero, titulo: "Entrega", data: Date.now(), itens: qtdItens(), total: total(), forma: estado.pagamento });
+  guardar(CHAVE_ANTERIORES, anteriores);
   estado.carrinho = [];
   estado.etapaPedido = 0;
   atualizarBarraSacola();
@@ -679,54 +753,155 @@ function confirmarPedido() {
   /* Demonstração: avança uma etapa a cada 4 segundos */
   clearInterval(timerPedido);
   timerPedido = setInterval(() => {
-    const lista = etapas[estado.pedido.modo];
-    if (estado.etapaPedido >= lista.length - 1) return clearInterval(timerPedido);
+    if (estado.etapaPedido >= etapas.length - 1) return clearInterval(timerPedido);
     estado.etapaPedido++;
     if (!$('[data-tela="acompanhamento"]').hidden) renderAcompanhamento();
   }, 4000);
 }
 
+function enviarParaComanda() {
+  const aberta = minhaComanda();
+  const mesa = aberta ? aberta.mesa : Number(estado.mesa);
+  const jaTinha = !aberta && comandas.daMesa(mesa); // alguém da mesa (ou o garçom) já abriu
+  const c = comandas.lancar(mesa, estado.carrinho, { nome: estado.nomeLocal.trim(), por: "qr" });
+  minha = { mesa, abertaEm: c.abertaEm };
+  guardar(CHAVE_MINHA, minha);
+  estado.carrinho = [];
+  atualizarBarraSacola();
+  renderMinhaComanda();
+  irPara("acompanhamento");
+  toast(aberta || jaTinha ? `Itens adicionados à comanda da ${comandas.mesaTexto(mesa)}` : `Comanda da ${comandas.mesaTexto(mesa)} aberta`, "mesa");
+  demoCozinha();
+}
+
+/* Demonstração: a cozinha avança o último pedido da comanda a cada 5 segundos */
+function demoCozinha() {
+  clearInterval(timerCozinha);
+  timerCozinha = setInterval(() => {
+    const c = minhaComanda();
+    const i = c ? c.rodadas.findIndex((r) => r.status !== "servido") : -1;
+    if (i < 0) return clearInterval(timerCozinha);
+    comandas.statusRodada(c.mesa, i, comandas.PROXIMO[c.rodadas[i].status]);
+    atualizarTelas();
+  }, 5000);
+}
+
+/* --- Tela "Meus pedidos" --- */
 function renderAcompanhamento() {
-  const pedido = estado.pedido;
-  if (!pedido) {
-    $("#acompanhamento").innerHTML = `<div class="vazio"><span class="vazio__icone">${icone("pedidos", "ic--lg")}</span><p>Você ainda não fez nenhum pedido.</p><button class="btn btn--secundario" data-ir="cardapio">Ver cardápio</button></div>`;
-    return;
-  }
-  const lista = etapas[pedido.modo];
-  const atual = lista[estado.etapaPedido];
-  const forma = dados.formasPagamento.find((f) => f.id === pedido.pagamento);
+  verificarFechamento();
+  const c = minhaComanda();
+  const partes = [];
+  if (c) partes.push(telaComanda(c));
+  if (estado.pedido) partes.push(telaEntrega());
+  const antigos = anteriores.filter((a) => a.numero !== estado.pedido?.numero);
+  if (antigos.length) partes.push(listaAnteriores(antigos));
+  $("#acompanhamento").innerHTML = partes.join(`<hr class="divisor">`) || `
+    <div class="vazio"><span class="vazio__icone">${icone("pedidos", "ic--lg")}</span><p>Você ainda não fez nenhum pedido.</p><button class="btn btn--secundario" data-ir="cardapio">Ver cardápio</button></div>`;
+}
 
-  const pagamento = pedido.modo === "entrega"
-    ? `Pagamento na entrega: <b>${forma?.nome}</b>${pedido.pagamento === "dinheiro" ? (pedido.troco ? `, troco para ${moeda(pedido.troco)} (o entregador leva ${moeda(pedido.troco - pedido.total)})` : ", sem troco") : ""}.`
-    : "Pagamento com o garçom ao fechar a conta.";
-
-  $("#acompanhamento").innerHTML = `
+function telaComanda(c) {
+  const servico = comandas.total(c) * 0.1;
+  return `
     <div class="status">
-      <span class="rotulo">Pedido #${pedido.numero}</span>
+      <span class="rotulo">Comanda · ${comandas.mesaTexto(c.mesa)}</span>
+      <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">${c.pediuConta ? "Conta pedida" : "Comanda aberta"}</h3>
+      <span class="suave">${c.pediuConta ? "O garçom já está trazendo a conta." : "Peça mais quando quiser. Você paga tudo no final."}</span>
+    </div>
+    <div class="card rodadas">
+      ${c.rodadas.map((r, i) => {
+        const st = comandas.STATUS[r.status];
+        return `
+          <div class="rodada">
+            <div class="entre"><span class="forte">${i + 1}º pedido <span class="pequeno fraco">· ${comandas.hora(r.hora)}${r.por === "garcom" ? " · pelo garçom" : ""}</span></span><span class="tag tag--${st.cor}">${st.nome}</span></div>
+            ${r.itens.map((it) => `<div class="entre pequeno"><span>${it.qtd}× ${Fomito.produto(it.id).nome}${adicionaisDe(it).length ? ` <span class="fraco">+ ${adicionaisDe(it).map((a) => a.nome).join(", ")}</span>` : ""}</span><span class="num">${moeda(comandas.precoItem(it))}</span></div>`).join("")}
+          </div>`;
+      }).join("")}
+      <div class="entre resumo__total"><span class="forte">Total da comanda</span><span class="preco">${moeda(comandas.total(c))}</span></div>
+      <span class="pequeno fraco">Serviço de 10% (opcional) cobrado pelo garçom: ${moeda(servico)}</span>
+    </div>
+    ${c.pediuConta ? `
+      <div class="aviso">${icone("conta", "ic--sm")}<span>Pague na mesa com dinheiro, Pix ou cartão. Se quiser, ainda dá para pedir mais.</span></div>
+      <button class="link demo-link" data-simular-fechar>Protótipo: simular o garçom fechando a conta</button>` : ""}
+    <div class="duas">
+      <button class="btn btn--contorno" data-pedir-mais>${icone("mais", "ic--sm")} Pedir mais</button>
+      <button class="btn btn--primario" data-pedir-conta ${c.pediuConta ? "disabled" : ""}>${icone("conta", "ic--sm")} ${c.pediuConta ? "Conta pedida" : "Pedir a conta"}</button>
+    </div>`;
+}
+
+function telaEntrega() {
+  const pedido = estado.pedido;
+  const atual = etapas[estado.etapaPedido];
+  const forma = dados.formasPagamento.find((f) => f.id === pedido.pagamento);
+  const pagamento = `Pagamento na entrega: <b>${forma?.nome}</b>${pedido.pagamento === "dinheiro" ? (pedido.troco ? `, troco para ${moeda(pedido.troco)} (o entregador leva ${moeda(pedido.troco - pedido.total)})` : ", sem troco") : ""}.`;
+  return `
+    <div class="status">
+      <span class="rotulo">Pedido #${pedido.numero} · Entrega</span>
       <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">${atual.titulo}</h3>
-      <span class="suave">${pedido.modo === "entrega" ? `Previsão de entrega: ${dados.lanchonete.tempoEntrega}` : `Mesa ${pedido.mesa} · ${pedido.cliente}`}</span>
-      <div class="status__progresso" style="grid-template-columns:repeat(${lista.length},1fr)">
-        ${lista.map((_, i) => `<span class="${i < estado.etapaPedido ? "feito" : i === estado.etapaPedido ? "atual" : ""}"></span>`).join("")}
+      <span class="suave">Previsão de entrega: ${dados.lanchonete.tempoEntrega}</span>
+      <div class="status__progresso" style="grid-template-columns:repeat(${etapas.length},1fr)">
+        ${etapas.map((_, i) => `<span class="${i < estado.etapaPedido ? "feito" : i === estado.etapaPedido ? "atual" : ""}"></span>`).join("")}
       </div>
     </div>
-
     <div class="card linha-tempo">
-      ${lista.map((e, i) => `
+      ${etapas.map((e, i) => `
         <div class="etapa ${i < estado.etapaPedido ? "feita" : ""} ${i === estado.etapaPedido ? "atual" : ""}">
           <span class="etapa__ponto">${icone(i < estado.etapaPedido ? "check" : e.icone, "ic--sm")}</span>
           <div><div class="etapa__titulo">${e.titulo}</div><div class="pequeno suave">${e.sub}</div></div>
         </div>`).join("")}
     </div>
-
     <div class="card resumo">
       <span class="rotulo">Itens</span>
       ${pedido.itens.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
       <div class="entre resumo__total"><span class="forte">Total</span><span class="preco">${moeda(pedido.total)}</span></div>
     </div>
-    ${pedido.endereco ? `<div class="aviso">${icone("pin", "ic--sm")}<span>Entregar para <b>${pedido.cliente}</b> em ${pedido.endereco}</span></div>` : ""}
-    <div class="aviso">${icone(pedido.modo === "entrega" ? (forma?.icone || "dinheiro") : "usuario", "ic--sm")}<span>${pagamento}</span></div>
+    <div class="aviso">${icone("pin", "ic--sm")}<span>Entregar para <b>${pedido.cliente}</b> em ${pedido.endereco}</span></div>
+    <div class="aviso">${icone(forma?.icone || "dinheiro", "ic--sm")}<span>${pagamento}</span></div>
     <p class="demo">Protótipo: o status avança sozinho a cada 4 segundos.</p>`;
 }
+
+function listaAnteriores(lista) {
+  const data = (ts) => new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " + comandas.hora(ts);
+  return `
+    <div class="pilha" style="gap:10px">
+      <span class="rotulo">Pedidos anteriores</span>
+      ${lista.map((a) => `
+        <div class="card anterior">
+          <span class="anterior__icone">${icone(a.tipo === "comanda" ? "mesa" : "entrega", "ic--sm")}</span>
+          <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${a.titulo}</span><span class="pequeno suave">#${a.numero} · ${data(a.data)} · ${a.itens} itens</span></div>
+          <div class="pilha" style="gap:2px;align-items:flex-end"><span class="num forte">${moeda(a.total)}</span><span class="tag tag--${a.tipo === "comanda" ? "verde" : "cinza"}">${a.tipo === "comanda" ? "Paga" : "Na entrega"}</span></div>
+        </div>`).join("")}
+    </div>`;
+}
+
+/* Botões da comanda (no início e em "Meus pedidos") */
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-pedir-mais]")) {
+    irPara("cardapio");
+    return $("#categorias").scrollIntoView({ behavior: "smooth" });
+  }
+  const c = minhaComanda();
+  if (!c) return;
+  if (e.target.closest("[data-pedir-conta]")) {
+    comandas.pedirConta(c.mesa);
+    toast("O garçom foi avisado e já traz a sua conta", "conta");
+    return atualizarTelas();
+  }
+  if (e.target.closest("[data-simular-fechar]")) {
+    comandas.fechar(c.mesa, { forma: "pix", total: comandas.total(c) * 1.1 });
+    return atualizarTelas();
+  }
+});
+
+/* O garçom pode mexer na comanda em outro aparelho: confere a cada 3 segundos */
+let ultimaVersao = "";
+function atualizarTelas() {
+  renderMinhaComanda();
+  if (!$('[data-tela="acompanhamento"]').hidden) renderAcompanhamento();
+}
+setInterval(() => {
+  const versao = JSON.stringify(minha ? comandas.daMesa(minha.mesa) : null);
+  if (versao !== ultimaVersao) { ultimaVersao = versao; atualizarTelas(); }
+}, 3000);
 
 /* ---------- 8. INÍCIO ---------- */
 const loja = dados.lanchonete;
@@ -738,6 +913,8 @@ $("#taxaLoja").textContent = `Entrega ${moeda(loja.taxaEntrega)}`;
 $("#rodapeNome").textContent = loja.nome;
 $("#rodapeEndereco").textContent = loja.endereco;
 $("#rodapeHorario").textContent = loja.horario;
+renderMinhaComanda();
+if (minhaComanda()) demoCozinha();
 renderVitrine();
 renderDestaques();
 renderCategorias();

@@ -6,7 +6,7 @@
      2. Navegação do menu
      3. Visão geral (dashboard)
      4. Pedidos em tempo real (quadro)
-     5. Comandas
+     5. Comandas → comandas.js
      6. Cardápio, Clientes, detalhe e lançamento de pedido → arquivos próprios
         (cardapio.js · clientes.js · pedido.js, carregados antes deste)
      7. Equipe (usuários garçom)
@@ -26,16 +26,14 @@ const vendasSemana = [
   { dia: "Qui", valor: 2920 }, { dia: "Sex", valor: 3640 }, { dia: "Sáb", valor: 4210 }, { dia: "Dom", valor: 3850 },
 ];
 
+/* Pedidos de entrega e balcão. Os pedidos das mesas vêm das comandas (comandas.js). */
 /* status: "novo" → "preparo" → "pronto" → "concluido" */
 /* itens: [idProduto, quantidade, adicionais?, observação?] */
 let pedidos = [
   { num: 1042, cliente: "Ana Souza",   modo: "entrega", telefone: "(11) 98888-7777", endereco: "Rua das Flores, 120, Centro", itens: [[2, 1, ["bacon"], "sem cebola"], [6, 1], [10, 2]], pag: "dinheiro", troco: 100, status: "novo", min: 1 },
-  { num: 1041, cliente: "Mesa 07",     modo: "local",   itens: [[1, 2], [13, 2]],          pag: null,       status: "novo",    min: 3 },
   { num: 1040, cliente: "Bruno Lima",  modo: "entrega", telefone: "(11) 97777-1234", endereco: "Av. Paulista, 900, ap 52", itens: [[3, 1], [11, 1]], pag: "pix", status: "preparo", min: 9, whats: "Em preparo" },
-  { num: 1039, cliente: "Mesa 05",     modo: "local",   itens: [[7, 1], [11, 3]],          pag: null,       status: "preparo", min: 12 },
   { num: 1038, cliente: "Carla Dias",  modo: "entrega", telefone: "(11) 96666-4321", endereco: "Rua Bahia, 45, Jardim", itens: [[5, 2], [10, 2]], pag: "credito", status: "pronto", min: 21, whats: "Saiu para entrega" },
   { num: 1037, cliente: "Diego Alves", modo: "entrega", telefone: "(11) 95555-0000", endereco: "Rua Goiás, 300", itens: [[8, 1], [13, 4]], pag: "debito", status: "concluido", min: 38, whats: "Entregue" },
-  { num: 1036, cliente: "Mesa 03",     modo: "local",   itens: [[1, 1], [2, 1], [10, 2]],  pag: null,       status: "concluido", min: 44 },
 ];
 
 const colunas = [
@@ -57,7 +55,7 @@ const comTotal = (p) => ({ ...p, total: totalPedido(p) });
 const titulos = {
   dashboard: ["Visão geral", "Resumo de hoje, segunda-feira, 23 de novembro."],
   pedidos: ["Pedidos", "Acompanhe e avance os pedidos em tempo real."],
-  comandas: ["Comandas", "Situação das mesas do salão."],
+  comandas: ["Comandas", "Mesas abertas pelo QR Code ou pelo garçom, contas fechadas e os QR Codes das mesas."],
   cardapio: ["Cardápio", "Produtos, fotos, categorias, adicionais e a vitrine do topo."],
   clientes: ["Clientes", "Cadastros feitos pelo telefone no finalizar pedido, com os endereços salvos."],
   equipe: ["Equipe", "Crie o acesso dos garçons. Eles entram pelo Portal e vão direto para as comandas."],
@@ -217,10 +215,11 @@ function renderPedidos() {
     <div class="kanban">
       ${colunas.map((c) => {
         const lista = pedidos.filter((p) => p.status === c.id);
+        const rodadas = rodadasDaColuna(c.id); // pedidos das mesas (comandas)
         return `
           <div class="coluna" style="--cor-coluna:${c.cor}">
-            <div class="coluna__topo"><h3>${c.titulo}</h3><span class="coluna__qtd">${lista.length}</span></div>
-            ${lista.map((p) => cardPedido(p, c)).join("") || `<p class="vazio-coluna">Nenhum pedido</p>`}
+            <div class="coluna__topo"><h3>${c.titulo}</h3><span class="coluna__qtd">${lista.length + rodadas.length}</span></div>
+            ${rodadas.map(cardRodada).join("")}${lista.map((p) => cardPedido(p, c)).join("") || (rodadas.length ? "" : `<p class="vazio-coluna">Nenhum pedido</p>`)}
           </div>`;
       }).join("")}
     </div>
@@ -279,7 +278,7 @@ function mostrarCupom(p, aoAceitar) {
 }
 
 function atualizarBadge() {
-  const novos = pedidos.filter((p) => p.status === "novo").length;
+  const novos = pedidos.filter((p) => p.status === "novo").length + rodadasDaColuna("novo").length;
   $("#badgeNovos").textContent = novos;
   $("#badgeNovos").hidden = !novos;
 }
@@ -306,34 +305,8 @@ function chegarPedido() {
 setTimeout(chegarPedido, 7000);
 setTimeout(chegarPedido, 45000);
 
-/* ---------- 5. COMANDAS ---------- */
-function renderComandas() {
-  const mesas = [
-    [1, "livre"], [2, "conta", 168.7], [3, "ocupada", 67.8], [4, "livre"], [5, "ocupada", 59], [6, "livre"],
-    [7, "ocupada", 71.8], [8, "livre"], [9, "conta", 186], [10, "livre"], [11, "ocupada", 20.5], [12, "livre"],
-  ];
-  const texto = { livre: "Livre", ocupada: "Ocupada", conta: "Conta" };
-  const cor = { livre: "cinza", ocupada: "roxo", conta: "laranja" };
-  $('[data-secao="comandas"].secao').innerHTML = `
-    <div class="kpis">
-      <div class="card kpi"><div class="kpi__rotulo">Mesas ocupadas${icone("mesa")}</div><div class="kpi__valor">6 de 12</div></div>
-      <div class="card kpi"><div class="kpi__rotulo">Pediram a conta${icone("conta")}</div><div class="kpi__valor">2</div></div>
-      <div class="card kpi"><div class="kpi__rotulo">Em aberto no salão${icone("moeda")}</div><div class="kpi__valor">${moeda(573.8)}</div></div>
-      <div class="card kpi"><div class="kpi__rotulo">Garçons no turno${icone("pessoas")}</div><div class="kpi__valor">3</div></div>
-    </div>
-    <div class="mini-mesas">
-      ${mesas.map(([n, s, v]) => `
-        <div class="card mini-mesa ${s}">
-          <div class="entre"><span class="pequeno fraco">Mesa</span><span class="tag tag--${cor[s]}">${texto[s]}</span></div>
-          <strong>${String(n).padStart(2, "0")}</strong>
-          <span class="preco pequeno">${v ? moeda(v) : "—"}</span>
-        </div>`).join("")}
-    </div>
-    <div class="entre" style="flex-wrap:wrap">
-      <p class="pequeno fraco">Os garçons abrem, lançam e fecham as comandas pela tela de comandas.</p>
-      <a class="btn btn--contorno btn--sm" href="../garcom/index.html">${icone("mesa", "ic--sm")} Abrir tela de comandas</a>
-    </div>`;
-}
+/* ---------- 5. COMANDAS ----------
+   Ficam em comandas.js (mesmas comandas do cliente e do garçom) */
 
 /* ---------- 6. CARDÁPIO e CLIENTES ----------
    Ficam em arquivos próprios: cardapio.js, clientes.js e pedido.js */

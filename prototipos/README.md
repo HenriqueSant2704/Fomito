@@ -34,6 +34,7 @@ prototipos/
 │   │   ├── config.js          ← MARCA DO RESTAURANTE (nome, logo, cores, fontes) + WhatsApp, impressora e som
 │   │   ├── alertas.js         ← som de pedido novo, cupom de 80mm e mensagens de WhatsApp
 │   │   ├── clientes.js        ← cadastro de clientes pelo telefone, com vários endereços
+│   │   ├── comandas.js        ← comandas das mesas (cliente pelo QR Code, garçom e painel usam as mesmas)
 │   │   ├── ilustracoes.js     ← "fotos" ilustradas dos produtos e da vitrine
 │   │   ├── sessao.js          ← login, perfis (admin/garçom) e proteção das telas
 │   │   ├── dados.js           ← cardápio, fotos, adicionais e dados de exemplo
@@ -45,7 +46,8 @@ prototipos/
 └── painel/    (index.html · painel.css · painel.js)
     ├── cardapio.js            ← produtos (cadastro com fotos), categorias, adicionais e vitrine
     ├── clientes.js            ← lista de clientes e ficha com endereços
-    └── pedido.js              ← detalhe do pedido e "Lançar pedido" (telefone, balcão, mesa)
+    ├── pedido.js              ← detalhe do pedido e "Lançar pedido" (telefone, balcão, mesa)
+    └── comandas.js            ← comandas no quadro da cozinha, mesas, contas fechadas e QR Codes
 ```
 
 Cada tela tem **3 arquivos com o mesmo nome da pasta**: o HTML (estrutura), o CSS (visual) e o JS (comportamento).
@@ -63,9 +65,28 @@ Na entrega, o cliente se identifica pelo **celular**:
 Teste com `(11) 98888-7777` (já tem 2 endereços) ou qualquer outro número. O cadastro aparece no **Painel → Clientes**.
 No sistema real o telefone deve ser confirmado por um código no WhatsApp antes de mostrar os endereços, para ninguém ver o endereço de outra pessoa só sabendo o número.
 
+## Comanda da mesa pelo QR Code
+
+Cada mesa tem um QR Code que abre o cardápio já com o número dela (ex.: `cliente/index.html?mesa=7`).
+No protótipo, use o link **"Simular QR da Mesa 07"** no rodapé do cardápio.
+
+1. O cliente pede normalmente e, no finalizar, escolhe **Comer no local**. Pelo QR a mesa já vem preenchida.
+2. Isso **não vira um pedido solto: abre a comanda da mesa**. Ela aparece no início (abaixo do cartão da loja) e em **Meus pedidos**.
+3. Cada vez que ele pede mais, entra uma nova **rodada** na mesma comanda: Recebido → Em preparo → Pronto → Servido.
+4. **Pedir a conta** avisa o garçom. Quando o garçom **fecha a conta**, a comanda vira um **pedido antigo**, sai do início e aparece em "Pedidos anteriores".
+
+As comandas ficam em `compartilhado/js/comandas.js` e são as mesmas para o cliente, o garçom e o painel:
+- **Garçom:** vê as mesas abertas pelo QR, as rodadas, quem pediu a conta, marca como servido e fecha a conta.
+- **Painel → Pedidos:** as rodadas das mesas entram nas colunas da cozinha (borda roxa).
+- **Painel → Comandas:** mesas, comandas fechadas do dia e os QR Codes para imprimir.
+
+No protótipo tudo fica no navegador, então abra o cardápio e o garçom no mesmo navegador para ver um avisar o outro (a cada 3 segundos).
+No sistema real isso vira as tabelas `comandas` e `comanda_itens` no Neon, com atualização em tempo real (WebSocket).
+O QR deve levar um código da mesa difícil de adivinhar (ex.: `?m=7f3k`), para ninguém pedir em nome de outra mesa digitando o número.
+
 ## Painel completo (visualização)
 
-- **Pedidos:** clique num card para ver o detalhe (cliente, itens, troco, andamento, mensagens). **Lançar pedido** registra pedidos por telefone, balcão ou mesa.
+- **Pedidos:** clique num card para ver o detalhe (cliente, itens, troco, andamento, mensagens). **Lançar pedido** registra pedidos por telefone ou balcão; na opção Mesa, os itens entram na comanda da mesa.
 - **Cardápio:** abas Produtos, Categorias, Adicionais e Vitrine. O cadastro de produto tem fotos (a primeira é a capa), descrição, ingredientes, adicionais, disponibilidade e a prévia de como o cliente vê.
 - **Clientes:** indicadores, busca por nome ou telefone e a ficha com endereços e pedidos.
 
