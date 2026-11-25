@@ -108,7 +108,7 @@ window.Fomito = window.Fomito || {};
     const p = doNumero(num);
     if (!p || (Fomito.caixa && !Fomito.caixa.aberto())) return null;
     const dinheiro = forma === "dinheiro";
-    Fomito.caixa?.registrar({ tipo: "entrega", ref: `Entrega #${p.num} · ${p.cliente}`, forma, valor: p.total, ...(dinheiro ? { recebido, troco } : {}), por });
+    Fomito.caixa?.registrar({ tipo: "entrega", pedido: p.num, ref: `Entrega #${p.num} · ${p.cliente}`, forma, valor: p.total, ...(dinheiro ? { recebido, troco } : {}), por });
     return atualizar(num, { status: "concluido", entregueEm: Date.now(), pagoCom: forma, recebido: dinheiro ? recebido : null, trocoDado: dinheiro ? troco : null, motoboy: p.motoboy || por });
   };
 

@@ -383,3 +383,14 @@ button.mini-mesa:not(:disabled):hover { border-color: var(--roxo-medio); box-sha
 .tipos-funcionario { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .pedido > .entre:last-child { flex-wrap: wrap; row-gap: 8px; }
 .pedido > .entre:last-child > .linha { margin-left: auto; }
+
+/* ---------- Caixa: corrigir pagamento e registro (v8) ---------- */
+.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.btn-icone--sm { width: 30px; height: 30px; }
+button.tag { cursor: pointer; }
+.tag .ic { width: 12px; height: 12px; }
+.formas-painel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.formas-painel .opcao { padding: 9px 10px; gap: 10px; }
+.formas-painel .opcao__icone { width: 30px; height: 30px; }
+.historico-corr { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid #F6E3CA; background: var(--creme); border-radius: var(--raio-md); }
+.historico-corr s, .tabela s { color: var(--texto-fraco); }

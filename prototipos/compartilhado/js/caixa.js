@@ -7,7 +7,11 @@
                            que o cliente deu e o troco devolvido
      3. TIRAR DINHEIRO   → ex.: levar ao cofre    (no código: tipo "sangria")
         COLOCAR DINHEIRO → ex.: mais troco        (no código: tipo "suprimento")
-     4. FECHAR           → conta o dinheiro da gaveta e compara com o que deveria ter
+     4. CORRIGIR         → o responsável corrige um pagamento lançado errado
+                           (ex.: o motoboy marcou cartão, mas foi Pix). O valor
+                           original NUNCA é apagado: cada correção guarda o
+                           antes, o depois, quem corrigiu, quando e o motivo.
+     5. FECHAR           → conta o dinheiro da gaveta e compara com o que deveria ter
 
    Exemplo: pedido de R$ 100, o cliente dá uma nota de R$ 200 e recebe
    R$ 100 de troco. Entram R$ 200 e saem R$ 100: a gaveta fica com +R$ 100.
@@ -50,9 +54,14 @@ window.Fomito = window.Fomito || {};
 
   /* ---------- Leitura e gravação ---------- */
   let memoria = null;
+  /* Cada movimento tem um id (os antigos ganham um na leitura) */
+  const comIds = (d) => {
+    d.aberto?.movimentos.forEach((m, i) => { m.id ||= `m${m.hora}-${i}`; });
+    return d;
+  };
   const ler = () => {
-    try { const v = localStorage.getItem(CHAVE); if (v) return JSON.parse(v); } catch { /* sem armazenamento */ }
-    return memoria || structuredClone(EXEMPLO);
+    try { const v = localStorage.getItem(CHAVE); if (v) return comIds(JSON.parse(v)); } catch { /* sem armazenamento */ }
+    return comIds(memoria || structuredClone(EXEMPLO));
   };
   const gravar = (d) => {
     memoria = d;
@@ -91,15 +100,39 @@ window.Fomito = window.Fomito || {};
   /** Registra uma entrada ou saída. Retorna false se o caixa está fechado. */
   const registrar = (movimento) => alterar((d) => {
     if (!d.aberto) return false;
-    d.aberto.movimentos.push({ hora: Date.now(), ...movimento });
+    d.aberto.movimentos.push({ id: `m${Date.now()}-${d.aberto.movimentos.length}`, hora: Date.now(), ...movimento });
     return true;
   });
+
+  /**
+   * Corrige um movimento do caixa aberto (forma, valor, recebido, troco ou motivo).
+   * Não apaga nada: guarda em m.correcoes o antes e o depois, com quem e por quê.
+   * Retorna o movimento corrigido, ou uma mensagem de erro (texto).
+   */
+  const CAMPOS = ["forma", "valor", "recebido", "troco", "ref"];
+  const corrigir = (id, novo, { motivo, por }) => alterar((d) => {
+    const m = d.aberto?.movimentos.find((x) => x.id === id);
+    if (!m) return "Esse movimento não está no caixa aberto.";
+    if (!motivo?.trim()) return "Escreva o motivo da correção.";
+    const antes = Object.fromEntries(CAMPOS.map((c) => [c, m[c] ?? null]));
+    const depois = { ...antes, ...novo };
+    if (depois.forma !== "dinheiro") Object.assign(depois, { recebido: null, troco: null });
+    if (CAMPOS.every((c) => antes[c] === depois[c])) return "Nada foi alterado.";
+    CAMPOS.forEach((c) => { if (depois[c] == null) delete m[c]; else m[c] = depois[c]; });
+    (m.correcoes ||= []).push({ em: Date.now(), por, motivo: motivo.trim(), antes, depois });
+    return { ...m };
+  });
+
+  /** Todas as correções do caixa, da mais nova para a mais antiga (para o registro) */
+  const correcoes = (caixa) => (caixa?.movimentos || [])
+    .flatMap((m) => (m.correcoes || []).map((c) => ({ ...c, movimento: m })))
+    .sort((a, b) => b.em - a.em);
 
   /** Fecha o caixa com o dinheiro contado na gaveta */
   const fechar = ({ contado, por, obs = "" }) => alterar((d) => {
     if (!d.aberto) return null;
     const r = resumo(d.aberto);
-    const fechamento = { abertoEm: d.aberto.abertoEm, fechadoEm: Date.now(), por, fundo: d.aberto.fundo, vendas: r.vendas, dinheiro: r.porForma.dinheiro, esperado: r.esperado, contado, obs, porForma: r.porForma, movimentos: d.aberto.movimentos };
+    const fechamento = { abertoEm: d.aberto.abertoEm, fechadoEm: Date.now(), por, fundo: d.aberto.fundo, vendas: r.vendas, dinheiro: r.porForma.dinheiro, esperado: r.esperado, contado, obs, porForma: r.porForma, movimentos: d.aberto.movimentos, correcoes: correcoes(d.aberto).length };
     d.fechamentos.unshift(fechamento);
     d.aberto = null;
     return fechamento;
@@ -109,5 +142,5 @@ window.Fomito = window.Fomito || {};
   /* Nomes que aparecem na tela (simples, para qualquer um entender) */
   const NOMES = { sangria: "Tirar dinheiro", suprimento: "Colocar dinheiro", fundo: "Dinheiro inicial" };
 
-  Fomito.caixa = { estado, aberto, abrir, registrar, fechar, resumo, FORMAS, NOMES, CHAVE };
+  Fomito.caixa = { estado, aberto, abrir, registrar, corrigir, correcoes, fechar, resumo, FORMAS, NOMES, CHAVE };
 })();

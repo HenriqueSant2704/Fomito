@@ -3,12 +3,16 @@
    --------------------------------------------------------------------------
    Carregado antes do painel.js. Usa compartilhado/js/caixa.js.
      1. Tela do caixa (aberto ou fechado)
-     2. Janelas: abrir caixa, tirar / colocar dinheiro, fechar caixa
+     2. Janelas: abrir caixa, tirar / colocar dinheiro, corrigir, fechar caixa
      3. Cliques
 
    De onde vêm as entradas:
      • conta da mesa fechada pelo garçom (com recebido e troco)
-     • entrega concluída no quadro de Pedidos (o entregador acertou)
+     • entrega finalizada pelo motoboy (com recebido e troco)
+
+   Correções: se o garçom ou o motoboy lançou errado (ex.: cartão, mas foi
+   Pix), o responsável corrige aqui. Fica registrado quem lançou, quem
+   corrigiu, quando, o motivo e o antes/depois. Nada é apagado.
    ========================================================================== */
 
 let filtroCaixa = "todas";
@@ -22,6 +26,20 @@ function tagDiferenca(contado, esperado) {
   if (Math.abs(d) < 0.005) return `<span class="tag tag--verde">Bateu</span>`;
   return d < 0 ? `<span class="tag tag--vermelho">Faltou ${moeda(-d)}</span>` : `<span class="tag tag--amarelo">Sobrou ${moeda(d)}</span>`;
 }
+
+/* O que mudou numa correção, em frases curtas: "Forma: Crédito → Pix" */
+function mudancas(c) {
+  const curtas = { dinheiro: "Dinheiro", pix: "Pix", credito: "Crédito", debito: "Débito" };
+  const valor = (v) => (v == null ? "-" : moeda(v));
+  const linhas = [];
+  if (c.antes.forma !== c.depois.forma) linhas.push(`Forma: <s>${curtas[c.antes.forma] || "-"}</s> → <b>${curtas[c.depois.forma] || "-"}</b>`);
+  if (c.antes.valor !== c.depois.valor) linhas.push(`Valor: <s>${valor(c.antes.valor)}</s> → <b>${valor(c.depois.valor)}</b>`);
+  if (c.antes.recebido !== c.depois.recebido) linhas.push(`Cliente deu: <s>${valor(c.antes.recebido)}</s> → <b>${valor(c.depois.recebido)}</b>`);
+  if (c.antes.troco !== c.depois.troco) linhas.push(`Troco: <s>${valor(c.antes.troco)}</s> → <b>${valor(c.depois.troco)}</b>`);
+  if (c.antes.ref !== c.depois.ref) linhas.push(`Descrição: <s>${c.antes.ref}</s> → <b>${c.depois.ref}</b>`);
+  return linhas;
+}
+const resumoCorrecao = (c) => `Corrigido por ${c.por} às ${horaCaixa(c.em)}: ${mudancas(c).join(" · ").replace(/<[^>]+>/g, "")}`;
 
 /* ---------- 1. TELA DO CAIXA ---------- */
 function renderCaixa() {
@@ -41,7 +59,7 @@ function renderCaixa() {
                 <td class="dir num">${moeda(f.vendas)}</td>
                 <td class="dir num">${moeda(f.esperado)}</td>
                 <td class="dir num">${moeda(f.contado)}</td>
-                <td>${tagDiferenca(f.contado, f.esperado)}${f.obs ? `<div class="pequeno fraco">${f.obs}</div>` : ""}</td>
+                <td>${tagDiferenca(f.contado, f.esperado)}${f.correcoes ? ` <span class="tag tag--amarelo">${f.correcoes} ${f.correcoes > 1 ? "correções" : "correção"}</span>` : ""}${f.obs ? `<div class="pequeno fraco">${f.obs}</div>` : ""}</td>
                 <td class="suave">${f.por}</td>
               </tr>`).join("") || `<tr><td colspan="7" class="suave" style="text-align:center;padding:24px">Nenhum fechamento ainda.</td></tr>`}
           </tbody>
@@ -55,8 +73,10 @@ function caixaAberto(cx) {
   const nomes = { ...Fomito.caixa.FORMAS };
   const curtas = { dinheiro: "Dinheiro", pix: "Pix", credito: "Crédito", debito: "Débito" };
   const cartoes = r.porForma.credito + r.porForma.debito;
-  const filtros = [["todas", "Todas"], ["dinheiro", "Dinheiro"], ["pix", "Pix"], ["cartao", "Cartões"], ["saidas", "Tirado e colocado"]];
+  const correcoes = Fomito.caixa.correcoes(cx);
+  const filtros = [["todas", "Todas"], ["dinheiro", "Dinheiro"], ["pix", "Pix"], ["cartao", "Cartões"], ["saidas", "Tirado e colocado"], ["corrigidos", `Corrigidos${correcoes.length ? ` (${correcoes.length})` : ""}`]];
   const passa = (m) => filtroCaixa === "todas"
+    || (filtroCaixa === "corrigidos" && m.correcoes?.length)
     || (filtroCaixa === "saidas" ? ["sangria", "suprimento"].includes(m.tipo)
       : filtroCaixa === "cartao" ? ["credito", "debito"].includes(m.forma) && !["sangria", "suprimento"].includes(m.tipo)
       : m.forma === filtroCaixa && !["sangria", "suprimento"].includes(m.tipo));
@@ -112,7 +132,7 @@ function caixaAberto(cx) {
           <nav class="filtros">${filtros.map(([id, nome]) => `<button class="filtro ${filtroCaixa === id ? "ativo" : ""}" data-filtro-caixa="${id}">${nome}</button>`).join("")}</nav></div>
         <div class="tabela-rolagem">
           <table class="tabela">
-            <thead><tr><th>Hora</th><th>Descrição</th><th>Forma</th><th class="dir">Valor</th><th class="dir">Cliente deu</th><th class="dir">Troco</th><th class="dir">Na gaveta</th></tr></thead>
+            <thead><tr><th>Hora</th><th>Descrição</th><th>Forma</th><th class="dir">Valor</th><th class="dir">Cliente deu</th><th class="dir">Troco</th><th class="dir">Na gaveta</th><th><span class="oculto">Corrigir</span></th></tr></thead>
             <tbody>
               ${lista.map((m) => {
                 const saida = m.tipo === "sangria";
@@ -125,18 +145,41 @@ function caixaAberto(cx) {
                 return `
                   <tr>
                     <td class="num suave">${horaCaixa(m.hora)}</td>
-                    <td><div class="forte">${m.ref}</div><div class="linha pequeno suave" style="gap:6px"><span class="tag tag--${tipo[1]}">${tipo[0]}</span>${m.por}</div></td>
+                    <td><div class="forte">${m.ref}</div><div class="linha pequeno suave" style="gap:6px;flex-wrap:wrap"><span class="tag tag--${tipo[1]}">${tipo[0]}</span>${m.por}${m.correcoes?.length ? `<button class="tag tag--amarelo" data-historico="${m.id}" title="Ver o histórico da correção">${icone("editar", "ic--sm")}Corrigido</button>` : ""}</div>
+                      ${m.correcoes?.length ? `<div class="pequeno fraco">${resumoCorrecao(m.correcoes[m.correcoes.length - 1])}</div>` : ""}</td>
                     <td class="suave" style="white-space:nowrap">${saida || entradaGaveta ? "Dinheiro" : curtas[m.forma]}</td>
                     <td class="dir num">${saida || entradaGaveta ? "-" : moeda(m.valor)}</td>
                     <td class="dir num suave">${m.recebido ? moeda(m.recebido) : m.forma === "dinheiro" && !saida && !entradaGaveta ? moeda(m.valor) : "-"}</td>
                     <td class="dir num suave">${m.troco ? moeda(m.troco) : "-"}</td>
-                    <td class="dir num forte">${gaveta}</td>
+                    <td class="dir num forte" style="white-space:nowrap">${gaveta}</td>
+                    <td class="dir"><button class="btn-icone btn-icone--sm" data-corrigir="${m.id}" aria-label="Corrigir ${m.ref}" title="Corrigir">${icone("editar", "ic--sm")}</button></td>
                   </tr>`;
-              }).join("") || `<tr><td colspan="7" class="suave" style="text-align:center;padding:24px">Nenhuma movimentação neste filtro.</td></tr>`}
+              }).join("") || `<tr><td colspan="8" class="suave" style="text-align:center;padding:24px">Nenhuma movimentação neste filtro.</td></tr>`}
             </tbody>
           </table>
         </div>
-    </div>`;
+        <p class="pequeno fraco">Lançou errado? Use ${icone("editar", "ic--sm")} para corrigir. A correção fica no registro abaixo com o seu nome, e o valor original não é apagado.</p>
+    </div>
+    ${correcoes.length ? `
+      <div class="card painel-card">
+        <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Registro de correções</h3><span class="pequeno suave">Quem lançou, quem corrigiu, o que mudou e por quê. Não pode ser apagado.</span></div><span class="tag tag--amarelo">${correcoes.length} ${correcoes.length > 1 ? "correções" : "correção"}</span></div>
+        <div class="tabela-rolagem">
+          <table class="tabela">
+            <thead><tr><th>Quando</th><th>Pagamento</th><th>Lançado por</th><th>O que mudou</th><th>Motivo</th><th>Corrigido por</th></tr></thead>
+            <tbody>
+              ${correcoes.map((c) => `
+                <tr>
+                  <td class="num suave" style="white-space:nowrap">${horaCaixa(c.em)}</td>
+                  <td class="forte">${c.movimento.ref}</td>
+                  <td class="suave">${c.movimento.por}</td>
+                  <td>${mudancas(c).map((t) => `<div class="pequeno">${t}</div>`).join("")}</td>
+                  <td class="pequeno">${c.motivo}</td>
+                  <td class="suave">${c.por}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ""}`;
 }
 
 function caixaFechado(ultimo) {
@@ -167,6 +210,7 @@ function janelaCaixa(titulo, conteudo, aoConfirmar, aoDigitar) {
     if (e.target.closest("[data-ok]") && aoConfirmar(camada) !== false) { camada.remove(); renderCaixa(); }
   });
   camada.addEventListener("input", () => { $("#erroCaixa", camada).hidden = true; aoDigitar?.(camada); });
+  return camada;
 }
 
 function janelaAbrir() {
@@ -201,6 +245,92 @@ function janelaMovimento(tipo) {
     Fomito.caixa.registrar({ tipo, ref: $("#motivoMov", c).value, forma: "dinheiro", valor, por: usuarioLogado?.nome || "Administrador" });
     toast(`${moeda(valor)} ${sangria ? "tirados da" : "colocados na"} gaveta`, "dinheiro");
   });
+}
+
+/* Corrigir um pagamento lançado errado. Motivo obrigatório; tudo fica registrado. */
+function janelaCorrigir(id) {
+  const m = Fomito.caixa.aberto().movimentos.find((x) => x.id === id);
+  const venda = !["sangria", "suprimento"].includes(m.tipo);
+  const r = { forma: m.forma, valor: m.valor, recebido: m.recebido ?? (m.forma === "dinheiro" ? m.valor : "") };
+  const texto = (n) => (n === "" || n == null ? "" : Number(n).toFixed(2).replace(".", ","));
+  const nomes = Fomito.caixa.FORMAS;
+
+  const blocoForma = () => !venda ? "" : `
+    <div class="campo"><span class="rotulo-campo">Forma de pagamento</span>
+      <div class="formas-painel">
+        ${Object.entries(nomes).map(([id, nome]) => `<button class="opcao ${r.forma === id ? "ativa" : ""}" data-forma-corr="${id}"><span class="opcao__icone">${icone({ dinheiro: "dinheiro", pix: "pix", credito: "cartao", debito: "cartao" }[id], "ic--sm")}</span><span class="opcao__titulo pequeno">${nome}</span></button>`).join("")}
+      </div>
+    </div>`;
+  const blocoTroco = () => {
+    if (!venda || r.forma !== "dinheiro") return "";
+    const valor = formatoDinheiro(r.valor), deu = formatoDinheiro(r.recebido);
+    return `
+      <div class="campo"><label for="corrRecebido">Quanto o cliente deu em dinheiro <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="corrRecebido" class="input" inputmode="decimal" value="${texto(r.recebido)}"></div></div>
+      <div id="corrTroco">${r.recebido === "" ? "" : deu < valor ? `<div class="diferenca diferenca--falta"><span>Faltam</span><strong>${moeda(valor - deu)}</strong></div>` : `<div class="diferenca diferenca--ok"><span>Troco</span><strong>${moeda(deu - valor)}</strong></div>`}</div>`;
+  };
+  const camada = janelaCaixa(venda ? "Corrigir pagamento" : "Corrigir valor", `
+    <div class="conferencia">
+      <div class="forte">${m.ref}</div>
+      <div class="pequeno suave">Lançado por ${m.por} às ${horaCaixa(m.hora)} · ${venda ? `${nomes[m.forma]} ${moeda(m.valor)}${m.recebido ? `, cliente deu ${moeda(m.recebido)}` : ""}` : moeda(m.valor)}</div>
+    </div>
+    <div id="corrForma">${blocoForma()}</div>
+    <div class="campo"><label for="corrValor">Valor ${venda ? "do pagamento" : ""} <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="corrValor" class="input" inputmode="decimal" value="${texto(r.valor)}"></div></div>
+    <div id="corrDinheiro">${blocoTroco()}</div>
+    <div class="campo"><label for="corrMotivo">Motivo da correção <span class="obrigatorio">*</span></label><input id="corrMotivo" class="input" placeholder="Ex.: o motoboy marcou cartão, mas o cliente pagou no Pix"></div>
+    ${m.correcoes?.length ? `<div class="historico-corr"><span class="rotulo">Correções anteriores</span>${m.correcoes.map((c) => `<div class="pequeno"><b>${horaCaixa(c.em)} · ${c.por}:</b> ${mudancas(c).join(" · ")}<div class="fraco">“${c.motivo}”</div></div>`).join("")}</div>` : ""}
+    <div class="aviso">${icone("cadeado", "ic--sm")}<span>A correção fica registrada com o seu nome, a hora e o motivo. O valor original não é apagado.</span></div>
+    <p class="form-erro" id="erroCaixa" hidden></p>
+    <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Salvar correção</button>`,
+  (c) => {
+    const erro = (t) => { $("#erroCaixa", c).textContent = t; $("#erroCaixa", c).hidden = false; return false; };
+    const valor = formatoDinheiro(r.valor);
+    if (valor <= 0) return erro("Informe o valor.");
+    const novo = { valor };
+    if (venda) {
+      novo.forma = r.forma;
+      if (r.forma === "dinheiro") {
+        if (r.recebido === "") return erro("Informe quanto o cliente deu em dinheiro.");
+        const deu = formatoDinheiro(r.recebido);
+        if (deu < valor) return erro("O valor que o cliente deu não cobre o pagamento.");
+        Object.assign(novo, { recebido: deu, troco: Math.round((deu - valor) * 100) / 100 });
+      }
+    }
+    const motivo = $("#corrMotivo", c).value;
+    const feito = Fomito.caixa.corrigir(m.id, novo, { motivo, por: usuarioLogado?.nome || "Administrador" });
+    if (typeof feito === "string") return erro(feito);
+    /* Entrega: o pedido também passa a mostrar a forma certa (e o acerto do motoboy) */
+    const numPedido = m.pedido || Number((m.ref.match(/Entrega #(\d+)/) || [])[1]);
+    if (m.tipo === "entrega" && numPedido && Fomito.pedidos.doNumero(numPedido)) {
+      Fomito.pedidos.atualizar(numPedido, { pagoCom: feito.forma, recebido: feito.recebido ?? null, trocoDado: feito.troco ?? null });
+    }
+    toast("Correção salva no registro", "editar");
+  },
+  (c) => {
+    r.valor = $("#corrValor", c).value;
+    if ($("#corrRecebido", c)) { r.recebido = $("#corrRecebido", c).value; }
+    const foco = document.activeElement?.id;
+    $("#corrDinheiro", c).innerHTML = blocoTroco();
+    if (foco === "corrRecebido") { const i = $("#corrRecebido", c); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+  });
+  camada.addEventListener("click", (e) => {
+    const f = e.target.closest("[data-forma-corr]");
+    if (!f) return;
+    r.forma = f.dataset.formaCorr;
+    if (r.forma === "dinheiro" && r.recebido === "") r.recebido = formatoDinheiro(r.valor);
+    $("#corrForma", camada).innerHTML = blocoForma();
+    $("#corrDinheiro", camada).innerHTML = blocoTroco();
+  });
+}
+
+/* Histórico de um movimento corrigido */
+function janelaHistorico(id) {
+  const m = Fomito.caixa.aberto().movimentos.find((x) => x.id === id);
+  janelaCaixa("Histórico da correção", `
+    <div class="conferencia"><div class="forte">${m.ref}</div><div class="pequeno suave">Lançado por ${m.por} às ${horaCaixa(m.hora)}</div></div>
+    <div class="historico-corr">
+      ${m.correcoes.map((c) => `<div class="pequeno"><b>${horaCaixa(c.em)} · corrigido por ${c.por}</b>${mudancas(c).map((t) => `<div>${t}</div>`).join("")}<div class="fraco">Motivo: “${c.motivo}”</div></div>`).join("")}
+    </div>
+    <button class="btn btn--contorno btn--bloco" data-fechar>Fechar</button>`, () => {});
 }
 
 function janelaFechar() {
@@ -250,6 +380,10 @@ document.addEventListener("click", (e) => {
   if (filtro) { filtroCaixa = filtro.dataset.filtroCaixa; return renderCaixa(); }
   if (e.target.closest("[data-abrir-caixa]")) return janelaAbrir();
   if (e.target.closest("[data-fechar-caixa]")) return janelaFechar();
+  const corrigir = e.target.closest("[data-corrigir]");
+  if (corrigir) return janelaCorrigir(corrigir.dataset.corrigir);
+  const historico = e.target.closest("[data-historico]");
+  if (historico) return janelaHistorico(historico.dataset.historico);
   const mov = e.target.closest("[data-movimento]");
   if (mov) janelaMovimento(mov.dataset.movimento);
 });

@@ -127,7 +127,9 @@ No protótipo a notificação usa o navegador e precisa da tela aberta. No siste
 2. Cada pagamento entra sozinho: conta das mesas (pelo garçom) e entregas finalizadas (pelo motoboy), com a forma, o valor recebido e o troco devolvido.
 3. **Tirar dinheiro** (ex.: levar ao cofre) e **Colocar dinheiro** (ex.: mais troco). No código continuam como `sangria` e `suprimento`.
 4. **Fechar caixa:** conta o dinheiro da gaveta e compara com o esperado. Se não bater, a observação é obrigatória.
-5. **Fechamentos anteriores** mostram se cada dia bateu, faltou ou sobrou.
+5. **Fechamentos anteriores** mostram se cada dia bateu, faltou ou sobrou (e quantas correções teve).
+
+**Corrigir um pagamento:** se o garçom ou o motoboy lançou errado (ex.: marcou cartão, mas o cliente pagou no Pix), o responsável toca no lápis da movimentação e corrige a forma, o valor ou quanto o cliente deu (o troco é recalculado). O **motivo é obrigatório**. Nada é apagado: o pagamento ganha a etiqueta **Corrigido** e o **Registro de correções** mostra quem lançou, quem corrigiu, a hora, o antes e o depois e o motivo. Se for uma entrega, o pedido também passa a mostrar a forma certa. Só dá para corrigir enquanto o caixa está aberto.
 
 Deveria ter na gaveta = dinheiro inicial + notas que os clientes deram − troco devolvido + dinheiro colocado − dinheiro tirado.
 
