@@ -123,14 +123,15 @@ No protótipo a notificação usa o navegador e precisa da tela aberta. No siste
 - Com o caixa fechado, o garçom não consegue receber: aparece o aviso para abrir o caixa no painel.
 
 **No painel (Caixa):**
-1. **Abrir caixa** com o fundo de troco que fica na gaveta.
+1. **Abrir caixa** com o **dinheiro inicial** que o dono deixa na gaveta.
 2. Cada pagamento entra sozinho: conta das mesas (pelo garçom) e entregas finalizadas (pelo motoboy), com a forma, o valor recebido e o troco devolvido.
-3. **Sangria** (dinheiro retirado, ex.: levar ao cofre) e **Suprimento** (dinheiro colocado, ex.: mais troco).
+3. **Tirar dinheiro** (ex.: levar ao cofre) e **Colocar dinheiro** (ex.: mais troco). No código continuam como `sangria` e `suprimento`.
 4. **Fechar caixa:** conta o dinheiro da gaveta e compara com o esperado. Se não bater, a observação é obrigatória.
 5. **Fechamentos anteriores** mostram se cada dia bateu, faltou ou sobrou.
 
-Dinheiro esperado na gaveta = fundo de troco + vendas em dinheiro − sangrias + suprimentos
-(a venda em dinheiro já é o valor recebido menos o troco devolvido).
+Deveria ter na gaveta = dinheiro inicial + notas que os clientes deram − troco devolvido + dinheiro colocado − dinheiro tirado.
+
+Exemplo: pedido de R$ 100 pago com uma nota de R$ 200. Entram R$ 200, saem R$ 100 de troco e a gaveta fica com +R$ 100. Pix e cartão caem na conta, não na gaveta. Na tabela de movimentações a coluna **Na gaveta** mostra quanto cada pagamento mudou a gaveta.
 
 No sistema real isso vira as tabelas `caixas` e `caixa_movimentos` no Neon, e cada movimento guarda quem fez.
 

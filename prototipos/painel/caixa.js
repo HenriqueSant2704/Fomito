@@ -3,7 +3,7 @@
    --------------------------------------------------------------------------
    Carregado antes do painel.js. Usa compartilhado/js/caixa.js.
      1. Tela do caixa (aberto ou fechado)
-     2. Janelas: abrir caixa, sangria / suprimento, fechar caixa
+     2. Janelas: abrir caixa, tirar / colocar dinheiro, fechar caixa
      3. Cliques
 
    De onde vêm as entradas:
@@ -32,7 +32,7 @@ function renderCaixa() {
       <div class="painel-card__topo"><h3>Fechamentos anteriores</h3><span class="pequeno fraco">Conferência do dinheiro na gaveta</span></div>
       <div class="tabela-rolagem">
         <table class="tabela">
-          <thead><tr><th>Dia</th><th>Período</th><th class="dir">Vendas</th><th class="dir">Dinheiro esperado</th><th class="dir">Contado</th><th>Resultado</th><th>Fechado por</th></tr></thead>
+          <thead><tr><th>Dia</th><th>Período</th><th class="dir">Vendas</th><th class="dir">Deveria ter</th><th class="dir">Contado</th><th>Resultado</th><th>Fechado por</th></tr></thead>
           <tbody>
             ${fechamentos.map((f) => `
               <tr>
@@ -55,7 +55,7 @@ function caixaAberto(cx) {
   const nomes = { ...Fomito.caixa.FORMAS };
   const curtas = { dinheiro: "Dinheiro", pix: "Pix", credito: "Crédito", debito: "Débito" };
   const cartoes = r.porForma.credito + r.porForma.debito;
-  const filtros = [["todas", "Todas"], ["dinheiro", "Dinheiro"], ["pix", "Pix"], ["cartao", "Cartões"], ["saidas", "Sangria e suprimento"]];
+  const filtros = [["todas", "Todas"], ["dinheiro", "Dinheiro"], ["pix", "Pix"], ["cartao", "Cartões"], ["saidas", "Tirado e colocado"]];
   const passa = (m) => filtroCaixa === "todas"
     || (filtroCaixa === "saidas" ? ["sangria", "suprimento"].includes(m.tipo)
       : filtroCaixa === "cartao" ? ["credito", "debito"].includes(m.forma) && !["sangria", "suprimento"].includes(m.tipo)
@@ -68,33 +68,34 @@ function caixaAberto(cx) {
       <span class="caixa-status__icone">${icone("dinheiro")}</span>
       <div class="pilha" style="gap:2px;flex:1;min-width:0">
         <span class="linha" style="gap:8px"><b>Caixa aberto</b><span class="tag tag--verde">Aberto</span></span>
-        <span class="pequeno suave">Desde ${horaCaixa(cx.abertoEm)} · aberto por ${cx.por} · fundo de troco ${moeda(cx.fundo)}</span>
+        <span class="pequeno suave">Desde ${horaCaixa(cx.abertoEm)} · aberto por ${cx.por} · dinheiro inicial ${moeda(cx.fundo)}</span>
       </div>
       <div class="linha" style="gap:8px;flex-wrap:wrap">
-        <button class="btn btn--contorno btn--sm" data-movimento="suprimento">${icone("mais", "ic--sm")} Suprimento</button>
-        <button class="btn btn--contorno btn--sm" data-movimento="sangria">${icone("menos", "ic--sm")} Sangria</button>
+        <button class="btn btn--contorno btn--sm" data-movimento="suprimento">${icone("mais", "ic--sm")} Colocar dinheiro</button>
+        <button class="btn btn--contorno btn--sm" data-movimento="sangria">${icone("menos", "ic--sm")} Tirar dinheiro</button>
         <button class="btn btn--primario btn--sm" data-fechar-caixa>${icone("cadeado", "ic--sm")} Fechar caixa</button>
       </div>
     </div>
 
     <div class="kpis">
       <div class="card kpi"><div class="kpi__rotulo">Vendas no caixa${icone("moeda")}</div><div class="kpi__valor">${moeda(r.vendas)}</div><span class="variacao">${r.qtdVendas} pagamentos recebidos</span></div>
-      <div class="card kpi kpi--destaque"><div class="kpi__rotulo">Dinheiro na gaveta${icone("dinheiro")}</div><div class="kpi__valor">${moeda(r.esperado)}</div><span class="variacao">esperado agora</span></div>
+      <div class="card kpi kpi--destaque"><div class="kpi__rotulo">Dinheiro na gaveta${icone("dinheiro")}</div><div class="kpi__valor">${moeda(r.esperado)}</div><span class="variacao">é o que deveria ter agora</span></div>
       <div class="card kpi"><div class="kpi__rotulo">Pix${icone("pix")}</div><div class="kpi__valor">${moeda(r.porForma.pix)}</div><span class="variacao">cai direto na conta</span></div>
       <div class="card kpi"><div class="kpi__rotulo">Cartões${icone("cartao")}</div><div class="kpi__valor">${moeda(cartoes)}</div><span class="variacao">crédito ${moeda(r.porForma.credito)} · débito ${moeda(r.porForma.debito)}</span></div>
     </div>
 
     <div class="grade-caixa">
         <div class="card painel-card">
-          <h3>Conferência da gaveta</h3>
+          <div class="pilha" style="gap:2px"><h3>Dinheiro na gaveta</h3><span class="pequeno suave">Como o sistema chega no valor que deveria ter</span></div>
           <div class="conferencia">
-            <div class="entre"><span>Fundo de troco</span><span class="num">${moeda(cx.fundo)}</span></div>
-            <div class="entre"><span>+ Vendas em dinheiro</span><span class="num">${moeda(r.porForma.dinheiro)}</span></div>
-            <div class="entre"><span>+ Suprimentos</span><span class="num">${moeda(r.suprimentos)}</span></div>
-            <div class="entre"><span>− Sangrias</span><span class="num valor-saida">${moeda(r.sangrias)}</span></div>
-            <div class="entre conferencia__total"><span>Esperado na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
+            <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
+            <div class="entre"><span>+ Notas que os clientes deram</span><span class="num">${moeda(r.recebidoDinheiro)}</span></div>
+            <div class="entre"><span>− Troco devolvido</span><span class="num valor-saida">${moeda(r.troco)}</span></div>
+            <div class="entre"><span>+ Dinheiro colocado</span><span class="num">${moeda(r.suprimentos)}</span></div>
+            <div class="entre"><span>− Dinheiro tirado</span><span class="num valor-saida">${moeda(r.sangrias)}</span></div>
+            <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
           </div>
-          <p class="pequeno fraco">Troco devolvido hoje: ${moeda(r.troco)} (já descontado das vendas em dinheiro).</p>
+          <p class="pequeno fraco">Ex.: pedido de R$ 100 pago com uma nota de R$ 200. Entram R$ 200, saem R$ 100 de troco e a gaveta fica com +R$ 100. Pix e cartão caem na conta, não na gaveta.</p>
         </div>
         <div class="card painel-card">
           <h3>Por forma de pagamento</h3>
@@ -111,22 +112,27 @@ function caixaAberto(cx) {
           <nav class="filtros">${filtros.map(([id, nome]) => `<button class="filtro ${filtroCaixa === id ? "ativo" : ""}" data-filtro-caixa="${id}">${nome}</button>`).join("")}</nav></div>
         <div class="tabela-rolagem">
           <table class="tabela">
-            <thead><tr><th>Hora</th><th>Descrição</th><th>Forma</th><th class="dir">Recebido</th><th class="dir">Troco</th><th class="dir">Valor</th></tr></thead>
+            <thead><tr><th>Hora</th><th>Descrição</th><th>Forma</th><th class="dir">Valor</th><th class="dir">Cliente deu</th><th class="dir">Troco</th><th class="dir">Na gaveta</th></tr></thead>
             <tbody>
               ${lista.map((m) => {
                 const saida = m.tipo === "sangria";
                 const entradaGaveta = m.tipo === "suprimento";
-                const tipo = { comanda: ["Mesa", "roxo"], entrega: ["Entrega", "cinza"], sangria: ["Sangria", "vermelho"], suprimento: ["Suprimento", "amarelo"], balcao: ["Balcão", "cinza"] }[m.tipo];
+                const tipo = { comanda: ["Mesa", "roxo"], entrega: ["Entrega", "cinza"], sangria: ["Tirado", "vermelho"], suprimento: ["Colocado", "amarelo"], balcao: ["Balcão", "cinza"] }[m.tipo];
+                /* Quanto mudou na gaveta: dinheiro entra (já sem o troco), Pix e cartão não */
+                const gaveta = saida ? `<span class="valor-saida">− ${moeda(m.valor)}</span>`
+                  : entradaGaveta || m.forma === "dinheiro" ? `<span class="valor-entrada">+ ${moeda(m.valor)}</span>`
+                  : `<span class="fraco pequeno">na conta</span>`;
                 return `
                   <tr>
                     <td class="num suave">${horaCaixa(m.hora)}</td>
                     <td><div class="forte">${m.ref}</div><div class="linha pequeno suave" style="gap:6px"><span class="tag tag--${tipo[1]}">${tipo[0]}</span>${m.por}</div></td>
                     <td class="suave" style="white-space:nowrap">${saida || entradaGaveta ? "Dinheiro" : curtas[m.forma]}</td>
-                    <td class="dir num suave">${m.recebido ? moeda(m.recebido) : "-"}</td>
+                    <td class="dir num">${saida || entradaGaveta ? "-" : moeda(m.valor)}</td>
+                    <td class="dir num suave">${m.recebido ? moeda(m.recebido) : m.forma === "dinheiro" && !saida && !entradaGaveta ? moeda(m.valor) : "-"}</td>
                     <td class="dir num suave">${m.troco ? moeda(m.troco) : "-"}</td>
-                    <td class="dir num forte ${saida ? "valor-saida" : ""}">${saida ? "− " : ""}${moeda(m.valor)}</td>
+                    <td class="dir num forte">${gaveta}</td>
                   </tr>`;
-              }).join("") || `<tr><td colspan="6" class="suave" style="text-align:center;padding:24px">Nenhuma movimentação neste filtro.</td></tr>`}
+              }).join("") || `<tr><td colspan="7" class="suave" style="text-align:center;padding:24px">Nenhuma movimentação neste filtro.</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -165,15 +171,15 @@ function janelaCaixa(titulo, conteudo, aoConfirmar, aoDigitar) {
 
 function janelaAbrir() {
   janelaCaixa("Abrir caixa", `
-    <p class="suave pequeno">Conte o dinheiro que fica na gaveta para dar troco no começo do dia.</p>
-    <div class="campo"><label for="fundo">Fundo de troco <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="fundo" class="input" inputmode="decimal" value="150,00"></div></div>
+    <p class="suave pequeno">Conte o dinheiro que já está na gaveta para dar troco. O sistema começa daqui e vai somando cada pagamento em dinheiro, já descontando o troco.</p>
+    <div class="campo"><label for="fundo">Dinheiro inicial na gaveta <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="fundo" class="input" inputmode="decimal" value="150,00"></div></div>
     <p class="form-erro" id="erroCaixa" hidden></p>
     <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Abrir caixa</button>`,
   (c) => {
     const fundo = formatoDinheiro($("#fundo", c).value);
-    if ($("#fundo", c).value.trim() === "") { $("#erroCaixa", c).textContent = "Informe o fundo de troco (pode ser R$ 0,00)."; $("#erroCaixa", c).hidden = false; return false; }
+    if ($("#fundo", c).value.trim() === "") { $("#erroCaixa", c).textContent = "Informe o dinheiro inicial (pode ser R$ 0,00)."; $("#erroCaixa", c).hidden = false; return false; }
     Fomito.caixa.abrir({ fundo, por: usuarioLogado?.nome || "Administrador" });
-    toast(`Caixa aberto com ${moeda(fundo)} de troco`, "dinheiro");
+    toast(`Caixa aberto com ${moeda(fundo)} na gaveta`, "dinheiro");
   });
 }
 
@@ -181,19 +187,19 @@ function janelaMovimento(tipo) {
   const sangria = tipo === "sangria";
   const motivos = sangria ? ["Retirada para o cofre", "Pagamento de fornecedor", "Pagamento de entregador", "Outro"] : ["Reforço de troco", "Moedas", "Outro"];
   const disponivel = Fomito.caixa.resumo(Fomito.caixa.aberto()).esperado;
-  janelaCaixa(sangria ? "Sangria (retirar dinheiro)" : "Suprimento (colocar dinheiro)", `
-    <p class="suave pequeno">${sangria ? `Dinheiro que sai da gaveta. Hoje há ${moeda(disponivel)} esperados na gaveta.` : "Dinheiro que entra na gaveta sem ser venda, como reforço de troco."}</p>
+  janelaCaixa(sangria ? "Tirar dinheiro da gaveta" : "Colocar dinheiro na gaveta", `
+    <p class="suave pequeno">${sangria ? `Dinheiro que sai da gaveta sem ser troco, como levar ao cofre. Agora deveria ter ${moeda(disponivel)} na gaveta.` : "Dinheiro que entra na gaveta sem ser venda, como mais troco ou moedas."}</p>
     <div class="campo"><label for="valorMov">Valor <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="valorMov" class="input" inputmode="decimal" placeholder="0,00"></div></div>
     <div class="campo"><label for="motivoMov">Motivo</label><select id="motivoMov" class="input">${motivos.map((m) => `<option>${m}</option>`).join("")}</select></div>
     <p class="form-erro" id="erroCaixa" hidden></p>
-    <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Registrar ${sangria ? "sangria" : "suprimento"}</button>`,
+    <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} ${sangria ? "Tirar" : "Colocar"} dinheiro</button>`,
   (c) => {
     const valor = formatoDinheiro($("#valorMov", c).value);
     const erro = (t) => { $("#erroCaixa", c).textContent = t; $("#erroCaixa", c).hidden = false; return false; };
     if (valor <= 0) return erro("Informe o valor.");
-    if (sangria && valor > disponivel) return erro(`Não há ${moeda(valor)} na gaveta (esperado: ${moeda(disponivel)}).`);
+    if (sangria && valor > disponivel) return erro(`Não há ${moeda(valor)} na gaveta (deveria ter ${moeda(disponivel)}).`);
     Fomito.caixa.registrar({ tipo, ref: $("#motivoMov", c).value, forma: "dinheiro", valor, por: usuarioLogado?.nome || "Administrador" });
-    toast(`${sangria ? "Sangria" : "Suprimento"} de ${moeda(valor)} registrado`, "dinheiro");
+    toast(`${moeda(valor)} ${sangria ? "tirados da" : "colocados na"} gaveta`, "dinheiro");
   });
 }
 
@@ -214,8 +220,10 @@ function janelaFechar() {
       <div class="entre conferencia__total"><span>Total de vendas</span><span class="num">${moeda(r.vendas)}</span></div>
     </div>
     <div class="conferencia">
-      <div class="entre"><span>Fundo + dinheiro − sangrias + suprimentos</span><span></span></div>
-      <div class="entre conferencia__total"><span>Esperado na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
+      <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
+      <div class="entre"><span>+ Notas recebidas − troco</span><span class="num">${moeda(r.porForma.dinheiro)}</span></div>
+      <div class="entre"><span>+ Colocado − tirado</span><span class="num">${moeda(r.suprimentos - r.sangrias)}</span></div>
+      <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
     </div>
     <div class="campo"><label for="contado">Dinheiro contado na gaveta <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="contado" class="input" inputmode="decimal" placeholder="0,00"></div></div>
     <div id="diferencaCaixa">${`<div class="troco-painel">${icone("info", "ic--sm")} Conte o dinheiro da gaveta e digite o valor.</div>`}</div>

@@ -367,6 +367,7 @@ button.mini-mesa:not(:disabled):hover { border-color: var(--roxo-medio); box-sha
 .caixa-status b { font-size: 16px; }
 .kpi--destaque { border-color: var(--roxo-medio); box-shadow: 0 0 0 3px var(--roxo-claro); }
 .valor-saida { color: var(--vermelho-escuro); }
+.valor-entrada { color: var(--verde-escuro); }
 .conferencia { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; padding: 12px 14px; background: var(--superficie-2); border-radius: var(--raio-md); }
 .conferencia__total { padding-top: 8px; margin-top: 2px; border-top: 1px solid var(--borda); font-weight: 700; font-size: 15px; }
 .diferenca { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: var(--raio-md); font-weight: 500; }

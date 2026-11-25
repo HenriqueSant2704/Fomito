@@ -2,16 +2,19 @@
    FOMITO · CONTROLE DE CAIXA
    --------------------------------------------------------------------------
    O caixa do dia:
-     1. ABRIR      → com o fundo de troco que fica na gaveta
-     2. ENTRADAS   → cada pagamento recebido (conta da mesa, entrega)
-                     com a forma, o valor recebido e o troco devolvido
-     3. SANGRIA    → dinheiro retirado da gaveta (ex.: levar ao cofre)
-        SUPRIMENTO → dinheiro colocado na gaveta (ex.: mais troco)
-     4. FECHAR     → conta o dinheiro da gaveta e compara com o esperado
+     1. ABRIR            → com o DINHEIRO INICIAL que o dono deixa na gaveta
+     2. PAGAMENTOS       → cada conta de mesa e entrega, com a forma, o valor
+                           que o cliente deu e o troco devolvido
+     3. TIRAR DINHEIRO   → ex.: levar ao cofre    (no código: tipo "sangria")
+        COLOCAR DINHEIRO → ex.: mais troco        (no código: tipo "suprimento")
+     4. FECHAR           → conta o dinheiro da gaveta e compara com o que deveria ter
 
-   Dinheiro esperado na gaveta =
-     fundo de troco + vendas em dinheiro − sangrias + suprimentos
-   (a venda em dinheiro já é o recebido menos o troco devolvido)
+   Exemplo: pedido de R$ 100, o cliente dá uma nota de R$ 200 e recebe
+   R$ 100 de troco. Entram R$ 200 e saem R$ 100: a gaveta fica com +R$ 100.
+
+   Deveria ter na gaveta =
+     dinheiro inicial + notas recebidas − troco devolvido
+     + dinheiro colocado − dinheiro tirado
 
    No protótipo fica no navegador (localStorage "fomito.caixa").
    No sistema real vira as tabelas "caixas" e "caixa_movimentos" no Neon.
@@ -60,13 +63,14 @@ window.Fomito = window.Fomito || {};
   /* ---------- Contas do caixa ---------- */
   const VENDAS = ["comanda", "entrega", "balcao"];
   const resumo = (caixa) => {
-    const r = { vendas: 0, porForma: { dinheiro: 0, pix: 0, credito: 0, debito: 0 }, troco: 0, sangrias: 0, suprimentos: 0, qtdVendas: 0 };
+    const r = { vendas: 0, porForma: { dinheiro: 0, pix: 0, credito: 0, debito: 0 }, recebidoDinheiro: 0, troco: 0, sangrias: 0, suprimentos: 0, qtdVendas: 0 };
     caixa.movimentos.forEach((m) => {
       if (VENDAS.includes(m.tipo)) {
         r.vendas += m.valor;
         r.qtdVendas++;
         r.porForma[m.forma] = (r.porForma[m.forma] || 0) + m.valor;
         r.troco += m.troco || 0;
+        if (m.forma === "dinheiro") r.recebidoDinheiro += m.recebido ?? m.valor; // notas que o cliente deu
       }
       if (m.tipo === "sangria") r.sangrias += m.valor;
       if (m.tipo === "suprimento") r.suprimentos += m.valor;
@@ -102,6 +106,8 @@ window.Fomito = window.Fomito || {};
   });
 
   const FORMAS = { dinheiro: "Dinheiro", pix: "Pix", credito: "Cartão de crédito", debito: "Cartão de débito" };
+  /* Nomes que aparecem na tela (simples, para qualquer um entender) */
+  const NOMES = { sangria: "Tirar dinheiro", suprimento: "Colocar dinheiro", fundo: "Dinheiro inicial" };
 
-  Fomito.caixa = { estado, aberto, abrir, registrar, fechar, resumo, FORMAS, CHAVE };
+  Fomito.caixa = { estado, aberto, abrir, registrar, fechar, resumo, FORMAS, NOMES, CHAVE };
 })();
