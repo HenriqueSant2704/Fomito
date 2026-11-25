@@ -355,3 +355,21 @@ button.mini-mesa:not(:disabled):hover { border-color: var(--roxo-medio); box-sha
 .qr-mesa__cartao b { font-family: var(--fonte-marca); font-size: 18px; }
 .qr-mesa__cartao span { font-size: 11.5px; color: var(--texto-suave); }
 .qr-mesa__link { font-size: 12.5px; background: var(--superficie-2); padding: 6px 10px; border-radius: var(--raio-sm); }
+
+/* ---------- Caixa ---------- */
+.caixa-status { display: flex; align-items: center; gap: 14px; padding: 16px 20px; flex-wrap: wrap; }
+.caixa-status__icone { width: 44px; height: 44px; border-radius: var(--raio-md); display: grid; place-items: center; background: var(--verde-claro); color: var(--verde-escuro); flex: none; }
+.caixa-status--fechado .caixa-status__icone { background: var(--superficie-2); color: var(--texto-suave); }
+.caixa-status b { font-size: 16px; }
+.kpi--destaque { border-color: var(--roxo-medio); box-shadow: 0 0 0 3px var(--roxo-claro); }
+.valor-saida { color: var(--vermelho-escuro); }
+.conferencia { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; padding: 12px 14px; background: var(--superficie-2); border-radius: var(--raio-md); }
+.conferencia__total { padding-top: 8px; margin-top: 2px; border-top: 1px solid var(--borda); font-weight: 700; font-size: 15px; }
+.diferenca { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: var(--raio-md); font-weight: 500; }
+.diferenca strong { font-family: var(--fonte-marca); font-size: 18px; }
+.diferenca--ok { background: var(--verde-claro); color: var(--verde-escuro); }
+.diferenca--falta { background: var(--vermelho-claro); color: var(--vermelho-escuro); }
+.diferenca--sobra { background: var(--creme); color: var(--laranja-escuro); }
+.troco-painel .ic { vertical-align: -3px; margin-right: 4px; }
+.grade-caixa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .grade-caixa { grid-template-columns: minmax(0, 1fr); } }

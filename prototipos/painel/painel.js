@@ -6,7 +6,7 @@
      2. Navegação do menu
      3. Visão geral (dashboard)
      4. Pedidos em tempo real (quadro)
-     5. Comandas → comandas.js
+     5. Comandas → comandas.js · Caixa → caixa.js
      6. Cardápio, Clientes, detalhe e lançamento de pedido → arquivos próprios
         (cardapio.js · clientes.js · pedido.js, carregados antes deste)
      7. Equipe (usuários garçom)
@@ -55,6 +55,7 @@ const comTotal = (p) => ({ ...p, total: totalPedido(p) });
 const titulos = {
   dashboard: ["Visão geral", "Resumo de hoje, segunda-feira, 23 de novembro."],
   pedidos: ["Pedidos", "Acompanhe e avance os pedidos em tempo real."],
+  caixa: ["Caixa", "Abertura, entradas por forma de pagamento, troco, sangrias e o fechamento do dia."],
   comandas: ["Comandas", "Mesas abertas pelo QR Code ou pelo garçom, contas fechadas e os QR Codes das mesas."],
   cardapio: ["Cardápio", "Produtos, fotos, categorias, adicionais e a vitrine do topo."],
   clientes: ["Clientes", "Cadastros feitos pelo telefone no finalizar pedido, com os endereços salvos."],
@@ -239,6 +240,14 @@ document.addEventListener("click", (e) => {
   const p = pedidos.find((x) => x.num === Number(b.dataset.avancar));
   const aceitou = p.status === "novo";
   p.status = colunas.find((c) => c.id === p.status).proximo;
+
+  /* Entrega concluída: o entregador acertou o pagamento, então entra no caixa */
+  if (p.status === "concluido" && p.modo === "entrega") {
+    const valor = totalPedido(p);
+    const dinheiro = p.pag === "dinheiro";
+    const recebido = dinheiro ? (p.troco || valor) : undefined;
+    Fomito.caixa.registrar({ tipo: "entrega", ref: `Entrega #${p.num} · ${p.cliente}`, forma: p.pag, valor, ...(dinheiro ? { recebido, troco: recebido - valor } : {}), por: "Entregador" });
+  }
 
   const msg = p.modo === "entrega" ? alertas.enviarWhatsApp(comTotal(p), mensagemDoStatus[p.status]) : null;
   if (msg) p.whats = msg.titulo;
@@ -664,6 +673,7 @@ const renderizadores = {
   dashboard: renderDashboard,
   pedidos: renderPedidos,
   comandas: renderComandas,
+  caixa: renderCaixa,
   cardapio: renderCardapio,
   clientes: renderClientes,
   equipe: renderEquipe,

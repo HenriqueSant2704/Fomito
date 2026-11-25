@@ -94,7 +94,7 @@ function renderComandas() {
                   <td style="white-space:nowrap">${cmd.mesaTexto(f.mesa)}${f.nome ? `<div class="pequeno fraco">${f.nome}</div>` : ""}</td>
                   <td class="num suave" style="white-space:nowrap">${cmd.hora(f.abertaEm)} – ${cmd.hora(f.fechadaEm)}</td>
                   <td class="num">${cmd.qtdItens(f)} <span class="fraco">em ${f.rodadas.length} ${f.rodadas.length > 1 ? "pedidos" : "pedido"}</span></td>
-                  <td>${formas[f.forma] || "-"}</td>
+                  <td>${formas[f.forma] || (f.forma === "misto" ? "Mais de uma forma" : "-")}</td>
                   <td class="dir preco">${moeda(f.total)}</td>
                 </tr>`).join("") || `<tr><td colspan="6" class="suave" style="text-align:center;padding:24px">Nenhuma comanda fechada hoje.</td></tr>`}
             </tbody>
@@ -170,5 +170,6 @@ setInterval(() => {
   const aberta = $(".secao:not([hidden])")?.dataset.secao;
   if (aberta === "pedidos") renderPedidos();
   if (aberta === "comandas") renderComandas();
+  if (aberta === "caixa") renderCaixa();
   atualizarBadge();
 }, 3000);

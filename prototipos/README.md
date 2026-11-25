@@ -35,6 +35,7 @@ prototipos/
 │   │   ├── alertas.js         ← som de pedido novo, cupom de 80mm e mensagens de WhatsApp
 │   │   ├── clientes.js        ← cadastro de clientes pelo telefone, com vários endereços
 │   │   ├── comandas.js        ← comandas das mesas (cliente pelo QR Code, garçom e painel usam as mesmas)
+│   │   ├── caixa.js           ← controle de caixa: abertura, entradas, sangria, suprimento e fechamento
 │   │   ├── ilustracoes.js     ← "fotos" ilustradas dos produtos e da vitrine
 │   │   ├── sessao.js          ← login, perfis (admin/garçom) e proteção das telas
 │   │   ├── dados.js           ← cardápio, fotos, adicionais e dados de exemplo
@@ -47,7 +48,8 @@ prototipos/
     ├── cardapio.js            ← produtos (cadastro com fotos), categorias, adicionais e vitrine
     ├── clientes.js            ← lista de clientes e ficha com endereços
     ├── pedido.js              ← detalhe do pedido e "Lançar pedido" (telefone, balcão, mesa)
-    └── comandas.js            ← comandas no quadro da cozinha, mesas, contas fechadas e QR Codes
+    ├── comandas.js            ← comandas no quadro da cozinha, mesas, contas fechadas e QR Codes
+    └── caixa.js               ← seção Caixa: conferência da gaveta, movimentações e fechamentos
 ```
 
 Cada tela tem **3 arquivos com o mesmo nome da pasta**: o HTML (estrutura), o CSS (visual) e o JS (comportamento).
@@ -83,6 +85,26 @@ As comandas ficam em `compartilhado/js/comandas.js` e são as mesmas para o clie
 No protótipo tudo fica no navegador, então abra o cardápio e o garçom no mesmo navegador para ver um avisar o outro (a cada 3 segundos).
 No sistema real isso vira as tabelas `comandas` e `comanda_itens` no Neon, com atualização em tempo real (WebSocket).
 O QR deve levar um código da mesa difícil de adivinhar (ex.: `?m=7f3k`), para ninguém pedir em nome de outra mesa digitando o número.
+
+## Fechar a conta e controle de caixa
+
+**No garçom (Fechar conta):**
+- O valor de cada forma de pagamento já vem preenchido com o que falta pagar (ou a parte de cada um, se dividir).
+- No **dinheiro**, o campo **Valor recebido é obrigatório**: sem ele o botão fica bloqueado. Há atalhos de notas (valor exato, R$ 50, R$ 100...) e o **troco é calculado** na hora.
+- Dá para **pagar em mais de uma forma** (ex.: parte no Pix e o resto em dinheiro). Cada parte fica listada e pode ser desfeita antes de concluir.
+- Com o caixa fechado, o garçom não consegue receber: aparece o aviso para abrir o caixa no painel.
+
+**No painel (Caixa):**
+1. **Abrir caixa** com o fundo de troco que fica na gaveta.
+2. Cada pagamento entra sozinho: conta das mesas (pelo garçom) e entregas concluídas, com a forma, o valor recebido e o troco devolvido.
+3. **Sangria** (dinheiro retirado, ex.: levar ao cofre) e **Suprimento** (dinheiro colocado, ex.: mais troco).
+4. **Fechar caixa:** conta o dinheiro da gaveta e compara com o esperado. Se não bater, a observação é obrigatória.
+5. **Fechamentos anteriores** mostram se cada dia bateu, faltou ou sobrou.
+
+Dinheiro esperado na gaveta = fundo de troco + vendas em dinheiro − sangrias + suprimentos
+(a venda em dinheiro já é o valor recebido menos o troco devolvido).
+
+No sistema real isso vira as tabelas `caixas` e `caixa_movimentos` no Neon, e cada movimento guarda quem fez.
 
 ## Painel completo (visualização)
 

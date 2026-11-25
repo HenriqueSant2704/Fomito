@@ -6,7 +6,7 @@
      2. Lista de mesas
      3. Comanda da mesa
      4. Lançar itens
-     5. Fechar conta
+     5. Fechar conta (valor recebido obrigatório, troco e várias formas)
      6. Início
    ========================================================================== */
 
@@ -202,26 +202,69 @@ function abrirLancamento(mesa) {
   });
 }
 
-/* ---------- 5. FECHAR CONTA ---------- */
+/* ---------- 5. FECHAR CONTA ----------
+   Regras para o restaurante ter controle do caixa:
+     • em dinheiro, o "valor recebido" é OBRIGATÓRIO e o troco é calculado;
+     • dá para pagar em mais de uma forma (ex.: parte no Pix, parte em dinheiro);
+     • a mesa só é liberada quando o total foi pago;
+     • cada pagamento entra no caixa do dia (Painel › Caixa). */
+const arred = (n) => Math.round(n * 100) / 100;
+const numero = (texto) => parseFloat(String(texto).replace(/\./g, "").replace(",", ".")) || 0;
+
 function abrirFechamento(mesa) {
-  const conta = { pessoas: 1, forma: "dinheiro", recebido: "", taxaServico: true };
+  const conta = { pessoas: 1, taxaServico: true, pagamentos: [], forma: "dinheiro", valor: "", recebido: "" };
 
   const camada = document.createElement("div");
   camada.className = "sobreposicao sobreposicao--centro";
   document.body.appendChild(camada);
 
-  const totalFinal = () => totalMesa(mesa) * (conta.taxaServico ? 1.1 : 1);
+  const totalFinal = () => arred(totalMesa(mesa) * (conta.taxaServico ? 1.1 : 1));
+  const pago = () => arred(conta.pagamentos.reduce((s, p) => s + p.valor, 0));
+  const restante = () => arred(totalFinal() - pago());
+  /* Valor desta forma: o que o garçom digitou ou, por padrão, o que falta (ou a parte de cada pessoa) */
+  const valorAtual = () => conta.valor !== "" ? numero(conta.valor) : arred(Math.min(restante(), conta.pessoas > 1 ? totalFinal() / conta.pessoas : restante()));
+  const caixaAberto = () => !!Fomito.caixa.aberto();
 
-  function blocoTroco() {
-    if (conta.forma !== "dinheiro" || !conta.recebido) return "";
-    const recebido = parseFloat(conta.recebido.replace(",", ".")) || 0;
-    const falta = totalFinal() - recebido;
-    return falta > 0
-      ? `<div class="troco-caixa erro"><span>Faltam</span><strong class="num">${moeda(falta)}</strong></div>`
-      : `<div class="troco-caixa"><span>Troco a devolver</span><strong class="num">${moeda(-falta)}</strong></div>`;
+  function problema() {
+    const v = valorAtual();
+    if (!caixaAberto()) return "O caixa está fechado. Peça ao responsável para abrir o caixa no painel.";
+    if (v <= 0) return "Informe o valor desta forma de pagamento.";
+    if (v > restante() + 0.005) return `O valor passa do que falta pagar (${moeda(restante())}).`;
+    if (conta.forma === "dinheiro") {
+      if (!conta.recebido) return "Informe quanto o cliente entregou em dinheiro para calcular o troco.";
+      if (numero(conta.recebido) < v) return `Faltam ${moeda(v - numero(conta.recebido))} para cobrir ${moeda(v)}.`;
+    }
+    return null;
   }
 
+  function blocoTroco() {
+    if (conta.forma !== "dinheiro") return "";
+    const v = valorAtual();
+    if (!conta.recebido) return `<div class="troco-caixa aviso-campo">${icone("info", "ic--sm")}<span>Campo obrigatório: o troco é calculado a partir do valor recebido.</span></div>`;
+    const recebido = numero(conta.recebido);
+    return recebido < v
+      ? `<div class="troco-caixa erro"><span>Faltam</span><strong class="num">${moeda(v - recebido)}</strong></div>`
+      : `<div class="troco-caixa"><span>Troco a devolver</span><strong class="num">${moeda(recebido - v)}</strong></div>`;
+  }
+
+  function areaConfirmar() {
+    const erro = problema();
+    const parcial = valorAtual() < restante() - 0.005;
+    return `
+      ${erro && conta.recebido !== "" || !caixaAberto() ? `<p class="form-erro">${erro}</p>` : ""}
+      <button class="btn btn--primario btn--bloco" data-confirmar ${erro ? "disabled" : ""}>
+        ${icone("check", "ic--sm")} ${parcial ? `Registrar ${moeda(valorAtual())} e continuar` : "Confirmar pagamento e liberar mesa"}
+      </button>`;
+  }
+
+  /* Sugestões de notas para o valor recebido */
+  const notas = () => {
+    const v = valorAtual();
+    return [...new Set([Math.ceil(v / 10) * 10, Math.ceil(v / 50) * 50, Math.ceil(v / 100) * 100])].filter((n) => n > v).slice(0, 3);
+  };
+
   function render() {
+    const nomes = Fomito.caixa.FORMAS;
     camada.innerHTML = `
       <div class="folha conta">
         <div class="folha__topo"><h2>Fechar conta · Mesa ${String(mesa.numero).padStart(2, "0")}</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
@@ -232,12 +275,24 @@ function abrirFechamento(mesa) {
           <span class="pequeno suave num">Consumo ${moeda(totalMesa(mesa))}${conta.taxaServico ? ` + serviço (10%) ${moeda(totalMesa(mesa) * 0.1)}` : ""}</span>
         </div>
 
-        <label class="check"><input type="checkbox" data-servico ${conta.taxaServico ? "checked" : ""}> Incluir 10% de serviço</label>
+        <label class="check"><input type="checkbox" data-servico ${conta.taxaServico ? "checked" : ""} ${conta.pagamentos.length ? "disabled" : ""}> Incluir 10% de serviço</label>
 
         <div class="divisao card">
           <div><div class="forte">Dividir a conta</div><div class="pequeno suave">${conta.pessoas > 1 ? `${moeda(totalFinal() / conta.pessoas)} por pessoa` : "Uma pessoa paga tudo"}</div></div>
           <div class="qtd"><button data-p="-1" aria-label="Menos pessoas">${icone("menos", "ic--sm")}</button><span>${conta.pessoas}</span><button data-p="1" aria-label="Mais pessoas">${icone("mais", "ic--sm")}</button></div>
         </div>
+
+        ${conta.pagamentos.length ? `
+          <div class="pagos">
+            ${conta.pagamentos.map((p, i) => `
+              <div class="pago">
+                ${icone("check", "ic--sm")}
+                <span class="flex1">${nomes[p.forma]}${p.forma === "dinheiro" ? ` <span class="pequeno suave">recebeu ${moeda(p.recebido)} · troco ${moeda(p.troco)}</span>` : ""}</span>
+                <b class="num">${moeda(p.valor)}</b>
+                <button class="btn-icone btn-icone--sm" data-remover="${i}" aria-label="Desfazer pagamento">${icone("fechar", "ic--sm")}</button>
+              </div>`).join("")}
+            <div class="entre falta"><span>Falta pagar</span><strong class="num">${moeda(restante())}</strong></div>
+          </div>` : ""}
 
         <div class="campo"><label>Forma de pagamento</label>
           <div class="formas">
@@ -248,39 +303,71 @@ function abrirFechamento(mesa) {
           </div>
         </div>
 
+        <div class="campo"><label for="valorForma">Valor nesta forma</label>
+          <input class="input num" id="valorForma" data-valor inputmode="decimal" value="${conta.valor !== "" ? conta.valor : valorAtual().toFixed(2).replace(".", ",")}">
+          <span class="pequeno fraco">Para pagar com mais de uma forma, diminua o valor e registre o resto depois.</span>
+        </div>
+
         ${conta.forma === "dinheiro" ? `
-          <div class="campo"><label>Valor recebido</label>
-            <input class="input" id="recebido" data-recebido inputmode="decimal" placeholder="R$ 0,00" value="${conta.recebido}">
+          <div class="campo"><label for="recebido">Valor recebido em dinheiro <span class="obrigatorio">*</span></label>
+            <input class="input num ${conta.recebido ? "" : "input--pendente"}" id="recebido" data-recebido inputmode="decimal" placeholder="Quanto o cliente entregou" value="${conta.recebido}">
+            <div class="notas">
+              <button data-nota="${valorAtual()}">Valor exato</button>
+              ${notas().map((n) => `<button data-nota="${n}">${moeda(n)}</button>`).join("")}
+            </div>
           </div>
           <div id="caixaTroco">${blocoTroco()}</div>` : ""}
 
-        <button class="btn btn--primario btn--bloco" data-confirmar>${icone("check", "ic--sm")} Confirmar pagamento e liberar mesa</button>
+        <div id="areaConfirmar">${areaConfirmar()}</div>
       </div>`;
   }
+  const atualizarParcial = () => {
+    if ($("#caixaTroco", camada)) $("#caixaTroco", camada).innerHTML = blocoTroco();
+    $("#areaConfirmar", camada).innerHTML = areaConfirmar();
+    $("#recebido", camada)?.classList.toggle("input--pendente", !conta.recebido);
+  };
   render();
+
+  function confirmar() {
+    if (problema()) return;
+    const v = valorAtual();
+    const pagamento = { forma: conta.forma, valor: v };
+    if (conta.forma === "dinheiro") Object.assign(pagamento, { recebido: numero(conta.recebido), troco: arred(numero(conta.recebido) - v) });
+    conta.pagamentos.push(pagamento);
+    Object.assign(conta, { valor: "", recebido: "" });
+
+    if (restante() > 0.005) { render(); return toast(`${moeda(v)} registrado. Falta ${moeda(restante())}`, "check"); }
+
+    /* Tudo pago: a comanda fecha, vira pedido antigo e os pagamentos vão para o caixa */
+    const troco = conta.pagamentos.reduce((s, p) => s + (p.troco || 0), 0);
+    comandas.fechar(mesa.numero, { pagamentos: conta.pagamentos, total: totalFinal(), servico: totalFinal() - totalMesa(mesa), por: usuarioLogado?.nome || "Garçom" });
+    camada.remove();
+    atualizarTudo();
+    toast(`Mesa ${mesa.numero} paga e liberada${troco ? ` · troco ${moeda(troco)}` : ""}`);
+  }
 
   camada.addEventListener("click", (e) => {
     if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
     const p = e.target.closest("[data-p]");
-    if (p) { conta.pessoas = Math.max(1, conta.pessoas + Number(p.dataset.p)); return render(); }
+    if (p) { conta.pessoas = Math.max(1, conta.pessoas + Number(p.dataset.p)); conta.valor = ""; return render(); }
     const f = e.target.closest("[data-forma]");
-    if (f) { conta.forma = f.dataset.forma; return render(); }
-    if (e.target.closest("[data-confirmar]")) {
-      /* A comanda fecha e vira um pedido antigo no histórico */
-      comandas.fechar(mesa.numero, { forma: conta.forma, total: totalFinal() });
-      camada.remove();
-      atualizarTudo();
-      toast(`Mesa ${mesa.numero} paga e liberada`);
-    }
+    if (f) { conta.forma = f.dataset.forma; conta.recebido = ""; return render(); }
+    const nota = e.target.closest("[data-nota]");
+    if (nota) { conta.recebido = Number(nota.dataset.nota).toFixed(2).replace(".", ","); $("#recebido", camada).value = conta.recebido; return atualizarParcial(); }
+    const remover = e.target.closest("[data-remover]");
+    if (remover) { conta.pagamentos.splice(Number(remover.dataset.remover), 1); return render(); }
+    if (e.target.closest("[data-confirmar]")) confirmar();
   });
   camada.addEventListener("change", (e) => {
-    if (e.target.matches("[data-servico]")) { conta.taxaServico = e.target.checked; render(); }
+    if (e.target.matches("[data-servico]")) { conta.taxaServico = e.target.checked; conta.valor = ""; render(); }
   });
   camada.addEventListener("input", (e) => {
-    if (e.target.matches("[data-recebido]")) {
-      conta.recebido = e.target.value;
-      $("#caixaTroco", camada).innerHTML = blocoTroco();
-    }
+    if (e.target.matches("[data-recebido]")) conta.recebido = e.target.value;
+    if (e.target.matches("[data-valor]")) conta.valor = e.target.value;
+    atualizarParcial();
+  });
+  camada.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches("input")) confirmar();
   });
 }
 

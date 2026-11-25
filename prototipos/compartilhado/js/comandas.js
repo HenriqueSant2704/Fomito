@@ -35,8 +35,8 @@ window.Fomito = window.Fomito || {};
       { mesa: 11, nome: "Paulo", pessoas: 1, abertaEm: minutos(18), pediuConta: false, rodadas: [rodada(18, "qr", [[5, 1], [12, 1]], "pronto")] },
     ],
     fechadas: [
-      { numero: 2031, mesa: 4, nome: "Júlia", pessoas: 2, abertaEm: minutos(150), fechadaEm: minutos(95), forma: "pix", total: 98.67, rodadas: [rodada(150, "qr", [[2, 2], [6, 1]]), rodada(120, "qr", [[13, 2]])] },
-      { numero: 2030, mesa: 8, nome: "", pessoas: 3, abertaEm: minutos(210), fechadaEm: minutos(160), forma: "credito", total: 124.3, rodadas: [rodada(210, "garcom", [[3, 1], [1, 2], [10, 3]])] },
+      { numero: 2031, mesa: 4, nome: "Júlia", pessoas: 2, abertaEm: minutos(150), fechadaEm: minutos(95), forma: "pix", pagamentos: [{ forma: "pix", valor: 98.67 }], total: 98.67, rodadas: [rodada(150, "qr", [[2, 2], [6, 1]]), rodada(120, "qr", [[13, 2]])] },
+      { numero: 2030, mesa: 8, nome: "", pessoas: 3, abertaEm: minutos(210), fechadaEm: minutos(160), forma: "credito", pagamentos: [{ forma: "credito", valor: 124.3 }], total: 124.3, rodadas: [rodada(210, "garcom", [[3, 1], [1, 2], [10, 3]])] },
     ],
   };
 
@@ -91,14 +91,20 @@ window.Fomito = window.Fomito || {};
     if (c) c.pediuConta = sim;
   });
 
-  /** Fecha a conta: a comanda vira um pedido antigo */
-  const fechar = (mesa, { forma, total: valor }) => alterar((d) => {
+  /**
+   * Fecha a conta: a comanda vira um pedido antigo e cada pagamento
+   * entra no caixa (caixa.js) com o valor recebido e o troco.
+   * pagamentos: [{ forma, valor, recebido?, troco? }]
+   */
+  const fechar = (mesa, { pagamentos, total: valor, servico = 0, por = "" }) => alterar((d) => {
     const i = d.abertas.findIndex((x) => x.mesa === Number(mesa));
     if (i < 0) return null;
     const [c] = d.abertas.splice(i, 1);
     const numero = Math.max(2000, ...d.fechadas.map((f) => f.numero)) + 1;
-    const fechada = { ...c, numero, fechadaEm: Date.now(), forma, total: valor ?? total(c) };
+    const forma = pagamentos.length > 1 ? "misto" : pagamentos[0].forma;
+    const fechada = { ...c, numero, fechadaEm: Date.now(), forma, pagamentos, servico, total: valor ?? total(c), por };
     d.fechadas.push(fechada);
+    pagamentos.forEach((p) => Fomito.caixa?.registrar({ tipo: "comanda", ref: `${mesaTexto(c.mesa)} · comanda #${numero}`, ...p, por }));
     return fechada;
   });
 

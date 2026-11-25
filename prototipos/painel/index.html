@@ -24,6 +24,7 @@
       <button class="menu__item ativo" data-secao="dashboard"><i data-icone="inicio"></i>Visão geral</button>
       <button class="menu__item" data-secao="pedidos"><i data-icone="pedidos"></i>Pedidos <b class="menu__badge" id="badgeNovos">2</b></button>
       <button class="menu__item" data-secao="comandas"><i data-icone="mesa"></i>Comandas</button>
+      <button class="menu__item" data-secao="caixa"><i data-icone="dinheiro"></i>Caixa</button>
       <span class="menu__grupo">Gestão</span>
       <button class="menu__item" data-secao="cardapio"><i data-icone="cardapio"></i>Cardápio</button>
       <button class="menu__item" data-secao="clientes"><i data-icone="pessoas"></i>Clientes</button>
@@ -55,6 +56,7 @@
     <section class="secao" data-secao="dashboard"></section>
     <section class="secao" data-secao="pedidos" hidden></section>
     <section class="secao" data-secao="comandas" hidden></section>
+    <section class="secao" data-secao="caixa" hidden></section>
     <section class="secao" data-secao="cardapio" hidden></section>
     <section class="secao" data-secao="clientes" hidden></section>
     <section class="secao" data-secao="equipe" hidden></section>
@@ -69,12 +71,14 @@
   <script src="../compartilhado/js/utils.js"></script>
   <script src="../compartilhado/js/alertas.js"></script>
   <script src="../compartilhado/js/clientes.js"></script>
+  <script src="../compartilhado/js/caixa.js"></script>
   <script src="../compartilhado/js/comandas.js"></script>
   <!-- Partes do painel em arquivos próprios (antes do painel.js, que liga tudo) -->
   <script src="cardapio.js"></script>
   <script src="clientes.js"></script>
   <script src="pedido.js"></script>
   <script src="comandas.js"></script>
+  <script src="caixa.js"></script>
   <script src="painel.js"></script>
 </body>
 </html>

@@ -887,7 +887,8 @@ document.addEventListener("click", (e) => {
     return atualizarTelas();
   }
   if (e.target.closest("[data-simular-fechar]")) {
-    comandas.fechar(c.mesa, { forma: "pix", total: comandas.total(c) * 1.1 });
+    const valor = Math.round(comandas.total(c) * 110) / 100;
+    comandas.fechar(c.mesa, { pagamentos: [{ forma: "pix", valor }], total: valor, servico: valor - comandas.total(c), por: "Garçom (simulado)" });
     return atualizarTelas();
   }
 });
