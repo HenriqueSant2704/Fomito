@@ -12,10 +12,11 @@ Dê dois cliques em `prototipos/index.html`. O sistema é um só e começa pelo 
 | Cardápio (tela inicial) | `cliente/index.html` | Cliente pede para entrega ou para comer no local |
 | Portal (login) | `portal/index.html` | Equipe. O link fica discreto no rodapé do cardápio |
 | Painel | `painel/index.html` | Só **administrador**: pedidos, comandas, cardápio, equipe e configurações |
-| Comandas | `garcom/index.html` | **Garçom** (e o administrador): mesas, lançar itens, fechar conta |
+| Comandas | `garcom/index.html` | **Garçom** (e o administrador): mesas, servir o que ficou pronto, lançar itens, fechar conta |
+| Entregas | `motoboy/index.html` | **Motoboy** (e o administrador): pedidos prontos por bairro, sair, receber e finalizar |
 
-Acessos de teste: `admin` / `1234` (painel) e `carlos` / `1234` (garçom).
-No painel, em **Equipe**, o administrador cria novos garçons. Quem entra como garçom vai direto para as comandas e não consegue abrir o painel.
+Acessos de teste: `admin` / `1234` (painel), `carlos` / `1234` (garçom) e `joao` / `1234` (motoboy).
+No painel, em **Equipe**, o administrador cria garçons e motoboys. Cada um entra pelo Portal e vai direto para a sua tela, sem acesso ao painel.
 
 > Os dados são fictícios (`compartilhado/js/dados.js`). Usuários criados ficam salvos só no navegador.
 > As "fotos" dos produtos são ilustrações em SVG (`compartilhado/js/ilustracoes.js`). No sistema real, o dono envia as fotos pelo painel.
@@ -36,6 +37,7 @@ prototipos/
 │   │   ├── clientes.js        ← cadastro de clientes pelo telefone, com vários endereços
 │   │   ├── comandas.js        ← comandas das mesas (cliente pelo QR Code, garçom e painel usam as mesmas)
 │   │   ├── caixa.js           ← controle de caixa: abertura, entradas, sangria, suprimento e fechamento
+│   │   ├── pedidos.js         ← pedidos de entrega e balcão (cliente, painel e motoboy usam os mesmos)
 │   │   ├── ilustracoes.js     ← "fotos" ilustradas dos produtos e da vitrine
 │   │   ├── sessao.js          ← login, perfis (admin/garçom) e proteção das telas
 │   │   ├── dados.js           ← cardápio, fotos, adicionais e dados de exemplo
@@ -44,6 +46,7 @@ prototipos/
 ├── cliente/   (index.html · cliente.css · cliente.js)
 ├── portal/    (index.html · portal.css · portal.js)
 ├── garcom/    (index.html · garcom.css · garcom.js)
+├── motoboy/   (index.html · motoboy.css · motoboy.js)
 └── painel/    (index.html · painel.css · painel.js)
     ├── cardapio.js            ← produtos (cadastro com fotos), categorias, adicionais e vitrine
     ├── clientes.js            ← lista de clientes e ficha com endereços
@@ -86,6 +89,31 @@ No protótipo tudo fica no navegador, então abra o cardápio e o garçom no mes
 No sistema real isso vira as tabelas `comandas` e `comanda_itens` no Neon, com atualização em tempo real (WebSocket).
 O QR deve levar um código da mesa difícil de adivinhar (ex.: `?m=7f3k`), para ninguém pedir em nome de outra mesa digitando o número.
 
+## Quem finaliza cada pedido: motoboy e garçom
+
+O atendente do painel não precisa mais perguntar se a comida chegou. No **Painel → Pedidos** ele só **aceita** (o pedido vai para Em preparo) e **marca pronto**. Daí em diante quem leva é quem finaliza:
+
+| Pedido | Painel (atendente) | Quem finaliza | Vira |
+|---|---|---|---|
+| Entrega | Aceitar → Marcar pronto | **Motoboy**: sai para entrega, recebe e finaliza | Entregue |
+| Mesa (comanda) | Aceitar → Marcar pronto | **Garçom**: leva e marca servido | Servido |
+| Balcão | Aceitar → Marcar pronto → Cliente retirou | Atendente | Concluído |
+
+Na coluna "Pronto / em rota" o painel mostra quem está com cada pedido ("Aguardando o motoboy", "Com João · saiu às 19:40", "Aguardando o garçom servir").
+
+**Tela do motoboy** (`motoboy/index.html`, feita para o celular):
+- **Para sair:** pedidos prontos **separados por bairro** (o cliente escolhe o bairro no endereço). Bairros com mais pedidos aparecem primeiro, com o botão **Levar todos**.
+- O **endereço** é a informação maior do cartão (rua, complemento, bairro e referência), seguido do **pedido** e de **quanto cobrar**: no dinheiro já mostra quanto levar de troco.
+- Ele marca os pedidos e toca **Sair para entrega**: o cliente recebe o WhatsApp "Saiu para entrega" e o painel vê com quem está.
+- **Em rota:** botões **Mapa**, **Ligar** e **Entreguei**. Ao finalizar, informa como o cliente pagou; no dinheiro o **valor recebido é obrigatório** e o troco é calculado. O pagamento entra no caixa com o nome do motoboy.
+- **Entregues:** as entregas do dia e o **dinheiro com ele**, para acertar com o caixa no fim do turno.
+- Também vê os pedidos **ficando prontos**, para se planejar.
+
+**Tela do garçom:** um quadro **Prontos para servir** no topo, com o botão **Servido**, e a mesa fica destacada.
+
+**Avisos:** quando um pedido fica pronto, o motoboy (entrega) ou o garçom (mesa) recebe **som, vibração e notificação** (o garçom também quando a mesa pede a conta). Cada um toca em **Ativar avisos** uma vez. O painel também é avisado quando o motoboy sai e entrega.
+No protótipo a notificação usa o navegador e precisa da tela aberta. No sistema real vira **Web Push** com Service Worker, para avisar mesmo com o celular bloqueado, e os pedidos viram as tabelas `pedidos` e `pedido_itens` com atualização em tempo real (WebSocket).
+
 ## Fechar a conta e controle de caixa
 
 **No garçom (Fechar conta):**
@@ -96,7 +124,7 @@ O QR deve levar um código da mesa difícil de adivinhar (ex.: `?m=7f3k`), para 
 
 **No painel (Caixa):**
 1. **Abrir caixa** com o fundo de troco que fica na gaveta.
-2. Cada pagamento entra sozinho: conta das mesas (pelo garçom) e entregas concluídas, com a forma, o valor recebido e o troco devolvido.
+2. Cada pagamento entra sozinho: conta das mesas (pelo garçom) e entregas finalizadas (pelo motoboy), com a forma, o valor recebido e o troco devolvido.
 3. **Sangria** (dinheiro retirado, ex.: levar ao cofre) e **Suprimento** (dinheiro colocado, ex.: mais troco).
 4. **Fechar caixa:** conta o dinheiro da gaveta e compara com o esperado. Se não bater, a observação é obrigatória.
 5. **Fechamentos anteriores** mostram se cada dia bateu, faltou ou sobrou.

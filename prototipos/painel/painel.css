@@ -198,6 +198,10 @@ button.mini-mesa:not(:disabled):hover { border-color: var(--roxo-medio); box-sha
 }
 
 /* Linha do WhatsApp no card do pedido */
+.pedido__situacao { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; padding: 8px 10px; border-radius: var(--raio-sm); background: var(--roxo-claro); color: var(--roxo); line-height: 1.4; }
+.pedido__situacao .ic { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+.pedido__situacao--pronto { background: var(--amarelo-claro); color: var(--amarelo-escuro); }
+.pedido__situacao--concluido { background: var(--verde-claro); color: var(--verde-escuro); }
 .pedido__whats { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #15803D; }
 .pedido__whats .ic { width: 14px; height: 14px; }
 
@@ -373,3 +377,8 @@ button.mini-mesa:not(:disabled):hover { border-color: var(--roxo-medio); box-sha
 .troco-painel .ic { vertical-align: -3px; margin-right: 4px; }
 .grade-caixa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 760px) { .grade-caixa { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Equipe: tipo de funcionário (v8) ---------- */
+.tipos-funcionario { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.pedido > .entre:last-child { flex-wrap: wrap; row-gap: 8px; }
+.pedido > .entre:last-child > .linha { margin-left: auto; }

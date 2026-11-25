@@ -10,9 +10,10 @@
 
 /* ---------- 1. RODADAS NO QUADRO DE PEDIDOS ----------
    Cada vez que a mesa pede, a rodada entra na coluna da cozinha:
-   recebido → Novos · preparo → Em preparo · pronto → Pronto */
+   recebido → Novos · preparo → Em preparo · pronto → Pronto
+   Quando fica pronta, o garçom é avisado e ele marca "servido" na tela dele. */
 const colunaDaRodada = { recebido: "novo", preparo: "preparo", pronto: "pronto" };
-const acaoDaRodada = { recebido: "Aceitar", preparo: "Marcar pronto", pronto: "Servido na mesa" };
+const acaoDaRodada = { recebido: "Aceitar", preparo: "Marcar pronto" };
 
 function rodadasDaColuna(colunaId) {
   return Fomito.comandas.abertas()
@@ -28,8 +29,9 @@ function cardRodada({ c, r, i }) {
       <div class="entre"><span class="forte">${c.nome || "Comanda"}</span><span class="tag tag--cinza">${r.por === "qr" ? "QR da mesa" : "Garçom"}</span></div>
       <div class="pedido__itens">${r.itens.map((it) => `${it.qtd}× ${Fomito.produto(it.id).nome}${it.obs ? `<br><span class="fraco">Obs.: ${it.obs}</span>` : ""}`).join("<br>")}</div>
       <div class="pedido__pag">${icone("mesa", "ic--sm")}<span>Comanda aberta: ${moeda(cmd.total(c))} até agora${c.pediuConta ? "<br><b>Pediu a conta</b>" : ""}</span></div>
+      ${r.status === "pronto" ? `<div class="pedido__situacao pedido__situacao--pronto">${icone("relogio", "ic--sm")}<span>Aguardando o garçom servir</span></div>` : ""}
       <div class="entre"><span class="preco">${moeda(cmd.totalRodada(r))}</span>
-        <button class="btn ${r.status === "recebido" ? "btn--primario" : "btn--contorno"} btn--sm" data-rodada="${c.mesa},${i}">${acaoDaRodada[r.status]}</button></div>
+        ${acaoDaRodada[r.status] ? `<button class="btn ${r.status === "recebido" ? "btn--primario" : "btn--contorno"} btn--sm" data-rodada="${c.mesa},${i}">${acaoDaRodada[r.status]}</button>` : ""}</div>
     </div>`;
 }
 
@@ -39,8 +41,11 @@ document.addEventListener("click", (e) => {
     const [mesa, i] = botao.dataset.rodada.split(",").map(Number);
     const r = Fomito.comandas.daMesa(mesa).rodadas[i];
     const novo = Fomito.comandas.PROXIMO[r.status];
+    if (!acaoDaRodada[r.status]) return;
     Fomito.comandas.statusRodada(mesa, i, novo);
     renderPedidos();
+    versaoComandasPainel = JSON.stringify(Fomito.comandas.abertas());
+    if (novo === "pronto") return toast(`${Fomito.comandas.mesaTexto(mesa)} pronta. O garçom foi avisado para servir.`, "sino");
     return toast(`${Fomito.comandas.mesaTexto(mesa)}: ${i + 1}º pedido ${Fomito.comandas.STATUS[novo].nome.toLowerCase()}`, Fomito.comandas.STATUS[novo].icone);
   }
   if (e.target.closest("button, a, input, label")) return;
@@ -156,20 +161,39 @@ function abrirComandaPainel(mesa) {
   });
 }
 
-/* O cliente pede pelo celular: o painel confere as comandas a cada 3 segundos */
+/* O cliente pede pelo celular, o garçom serve e o motoboy entrega em outros
+   aparelhos: o painel confere as comandas e os pedidos a cada 3 segundos */
 let versaoComandasPainel = JSON.stringify(Fomito.comandas.abertas());
+const resumoPedidos = (lista) => JSON.stringify(lista.map(({ num, status, motoboy }) => [num, status, motoboy]));
+let versaoPedidosPainel = resumoPedidos(Fomito.pedidos.lista());
+/** Chamado depois que o próprio painel muda um pedido, para não avisar de novo */
+const pedidosSincronizados = () => { versaoPedidosPainel = resumoPedidos(Fomito.pedidos.lista()); };
 setInterval(() => {
   const agora = JSON.stringify(Fomito.comandas.abertas());
-  if (agora === versaoComandasPainel) return;
-  const novas = Fomito.comandas.abertas().reduce((s, c) => s + c.rodadas.length, 0) > JSON.parse(versaoComandasPainel).reduce((s, c) => s + c.rodadas.length, 0);
-  versaoComandasPainel = agora;
-  if (novas) {
+  const pedidosAgora = Fomito.pedidos.lista();
+  const versaoPedidos = resumoPedidos(pedidosAgora);
+  if (agora === versaoComandasPainel && versaoPedidos === versaoPedidosPainel) return;
+
+  /* Rodada nova de uma mesa */
+  const rodadas = (lista) => lista.reduce((s, c) => s + c.rodadas.length, 0);
+  if (rodadas(Fomito.comandas.abertas()) > rodadas(JSON.parse(versaoComandasPainel))) {
     alertas.tocarAlerta();
     toast("Pedido novo de uma mesa (QR Code)", "mesa");
   }
+  /* Pedido novo do cardápio, ou o motoboy saiu / entregou */
+  const antes = Object.fromEntries(JSON.parse(versaoPedidosPainel).map(([num, status]) => [num, status]));
+  pedidosAgora.forEach((p) => {
+    if (!antes[p.num] && p.status === "novo") avisarPedidoNovo(`Novo pedido #${p.num} de ${p.cliente}`);
+    else if (antes[p.num] && antes[p.num] !== p.status && p.status === "rota") toast(`${p.motoboy} saiu com o pedido #${p.num} (${p.bairro})`, "entrega");
+    else if (antes[p.num] && antes[p.num] !== p.status && p.status === "concluido") toast(`Pedido #${p.num} entregue por ${p.motoboy}`, "check");
+  });
+  versaoComandasPainel = agora;
+  versaoPedidosPainel = versaoPedidos;
+
   const aberta = $(".secao:not([hidden])")?.dataset.secao;
   if (aberta === "pedidos") renderPedidos();
   if (aberta === "comandas") renderComandas();
   if (aberta === "caixa") renderCaixa();
+  if (aberta === "dashboard") renderDashboard();
   atualizarBadge();
 }, 3000);

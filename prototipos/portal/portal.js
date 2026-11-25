@@ -1,6 +1,6 @@
 /* ==========================================================================
    FOMITO · PORTAL (lógica do login)
-   Admin → painel. Garçom → comandas.
+   Admin → painel. Garçom → comandas. Motoboy → entregas.
    ========================================================================== */
 
 const { $, $$, sessao } = Fomito;

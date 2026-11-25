@@ -1,32 +1,32 @@
 /* ==========================================================================
    FOMITO · PAINEL › DETALHE DO PEDIDO E LANÇAR PEDIDO
    --------------------------------------------------------------------------
-   Carregado antes do painel.js (usa pedidos, colunas, totalPedido...).
+   Carregado antes do painel.js (usa Fomito.pedidos, acaoDoPedido, totalPedido...).
      1. Detalhe do pedido: abre ao clicar num card do quadro
      2. Lançar pedido: para pedidos por telefone, balcão ou mesa
    ========================================================================== */
 
-const hora = (minutosAtras) => new Date(Date.now() - minutosAtras * 60000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const hora = (ts) => Fomito.pedidos.hora(ts);
 
 /* ---------- 1. DETALHE DO PEDIDO ---------- */
 function abrirPedido(num) {
-  const p = pedidos.find((x) => x.num === num);
+  const p = Fomito.pedidos.doNumero(num);
   const forma = dados.formasPagamento.find((f) => f.id === p.pag);
   const entrega = p.modo === "entrega";
   const subtotalPedido = p.itens.reduce((s, item) => s + precoItem(item), 0);
-  const ordem = ["novo", "preparo", "pronto", "concluido"];
-  const passo = ordem.indexOf(p.status);
+  const passo = ["novo", "preparo", "pronto", "rota", "concluido"].indexOf(p.status);
+  /* [ícone, etapa, quando, já aconteceu?] */
   const etapas = [
-    ["recebido", "Pedido recebido", p.min],
-    ["check", "Aceito", Math.max(0, p.min - 1)],
-    ["chama", "Em preparo", Math.max(0, p.min - 2)],
-    [entrega ? "entrega" : "local", entrega ? "Saiu para entrega" : "Servido na mesa", Math.max(0, p.min - 14)],
-    ["concluido", entrega ? "Entregue" : "Concluído", Math.max(0, p.min - 30)],
+    ["recebido", "Pedido recebido", p.criadoEm, true],
+    ["chama", "Aceito e em preparo", null, passo >= 1],
+    ["sino", entrega ? "Pronto · motoboys avisados" : "Pronto para retirar", p.prontoEm, passo >= 2],
+    ...(entrega ? [["entrega", `Saiu para entrega${p.motoboy ? ` com ${p.motoboy}` : ""}`, p.saiuEm, passo >= 3]] : []),
+    ["concluido", entrega ? "Entregue e pago" : "Retirado no balcão", p.entregueEm, passo >= 4],
   ];
-  const feitas = [1, 3, 4, 5][passo]; // quantas etapas já aconteceram
-  const coluna = colunas.find((c) => c.id === p.status);
+  const acao = acaoDoPedido(p);
   const cadastro = p.telefone && Fomito.clientes.buscar(p.telefone);
-  const mensagens = entrega ? ["Pedido recebido", "Em preparo", "Saiu para entrega", "Entregue"].slice(0, passo + 1) : [];
+  const mensagens = entrega ? [["Pedido recebido", 0], ["Em preparo", 1], ["Saiu para entrega", 3], ["Entregue", 4]].filter(([, n]) => passo >= n).map(([m]) => m) : [];
+  const pagoCom = dados.formasPagamento.find((f) => f.id === p.pagoCom);
 
   const camada = document.createElement("div");
   camada.className = "sobreposicao sobreposicao--lado";
@@ -35,7 +35,7 @@ function abrirPedido(num) {
       <div class="folha__topo">
         <div class="pilha" style="gap:4px">
           <h2 class="num">Pedido #${p.num}</h2>
-          <span class="linha" style="gap:6px">${tagStatus(p.status)}<span class="tag ${entrega ? "tag--roxo" : "tag--cinza"}">${entrega ? "Entrega" : "No local"}</span><span class="pequeno fraco">às ${hora(p.min)}</span></span>
+          <span class="linha" style="gap:6px">${tagStatus(p.status)}<span class="tag ${entrega ? "tag--roxo" : "tag--cinza"}">${entrega ? "Entrega" : "Balcão"}</span><span class="pequeno fraco">às ${hora(p.criadoEm)}</span></span>
         </div>
         <button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button>
       </div>
@@ -45,7 +45,8 @@ function abrirPedido(num) {
         <div class="entre"><span class="forte">${p.cliente}</span>${cadastro ? `<button class="link" data-ver-cliente="${cadastro.telefone}">Ver cadastro</button>` : ""}</div>
         ${p.telefone ? `<span class="linha pequeno suave" style="gap:8px">${icone("telefone", "ic--sm")}${p.telefone}</span>` : ""}
         ${p.endereco ? `<span class="linha pequeno suave" style="gap:8px;align-items:flex-start">${icone("pin", "ic--sm")}${p.endereco}</span>` : ""}
-        ${!entrega ? `<span class="linha pequeno suave" style="gap:8px">${icone("mesa", "ic--sm")}Consumo no salão · conta com o garçom</span>` : ""}
+        ${p.ref ? `<span class="pequeno suave" style="padding-left:24px">Referência: ${p.ref}</span>` : ""}
+        ${!entrega ? `<span class="linha pequeno suave" style="gap:8px">${icone("loja", "ic--sm")}Retirada no balcão</span>` : ""}
       </div>
 
       <div class="ficha-bloco">
@@ -75,17 +76,18 @@ function abrirPedido(num) {
         <span class="rotulo">Pagamento</span>
         ${entrega
           ? `<span class="linha" style="gap:8px">${icone(forma.icone, "ic--sm")}${forma.nome} na entrega</span>
-             ${p.pag === "dinheiro" && p.troco ? `<div class="troco-painel">Troco para <b>${moeda(p.troco)}</b> · levar <b>${moeda(p.troco - totalPedido(p))}</b></div>` : ""}`
-          : `<span class="linha" style="gap:8px">${icone("usuario", "ic--sm")}Com o garçom ao fechar a comanda</span>`}
+             ${p.pag === "dinheiro" && p.troco ? `<div class="troco-painel">Troco para <b>${moeda(p.troco)}</b> · levar <b>${moeda(p.troco - totalPedido(p))}</b></div>` : ""}
+             ${pagoCom ? `<div class="pedido__situacao pedido__situacao--concluido">${icone("check", "ic--sm")}<span>${p.motoboy} recebeu no ${pagoCom.nome.toLowerCase()}${p.recebido ? `: ${moeda(p.recebido)}, troco de ${moeda(p.trocoDado || 0)}` : ""}. Já está no caixa.</span></div>` : ""}`
+          : `<span class="linha" style="gap:8px">${icone("usuario", "ic--sm")}No balcão, na retirada</span>`}
       </div>
 
       <div class="ficha-bloco">
         <span class="rotulo">Andamento</span>
         <div class="andamento">
-          ${etapas.slice(0, entrega ? 5 : 5).map(([ic, titulo, min], i) => `
-            <div class="andamento__etapa ${i < feitas ? "feita" : ""}">
-              <span class="andamento__ponto">${icone(i < feitas ? "check" : ic, "ic--sm")}</span>
-              <span class="flex1">${titulo}</span><span class="pequeno fraco num">${i < feitas ? hora(min) : "-"}</span>
+          ${etapas.map(([ic, titulo, quando, feita]) => `
+            <div class="andamento__etapa ${feita ? "feita" : ""}">
+              <span class="andamento__ponto">${icone(feita ? "check" : ic, "ic--sm")}</span>
+              <span class="flex1">${titulo}</span><span class="pequeno fraco num">${feita && quando ? hora(quando) : "-"}</span>
             </div>`).join("")}
         </div>
       </div>
@@ -99,7 +101,7 @@ function abrirPedido(num) {
       <div class="acoes-pedido">
         <button class="btn btn--contorno" data-fechar data-cupom="${p.num}">${icone("impressora", "ic--sm")} Imprimir</button>
         ${p.status !== "concluido" ? `<button class="btn btn--contorno" data-fechar data-cancelar-pedido="${p.num}" style="color:var(--vermelho-escuro)">Cancelar</button>` : ""}
-        ${coluna.acao ? `<button class="btn btn--primario" data-fechar data-avancar="${p.num}" style="flex:1">${coluna.acao}</button>` : ""}
+        ${acao ? `<button class="btn btn--primario" data-fechar data-avancar="${p.num}" style="flex:1">${acao.texto}</button>` : ""}
       </div>
     </div>`;
   document.body.appendChild(camada);
@@ -114,7 +116,8 @@ document.addEventListener("click", (e) => {
   const cancelar = e.target.closest("[data-cancelar-pedido]");
   if (cancelar) {
     const num = Number(cancelar.dataset.cancelarPedido);
-    pedidos = pedidos.filter((p) => p.num !== num);
+    Fomito.pedidos.remover(num);
+    pedidosSincronizados();
     renderPedidos();
     return toast(`Pedido #${num} cancelado`, "info");
   }
@@ -233,8 +236,7 @@ function buscarClienteNovo() {
 }
 
 function confirmarNovo() {
-  const num = Math.max(...pedidos.map((p) => p.num), 1044) + 1;
-  const base = { num, itens: itensNovo(), status: "novo", min: 0 };
+  const base = { itens: itensNovo() };
   if (novo.modo === "entrega") {
     if (!novo.buscou) return toast("Busque o telefone do cliente", "info");
     let c = novo.cliente;
@@ -246,7 +248,7 @@ function confirmarNovo() {
     }
     const e = c.enderecos.find((x) => x.id === novo.enderecoId);
     const troco = parseFloat(String(novo.troco).replace(",", ".")) || null;
-    Object.assign(base, { cliente: c.nome, modo: "entrega", telefone: Fomito.clientes.formatarTelefone(c.telefone), endereco: [e.rua, e.compl, e.bairro].filter(Boolean).join(", "), pag: novo.pag, troco });
+    Object.assign(base, { cliente: c.nome, modo: "entrega", telefone: Fomito.clientes.formatarTelefone(c.telefone), rua: e.rua, compl: e.compl, bairro: e.bairro, ref: e.ref, pag: novo.pag, troco });
   } else if (novo.modo === "mesa") {
     /* Mesa não vira pedido solto: entra na comanda da mesa */
     Fomito.comandas.lancar(novo.mesa, itensNovo().map(([id, qtd]) => ({ id, qtd })), { nome: novo.nome, por: "garcom" });
@@ -256,7 +258,8 @@ function confirmarNovo() {
   } else {
     Object.assign(base, { cliente: `Balcão · ${novo.nome || "Retirada"}`, modo: "local", pag: null });
   }
-  pedidos.unshift(base);
+  const { num } = Fomito.pedidos.criar(base);
+  pedidosSincronizados();
   $("#lancarPedido").remove();
   renderPedidos();
   toast(`Pedido #${num} lançado em Novos`, "check");

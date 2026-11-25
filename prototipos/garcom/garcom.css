@@ -126,3 +126,22 @@ body { background: var(--fundo); min-height: 100vh; }
 .falta strong { color: var(--laranja-escuro); }
 .btn-icone--sm { width: 28px; height: 28px; }
 .flex1 { flex: 1; }
+
+/* ---------- Prontos para servir e avisos (v8) ---------- */
+.servir { border: 1px solid #F3C58C; background: var(--creme); border-radius: var(--raio-lg); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.servir__topo { display: flex; align-items: center; justify-content: space-between; color: var(--laranja-escuro); }
+.servir__qtd { min-width: 24px; height: 24px; padding: 0 8px; border-radius: var(--raio-pill); background: var(--laranja); color: #fff; font-size: 12.5px; font-weight: 700; display: inline-grid; place-items: center; }
+.servir__lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.servir__item { display: flex; align-items: center; gap: 12px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-md); padding: 10px 12px; min-width: 0; }
+.servir__item--novo { animation: piscarServir 1.2s ease 3; }
+@keyframes piscarServir { 50% { box-shadow: 0 0 0 4px rgba(255, 138, 0, .35); border-color: var(--laranja); } }
+.servir__mesa { display: flex; flex-direction: column; align-items: center; line-height: 1; padding-right: 12px; border-right: 1px solid var(--borda); color: var(--texto-fraco); }
+.servir__mesa strong { font-family: var(--fonte-marca); font-weight: 800; font-size: 24px; color: var(--texto); margin-top: 2px; }
+.mesa--servir { border-color: var(--laranja); box-shadow: 0 0 0 1px var(--laranja); }
+.mesa__servir { color: var(--laranja-escuro); font-weight: 700; }
+.mesa__meta .mesa__servir .ic { color: var(--laranja); }
+.ativar-avisos { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--raio-md); background: var(--laranja-claro); border: 1px solid #F6D3A8; color: #6B4A1F; font-size: 13px; }
+.ativar-avisos > .ic { color: var(--laranja-escuro); flex: none; }
+.ativar-avisos .btn { margin-left: auto; flex: none; }
+@media (max-width: 560px) { .ativar-avisos { flex-wrap: wrap; } .ativar-avisos .btn { margin-left: 0; } }
+.mesa__meta { flex-wrap: wrap; row-gap: 4px; }

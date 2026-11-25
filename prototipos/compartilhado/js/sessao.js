@@ -2,8 +2,9 @@
    FOMITO · LOGIN E PERFIS (simulado no navegador)
    --------------------------------------------------------------------------
    Perfis:
-     admin  → dono/gerente: acessa o PAINEL (e as comandas)
-     garcom → acessa só as COMANDAS (não vê o painel)
+     admin   → dono/gerente: acessa o PAINEL (e as comandas)
+     garcom  → acessa só as COMANDAS (não vê o painel)
+     motoboy → acessa só as ENTREGAS (não vê o painel)
    No protótipo os usuários ficam guardados no navegador (localStorage).
    No sistema real isso vira tabela no Neon + senha criptografada no Node.js.
    ========================================================================== */
@@ -27,9 +28,29 @@ window.Fomito = window.Fomito || {};
   const usuariosIniciais = [
     { nome: "Zé Silva", usuario: "admin", senha: "1234", perfil: "admin" },
     { nome: "Carlos Mendes", usuario: "carlos", senha: "1234", perfil: "garcom" },
+    { nome: "João Pereira", usuario: "joao", senha: "1234", perfil: "motoboy" },
+    { nome: "Lucas Ramos", usuario: "lucas", senha: "1234", perfil: "motoboy" },
   ];
 
+  /* Quem já usava o protótipo antes dos motoboys ganha os de exemplo (uma vez) */
+  try {
+    const salvos = JSON.parse(localStorage.getItem(CHAVE_USUARIOS));
+    if (salvos && !localStorage.getItem("fomito.usuarios.v8")) {
+      const faltam = usuariosIniciais.filter((u) => u.perfil === "motoboy" && !salvos.some((s) => s.usuario === u.usuario));
+      localStorage.setItem(CHAVE_USUARIOS, JSON.stringify([...salvos, ...faltam]));
+    }
+    localStorage.setItem("fomito.usuarios.v8", "1");
+  } catch { /* sem armazenamento */ }
+
+  /* Tipos de funcionário que o administrador pode criar */
+  const PERFIS = {
+    admin:   { nome: "Administrador", cor: "roxo",    tela: "../painel/index.html" },
+    garcom:  { nome: "Garçom",        cor: "laranja", tela: "../garcom/index.html" },
+    motoboy: { nome: "Motoboy",       cor: "verde",   tela: "../motoboy/index.html" },
+  };
+
   Fomito.sessao = {
+    PERFIS,
     usuarios: () => ler(CHAVE_USUARIOS, usuariosIniciais),
 
     criarUsuario(novo) {
@@ -58,7 +79,7 @@ window.Fomito = window.Fomito || {};
     },
 
     /* Para onde cada perfil vai depois do login */
-    destino: (perfil) => (perfil === "admin" ? "../painel/index.html" : "../garcom/index.html"),
+    destino: (perfil) => (PERFIS[perfil] || PERFIS.garcom).tela,
 
     /* Protege uma tela: se o perfil não puder entrar, volta para o Portal */
     exigir(...perfisPermitidos) {

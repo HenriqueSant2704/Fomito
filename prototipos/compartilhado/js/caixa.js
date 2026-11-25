@@ -32,10 +32,10 @@ window.Fomito = window.Fomito || {};
       movimentos: [
         mov(220, { tipo: "comanda", ref: "Mesa 06 · comanda #2029", forma: "dinheiro", valor: 76.5, recebido: 80, troco: 3.5, por: "Carlos Mendes" }),
         mov(160, { tipo: "comanda", ref: "Mesa 08 · comanda #2030", forma: "credito", valor: 124.3, por: "Carlos Mendes" }),
-        mov(140, { tipo: "entrega", ref: "Entrega #1035 · Marcos Lopes", forma: "dinheiro", valor: 62.4, recebido: 100, troco: 37.6, por: "Entregador" }),
+        mov(140, { tipo: "entrega", ref: "Entrega #1035 · Marcos Lopes", forma: "dinheiro", valor: 62.4, recebido: 100, troco: 37.6, por: "Lucas Ramos" }),
         mov(120, { tipo: "sangria", ref: "Retirada para o cofre", forma: "dinheiro", valor: 100, por: "Zé Silva" }),
         mov(95,  { tipo: "comanda", ref: "Mesa 04 · comanda #2031", forma: "pix", valor: 98.67, por: "Carlos Mendes" }),
-        mov(40,  { tipo: "entrega", ref: "Entrega #1037 · Diego Alves", forma: "debito", valor: 84, por: "Entregador" }),
+        mov(40,  { tipo: "entrega", ref: "Entrega #1037 · Diego Alves", forma: "debito", valor: 84, por: "João Pereira" }),
       ],
     },
     fechamentos: [

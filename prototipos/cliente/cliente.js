@@ -23,7 +23,6 @@ const estado = {
   pagamento: null,          // id da forma de pagamento
   trocoPara: "",
   semTroco: false,
-  etapaPedido: 0,
   /* Finalizar pedido */
   etapaCliente: "telefone", // "telefone" → "identificado"
   telefone: "",
@@ -726,37 +725,37 @@ function blocoLocal() {
     </div>`;
 }
 
-/* --- Confirmar (entrega vira pedido; local vai para a comanda) --- */
+/* --- Confirmar (entrega vira pedido; local vai para a comanda) ---
+   A entrega vai para compartilhado/js/pedidos.js: a lanchonete aceita e
+   marca pronto no painel, e o motoboy sai e finaliza na tela dele. */
 const etapas = [
-  { icone: "recebido", titulo: "Pedido recebido", sub: "A lanchonete confirmou seu pedido" },
+  { icone: "recebido", titulo: "Pedido recebido", sub: "Aguardando a lanchonete aceitar" },
   { icone: "chama", titulo: "Em preparo", sub: "Seu pedido está sendo preparado" },
   { icone: "entrega", titulo: "Saiu para entrega", sub: "O entregador está a caminho" },
   { icone: "inicio", titulo: "Entregue", sub: "Bom apetite!" },
 ];
-let timerPedido, timerCozinha;
+/* Status do pedido → etapa que o cliente vê (pronto ainda aparece como "em preparo") */
+const etapaDoStatus = { novo: 0, preparo: 1, pronto: 1, rota: 2, concluido: 3 };
+const CHAVE_ENTREGA = "fomito.minhaEntrega";
+let minhaEntrega = recuperar(CHAVE_ENTREGA, null); // número do pedido de entrega em andamento
+let timerCozinha;
 
 function confirmarPedido() {
   if (estado.modo === "local") return enviarParaComanda();
   const endereco = estado.cliente.enderecos.find((e) => e.id === estado.enderecoId);
-  estado.pedido = {
-    numero: 1000 + Math.floor(Math.random() * 900), itens: [...estado.carrinho], total: total(),
-    pagamento: estado.pagamento, troco: estado.semTroco ? null : valorTroco(),
-    cliente: estado.cliente.nome, endereco: `${endereco.apelido}: ${clientes.textoEndereco(endereco)}`,
-  };
-  anteriores.unshift({ tipo: "entrega", numero: estado.pedido.numero, titulo: "Entrega", data: Date.now(), itens: qtdItens(), total: total(), forma: estado.pagamento });
+  const p = Fomito.pedidos.criar({
+    modo: "entrega", cliente: estado.cliente.nome, telefone: clientes.formatarTelefone(estado.cliente.telefone),
+    rua: endereco.rua, compl: endereco.compl, bairro: endereco.bairro, ref: endereco.ref,
+    itens: estado.carrinho.map((i) => [i.id, i.qtd, i.extras || [], i.obs || ""]),
+    pag: estado.pagamento, troco: estado.pagamento === "dinheiro" && !estado.semTroco ? valorTroco() : null,
+  });
+  minhaEntrega = p.num;
+  guardar(CHAVE_ENTREGA, minhaEntrega);
+  anteriores.unshift({ tipo: "entrega", numero: p.num, titulo: "Entrega", data: Date.now(), itens: qtdItens(), total: total(), forma: estado.pagamento });
   guardar(CHAVE_ANTERIORES, anteriores);
   estado.carrinho = [];
-  estado.etapaPedido = 0;
   atualizarBarraSacola();
   irPara("acompanhamento");
-
-  /* Demonstração: avança uma etapa a cada 4 segundos */
-  clearInterval(timerPedido);
-  timerPedido = setInterval(() => {
-    if (estado.etapaPedido >= etapas.length - 1) return clearInterval(timerPedido);
-    estado.etapaPedido++;
-    if (!$('[data-tela="acompanhamento"]').hidden) renderAcompanhamento();
-  }, 4000);
 }
 
 function enviarParaComanda() {
@@ -774,12 +773,13 @@ function enviarParaComanda() {
   demoCozinha();
 }
 
-/* Demonstração: a cozinha avança o último pedido da comanda a cada 5 segundos */
+/* Demonstração: a cozinha avança o pedido da comanda a cada 5 segundos até "Pronto".
+   Daí o garçom é avisado e marca "Servido" na tela dele. */
 function demoCozinha() {
   clearInterval(timerCozinha);
   timerCozinha = setInterval(() => {
     const c = minhaComanda();
-    const i = c ? c.rodadas.findIndex((r) => r.status !== "servido") : -1;
+    const i = c ? c.rodadas.findIndex((r) => r.status === "recebido" || r.status === "preparo") : -1;
     if (i < 0) return clearInterval(timerCozinha);
     comandas.statusRodada(c.mesa, i, comandas.PROXIMO[c.rodadas[i].status]);
     atualizarTelas();
@@ -792,8 +792,9 @@ function renderAcompanhamento() {
   const c = minhaComanda();
   const partes = [];
   if (c) partes.push(telaComanda(c));
-  if (estado.pedido) partes.push(telaEntrega());
-  const antigos = anteriores.filter((a) => a.numero !== estado.pedido?.numero);
+  const entrega = minhaEntrega && Fomito.pedidos.doNumero(minhaEntrega);
+  if (entrega) partes.push(telaEntrega(entrega));
+  const antigos = anteriores.filter((a) => a.numero !== entrega?.num);
   if (antigos.length) partes.push(listaAnteriores(antigos));
   $("#acompanhamento").innerHTML = partes.join(`<hr class="divisor">`) || `
     <div class="vazio"><span class="vazio__icone">${icone("pedidos", "ic--lg")}</span><p>Você ainda não fez nenhum pedido.</p><button class="btn btn--secundario" data-ir="cardapio">Ver cardápio</button></div>`;
@@ -828,35 +829,57 @@ function telaComanda(c) {
     </div>`;
 }
 
-function telaEntrega() {
-  const pedido = estado.pedido;
-  const atual = etapas[estado.etapaPedido];
-  const forma = dados.formasPagamento.find((f) => f.id === pedido.pagamento);
-  const pagamento = `Pagamento na entrega: <b>${forma?.nome}</b>${pedido.pagamento === "dinheiro" ? (pedido.troco ? `, troco para ${moeda(pedido.troco)} (o entregador leva ${moeda(pedido.troco - pedido.total)})` : ", sem troco") : ""}.`;
+function telaEntrega(pedido) {
+  const passo = etapaDoStatus[pedido.status];
+  const atual = etapas[passo];
+  const forma = dados.formasPagamento.find((f) => f.id === pedido.pag);
+  const pagamento = `Pagamento na entrega: <b>${forma?.nome}</b>${pedido.pag === "dinheiro" ? (pedido.troco ? `, troco para ${moeda(pedido.troco)} (o entregador leva ${moeda(pedido.troco - pedido.total)})` : ", sem troco") : ""}.`;
+  const sub = {
+    novo: atual.sub,
+    preparo: atual.sub,
+    pronto: "Pronto! O entregador já vai sair",
+    rota: `${pedido.motoboy?.split(" ")[0] || "O entregador"} saiu às ${Fomito.pedidos.hora(pedido.saiuEm)} e está a caminho`,
+    concluido: `Entregue às ${Fomito.pedidos.hora(pedido.entregueEm)}. Bom apetite!`,
+  }[pedido.status];
   return `
     <div class="status">
-      <span class="rotulo">Pedido #${pedido.numero} · Entrega</span>
+      <span class="rotulo">Pedido #${pedido.num} · Entrega</span>
       <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">${atual.titulo}</h3>
-      <span class="suave">Previsão de entrega: ${dados.lanchonete.tempoEntrega}</span>
+      <span class="suave">${pedido.status === "concluido" ? sub : `${sub} · previsão ${dados.lanchonete.tempoEntrega}`}</span>
       <div class="status__progresso" style="grid-template-columns:repeat(${etapas.length},1fr)">
-        ${etapas.map((_, i) => `<span class="${i < estado.etapaPedido ? "feito" : i === estado.etapaPedido ? "atual" : ""}"></span>`).join("")}
+        ${etapas.map((_, i) => `<span class="${i < passo || pedido.status === "concluido" ? "feito" : i === passo ? "atual" : ""}"></span>`).join("")}
       </div>
     </div>
     <div class="card linha-tempo">
       ${etapas.map((e, i) => `
-        <div class="etapa ${i < estado.etapaPedido ? "feita" : ""} ${i === estado.etapaPedido ? "atual" : ""}">
-          <span class="etapa__ponto">${icone(i < estado.etapaPedido ? "check" : e.icone, "ic--sm")}</span>
-          <div><div class="etapa__titulo">${e.titulo}</div><div class="pequeno suave">${e.sub}</div></div>
+        <div class="etapa ${i < passo || pedido.status === "concluido" ? "feita" : ""} ${i === passo && pedido.status !== "concluido" ? "atual" : ""}">
+          <span class="etapa__ponto">${icone(i < passo || pedido.status === "concluido" ? "check" : e.icone, "ic--sm")}</span>
+          <div><div class="etapa__titulo">${e.titulo}</div><div class="pequeno suave">${i === passo ? sub : e.sub}</div></div>
         </div>`).join("")}
     </div>
     <div class="card resumo">
       <span class="rotulo">Itens</span>
-      ${pedido.itens.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
+      ${pedido.itens.map(([id, qtd, extras = []]) => `<div class="entre pequeno"><span>${qtd}× ${Fomito.produto(id).nome}</span><span class="num">${moeda(Fomito.pedidos.precoItem([id, qtd, extras]))}</span></div>`).join("")}
       <div class="entre resumo__total"><span class="forte">Total</span><span class="preco">${moeda(pedido.total)}</span></div>
     </div>
     <div class="aviso">${icone("pin", "ic--sm")}<span>Entregar para <b>${pedido.cliente}</b> em ${pedido.endereco}</span></div>
     <div class="aviso">${icone(forma?.icone || "dinheiro", "ic--sm")}<span>${pagamento}</span></div>
-    <p class="demo">Protótipo: o status avança sozinho a cada 4 segundos.</p>`;
+    ${pedido.status !== "concluido" ? `<button class="link demo-link" data-simular-entrega>Protótipo: avançar como a lanchonete e o motoboy</button>` : ""}`;
+}
+
+/* Demonstração: faz o papel do painel (aceitar, pronto) e do motoboy (sair, entregar) */
+function simularEntrega() {
+  const p = Fomito.pedidos.doNumero(minhaEntrega);
+  if (!p) return;
+  const proximo = { novo: "preparo", preparo: "pronto", pronto: "rota", rota: "concluido" }[p.status];
+  if (proximo === "rota") Fomito.pedidos.sairParaEntrega([p.num], "João Pereira");
+  else if (proximo === "concluido") {
+    const dinheiro = p.pag === "dinheiro";
+    const recebido = dinheiro ? p.troco || p.total : null;
+    const feito = Fomito.pedidos.concluirEntrega(p.num, { forma: p.pag, recebido, troco: dinheiro ? Math.round((recebido - p.total) * 100) / 100 : null, por: p.motoboy || "João Pereira" });
+    if (!feito) Fomito.pedidos.atualizar(p.num, { status: "concluido", entregueEm: Date.now() });
+  } else Fomito.pedidos.atualizar(p.num, { status: proximo });
+  atualizarTelas();
 }
 
 function listaAnteriores(lista) {
@@ -879,6 +902,7 @@ document.addEventListener("click", (e) => {
     irPara("cardapio");
     return $("#categorias").scrollIntoView({ behavior: "smooth" });
   }
+  if (e.target.closest("[data-simular-entrega]")) return simularEntrega();
   const c = minhaComanda();
   if (!c) return;
   if (e.target.closest("[data-pedir-conta]")) {
@@ -900,7 +924,8 @@ function atualizarTelas() {
   if (!$('[data-tela="acompanhamento"]').hidden) renderAcompanhamento();
 }
 setInterval(() => {
-  const versao = JSON.stringify(minha ? comandas.daMesa(minha.mesa) : null);
+  const entrega = minhaEntrega && Fomito.pedidos.doNumero(minhaEntrega);
+  const versao = JSON.stringify([minha ? comandas.daMesa(minha.mesa) : null, entrega?.status, entrega?.motoboy]);
   if (versao !== ultimaVersao) { ultimaVersao = versao; atualizarTelas(); }
 }, 3000);
 

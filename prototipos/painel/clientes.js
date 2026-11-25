@@ -58,7 +58,7 @@ function renderClientes() {
 /* ---------- 2. FICHA DO CLIENTE ---------- */
 function abrirCliente(telefone) {
   const c = Fomito.clientes.buscar(telefone);
-  const historico = pedidos.filter((p) => Fomito.clientes.soDigitos(p.telefone) === c.telefone);
+  const historico = Fomito.pedidos.lista().filter((p) => p.telefone && Fomito.clientes.soDigitos(p.telefone) === c.telefone);
   const camada = document.createElement("div");
   camada.className = "sobreposicao sobreposicao--lado";
   camada.innerHTML = `

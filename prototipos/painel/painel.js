@@ -26,22 +26,20 @@ const vendasSemana = [
   { dia: "Qui", valor: 2920 }, { dia: "Sex", valor: 3640 }, { dia: "Sáb", valor: 4210 }, { dia: "Dom", valor: 3850 },
 ];
 
-/* Pedidos de entrega e balcão. Os pedidos das mesas vêm das comandas (comandas.js). */
-/* status: "novo" → "preparo" → "pronto" → "concluido" */
-/* itens: [idProduto, quantidade, adicionais?, observação?] */
-let pedidos = [
-  { num: 1042, cliente: "Ana Souza",   modo: "entrega", telefone: "(11) 98888-7777", endereco: "Rua das Flores, 120, Centro", itens: [[2, 1, ["bacon"], "sem cebola"], [6, 1], [10, 2]], pag: "dinheiro", troco: 100, status: "novo", min: 1 },
-  { num: 1040, cliente: "Bruno Lima",  modo: "entrega", telefone: "(11) 97777-1234", endereco: "Av. Paulista, 900, ap 52", itens: [[3, 1], [11, 1]], pag: "pix", status: "preparo", min: 9, whats: "Em preparo" },
-  { num: 1038, cliente: "Carla Dias",  modo: "entrega", telefone: "(11) 96666-4321", endereco: "Rua Bahia, 45, Jardim", itens: [[5, 2], [10, 2]], pag: "credito", status: "pronto", min: 21, whats: "Saiu para entrega" },
-  { num: 1037, cliente: "Diego Alves", modo: "entrega", telefone: "(11) 95555-0000", endereco: "Rua Goiás, 300", itens: [[8, 1], [13, 4]], pag: "debito", status: "concluido", min: 38, whats: "Entregue" },
-];
+/* Pedidos de entrega e balcão: ficam em compartilhado/js/pedidos.js, os mesmos
+   que o cliente acompanha e o motoboy entrega. Os das mesas vêm das comandas.
+   O atendente só ACEITA e marca PRONTO. Quem conclui é quem leva o pedido:
+   o motoboy (entregue, com o pagamento) e o garçom (servido na mesa). */
+const lerPedidos = () => Fomito.pedidos.lista();
 
+/* status: quais status do pedido entram em cada coluna */
 const colunas = [
-  { id: "novo",      titulo: "Novos",           cor: "var(--laranja)",  acao: "Aceitar",        proximo: "preparo" },
-  { id: "preparo",   titulo: "Em preparo",      cor: "var(--amarelo-escuro)", acao: "Marcar pronto", proximo: "pronto" },
-  { id: "pronto",    titulo: "Pronto / em rota", cor: "var(--roxo)",    acao: "Concluir",       proximo: "concluido" },
-  { id: "concluido", titulo: "Concluídos",      cor: "var(--verde-escuro)", acao: null },
+  { id: "novo",      titulo: "Novos",            cor: "var(--laranja)",        status: ["novo"],          acao: "Aceitar",       proximo: "preparo" },
+  { id: "preparo",   titulo: "Em preparo",       cor: "var(--amarelo-escuro)", status: ["preparo"],       acao: "Marcar pronto", proximo: "pronto" },
+  { id: "pronto",    titulo: "Pronto / em rota", cor: "var(--roxo)",           status: ["pronto", "rota"], acao: null },
+  { id: "concluido", titulo: "Concluídos",       cor: "var(--verde-escuro)",   status: ["concluido"],     acao: null },
 ];
+const colunaDoStatus = (status) => colunas.find((c) => c.status.includes(status));
 
 /* Total do pedido, contando adicionais e taxa de entrega */
 const precoItem = ([id, qtd, extras = []]) => {
@@ -59,7 +57,7 @@ const titulos = {
   comandas: ["Comandas", "Mesas abertas pelo QR Code ou pelo garçom, contas fechadas e os QR Codes das mesas."],
   cardapio: ["Cardápio", "Produtos, fotos, categorias, adicionais e a vitrine do topo."],
   clientes: ["Clientes", "Cadastros feitos pelo telefone no finalizar pedido, com os endereços salvos."],
-  equipe: ["Equipe", "Crie o acesso dos garçons. Eles entram pelo Portal e vão direto para as comandas."],
+  equipe: ["Equipe", "Crie o acesso de garçons e motoboys. Cada um entra pelo Portal e vai direto para a sua tela."],
   configuracoes: ["Configurações", "Sua marca, WhatsApp, impressora e o funcionamento da loja."],
 };
 
@@ -160,7 +158,7 @@ function renderDashboard() {
         <div class="tabela-rolagem"><table class="tabela">
           <thead><tr><th>Pedido</th><th>Cliente</th><th>Tipo</th><th>Status</th><th class="dir">Total</th></tr></thead>
           <tbody>
-            ${pedidos.slice(0, 5).map((p) => `
+            ${lerPedidos().slice(0, 5).map((p) => `
               <tr><td class="forte num">#${p.num}</td><td>${p.cliente}</td>
               <td class="suave">${p.modo === "entrega" ? "Entrega" : "No local"}</td>
               <td>${tagStatus(p.status)}</td><td class="dir preco">${moeda(totalPedido(p))}</td></tr>`).join("")}
@@ -180,47 +178,73 @@ function renderDashboard() {
 }
 
 function tagStatus(status) {
-  const mapa = { novo: ["laranja", "Novo"], preparo: ["amarelo", "Em preparo"], pronto: ["roxo", "Pronto / em rota"], concluido: ["verde", "Concluído"] };
+  const mapa = { novo: ["laranja", "Novo"], preparo: ["amarelo", "Em preparo"], pronto: ["roxo", "Pronto"], rota: ["roxo", "Em rota"], concluido: ["verde", "Concluído"] };
   const [cor, texto] = mapa[status];
   return `<span class="tag tag--${cor}">${texto}</span>`;
 }
 
-/* ---------- 4. PEDIDOS (QUADRO EM TEMPO REAL) ---------- */
-function cardPedido(p, coluna) {
+/* ---------- 4. PEDIDOS (QUADRO EM TEMPO REAL) ----------
+   O atendente ACEITA (vai para Em preparo) e marca PRONTO.
+   Pronto avisa quem leva: o motoboy (entrega) ou o garçom (mesa).
+   Só o pedido de balcão é concluído aqui, quando o cliente retira. */
+function acaoDoPedido(p) {
+  if (p.status === "novo") return { texto: "Aceitar", proximo: "preparo" };
+  if (p.status === "preparo") return { texto: "Marcar pronto", proximo: "pronto" };
+  if (p.status === "pronto" && p.modo === "local") return { texto: "Cliente retirou", proximo: "concluido" };
+  return null;
+}
+
+/* Quem está com o pedido depois de pronto */
+function situacaoEntrega(p) {
+  if (p.modo !== "entrega") return "";
+  const h = Fomito.pedidos.hora;
+  const pago = p.pagoCom === "dinheiro" && p.recebido ? ` · recebeu ${moeda(p.recebido)}${p.trocoDado ? `, troco ${moeda(p.trocoDado)}` : ""}` : "";
+  const texto = {
+    pronto: `${icone("relogio", "ic--sm")}<span>Aguardando o motoboy sair</span>`,
+    rota: `${icone("entrega", "ic--sm")}<span>Com <b>${p.motoboy}</b> · saiu às ${h(p.saiuEm)}</span>`,
+    concluido: `${icone("check", "ic--sm")}<span>Entregue por <b>${p.motoboy || "motoboy"}</b> às ${h(p.entregueEm)}${pago}</span>`,
+  }[p.status];
+  return texto ? `<div class="pedido__situacao pedido__situacao--${p.status}">${texto}</div>` : "";
+}
+
+function cardPedido(p) {
   const forma = dados.formasPagamento.find((f) => f.id === p.pag);
+  const acao = acaoDoPedido(p);
   const pagamento = p.modo === "local"
-    ? `${icone("usuario", "ic--sm")}<span>Pagamento com o garçom</span>`
+    ? `${icone("usuario", "ic--sm")}<span>Pagamento no balcão</span>`
     : `${icone(forma.icone, "ic--sm")}<span>${forma.nome} na entrega${p.pag === "dinheiro" && p.troco ? `<br>Troco para ${moeda(p.troco)}: levar <b>${moeda(p.troco - totalPedido(p))}</b>` : ""}</span>`;
   return `
     <div class="card pedido ${p.status === "novo" ? "pedido--novo" : ""}" data-pedido="${p.num}" title="Ver detalhes do pedido">
       <div class="entre"><span class="forte num">#${p.num}</span><span class="pequeno fraco">há ${p.min} min</span></div>
-      <div class="entre"><span class="forte">${p.cliente}</span><span class="tag ${p.modo === "entrega" ? "tag--roxo" : "tag--cinza"}">${p.modo === "entrega" ? "Entrega" : "No local"}</span></div>
+      <div class="entre"><span class="forte">${p.cliente}</span><span class="tag ${p.modo === "entrega" ? "tag--roxo" : "tag--cinza"}">${p.modo === "entrega" ? p.bairro || "Entrega" : "Balcão"}</span></div>
       <div class="pedido__itens">${p.itens.map(([id, q, extras = [], obs]) => `${q}× ${Fomito.produto(id).nome}${extras.length ? ` <span class="fraco">+ ${extras.length} adicional</span>` : ""}${obs ? `<br><span class="fraco">Obs.: ${obs}</span>` : ""}`).join("<br>")}</div>
-      <div class="pedido__pag">${pagamento}</div>
-      ${p.whats ? `<div class="pedido__whats">${icone("whatsapp", "ic--sm")}<span>WhatsApp enviado: ${p.whats}</span></div>` : ""}
+      ${p.status === "concluido" ? "" : `<div class="pedido__pag">${pagamento}</div>`}
+      ${situacaoEntrega(p)}
+      ${p.whats && p.status !== "concluido" ? `<div class="pedido__whats">${icone("whatsapp", "ic--sm")}<span>WhatsApp enviado: ${p.whats}</span></div>` : ""}
       <div class="entre"><span class="preco">${moeda(totalPedido(p))}</span>
         <span class="linha" style="gap:6px">
           ${p.status !== "novo" ? `<button class="btn-icone" data-cupom="${p.num}" aria-label="Imprimir cupom do pedido ${p.num}" title="Imprimir cupom">${icone("impressora", "ic--sm")}</button>` : ""}
-          ${coluna.acao ? `<button class="btn ${p.status === "novo" ? "btn--primario" : "btn--contorno"} btn--sm" data-avancar="${p.num}">${coluna.acao}</button>` : ""}
+          ${acao ? `<button class="btn ${p.status === "novo" ? "btn--primario" : "btn--contorno"} btn--sm" data-avancar="${p.num}">${acao.texto}</button>` : ""}
         </span>
       </div>
     </div>`;
 }
 
 function renderPedidos() {
+  const todos = lerPedidos();
   $('[data-secao="pedidos"].secao').innerHTML = `
     <div class="entre" style="flex-wrap:wrap">
-      <span class="pequeno suave">Clique num pedido para ver os detalhes. Pedido por telefone ou no balcão? Lance aqui.</span>
+      <span class="pequeno suave">Você aceita e marca pronto. A entrega é finalizada pelo motoboy e a mesa pelo garçom, que recebem o aviso.</span>
       <button class="btn btn--primario btn--sm" data-lancar-pedido>${icone("mais", "ic--sm")} Lançar pedido</button>
     </div>
     <div class="kanban">
       ${colunas.map((c) => {
-        const lista = pedidos.filter((p) => p.status === c.id);
+        const lista = todos.filter((p) => c.status.includes(p.status));
         const rodadas = rodadasDaColuna(c.id); // pedidos das mesas (comandas)
         return `
           <div class="coluna" style="--cor-coluna:${c.cor}">
             <div class="coluna__topo"><h3>${c.titulo}</h3><span class="coluna__qtd">${lista.length + rodadas.length}</span></div>
-            ${rodadas.map(cardRodada).join("")}${lista.map((p) => cardPedido(p, c)).join("") || (rodadas.length ? "" : `<p class="vazio-coluna">Nenhum pedido</p>`)}
+            ${rodadas.map(cardRodada).join("")}${lista.map(cardPedido).join("") || (rodadas.length ? "" : `<p class="vazio-coluna">Nenhum pedido</p>`)}
           </div>`;
       }).join("")}
     </div>
@@ -228,32 +252,30 @@ function renderPedidos() {
   atualizarBadge();
 }
 
-/* Qual mensagem de WhatsApp sai em cada mudança de status (só pedidos de entrega) */
-const mensagemDoStatus = { preparo: "preparo", pronto: "saiu", concluido: "entregue" };
+/* Qual mensagem de WhatsApp sai em cada mudança de status (só pedidos de entrega).
+   "Saiu para entrega" e "Entregue" saem pelo motoboy. */
+const mensagemDoStatus = { preparo: "preparo" };
 
 document.addEventListener("click", (e) => {
   const reimprimir = e.target.closest("[data-cupom]");
-  if (reimprimir) return mostrarCupom(pedidos.find((x) => x.num === Number(reimprimir.dataset.cupom)), false);
+  if (reimprimir) return mostrarCupom(Fomito.pedidos.doNumero(reimprimir.dataset.cupom), false);
 
   const b = e.target.closest("[data-avancar]");
   if (!b) return;
-  const p = pedidos.find((x) => x.num === Number(b.dataset.avancar));
-  const aceitou = p.status === "novo";
-  p.status = colunas.find((c) => c.id === p.status).proximo;
+  const antes = Fomito.pedidos.doNumero(b.dataset.avancar);
+  const acao = acaoDoPedido(antes);
+  if (!acao) return;
+  const aceitou = antes.status === "novo";
+  let p = Fomito.pedidos.atualizar(antes.num, { status: acao.proximo });
 
-  /* Entrega concluída: o entregador acertou o pagamento, então entra no caixa */
-  if (p.status === "concluido" && p.modo === "entrega") {
-    const valor = totalPedido(p);
-    const dinheiro = p.pag === "dinheiro";
-    const recebido = dinheiro ? (p.troco || valor) : undefined;
-    Fomito.caixa.registrar({ tipo: "entrega", ref: `Entrega #${p.num} · ${p.cliente}`, forma: p.pag, valor, ...(dinheiro ? { recebido, troco: recebido - valor } : {}), por: "Entregador" });
-  }
-
-  const msg = p.modo === "entrega" ? alertas.enviarWhatsApp(comTotal(p), mensagemDoStatus[p.status]) : null;
-  if (msg) p.whats = msg.titulo;
+  const msg = p.modo === "entrega" ? alertas.enviarWhatsApp(p, mensagemDoStatus[p.status]) : null;
+  if (msg) p = Fomito.pedidos.atualizar(p.num, { whats: msg.titulo });
+  pedidosSincronizados();
   renderPedidos();
 
   if (aceitou && Fomito.config.ler().impressao.aoAceitar) mostrarCupom(p, true);
+  else if (p.status === "pronto" && p.modo === "entrega") toast(`Pedido #${p.num} pronto. Os motoboys foram avisados.`, "sino");
+  else if (p.status === "pronto") toast(`Pedido #${p.num} pronto para retirar no balcão`, "sino");
   else toast(msg ? `WhatsApp para ${p.cliente.split(" ")[0]}: “${msg.titulo}”` : `Pedido #${p.num} atualizado`, msg ? "whatsapp" : "check");
 });
 
@@ -287,32 +309,41 @@ function mostrarCupom(p, aoAceitar) {
 }
 
 function atualizarBadge() {
-  const novos = pedidos.filter((p) => p.status === "novo").length + rodadasDaColuna("novo").length;
+  const novos = lerPedidos().filter((p) => p.status === "novo").length + rodadasDaColuna("novo").length;
   $("#badgeNovos").textContent = novos;
   $("#badgeNovos").hidden = !novos;
 }
 
-/* Simula pedidos novos chegando: toca o alarme e manda o WhatsApp de "recebido" */
+/* Simula pedidos novos chegando: toca o alarme e manda o WhatsApp de "recebido".
+   Acontece uma vez por sessão do navegador, para não encher a lista. */
 const pedidosSimulados = [
-  { num: 1043, cliente: "Eduarda Rocha", modo: "entrega", telefone: "(11) 94444-2222", endereco: "Rua Pará, 77, Centro", itens: [[3, 1, ["ovo"]], [7, 1], [10, 1]], pag: "dinheiro", troco: 100 },
-  { num: 1044, cliente: "Felipe Araújo", modo: "entrega", telefone: "(11) 93333-1111", endereco: "Rua Ceará, 12", itens: [[2, 2], [6, 1], [13, 2]], pag: "pix" },
+  { cliente: "Eduarda Rocha", telefone: "(11) 94444-2222", rua: "Rua Pará, 77", bairro: "Centro", compl: "Casa 2", ref: "", itens: [[3, 1, ["ovo"]], [7, 1], [10, 1]], pag: "dinheiro", troco: 100 },
+  { cliente: "Felipe Araújo", telefone: "(11) 93333-1111", rua: "Rua Ceará, 12", bairro: "Jardim", compl: "", ref: "", itens: [[2, 2], [6, 1], [13, 2]], pag: "pix" },
 ];
 function chegarPedido() {
-  const novo = pedidosSimulados.shift();
-  if (!novo) return;
-  Object.assign(novo, { status: "novo", min: 0 });
-  const msg = alertas.enviarWhatsApp(comTotal(novo), "recebido");
-  if (msg) novo.whats = msg.titulo;
-  pedidos.unshift(novo);
+  const dadosNovo = pedidosSimulados.shift();
+  if (!dadosNovo) return;
+  let novo = Fomito.pedidos.criar(dadosNovo);
+  const msg = alertas.enviarWhatsApp(novo, "recebido");
+  if (msg) novo = Fomito.pedidos.atualizar(novo.num, { whats: msg.titulo });
+  pedidosSincronizados();
+  avisarPedidoNovo(`Novo pedido #${novo.num} de ${novo.cliente}`);
+}
+/* Som, aviso e o sino balançando. Usado também quando o cliente pede pelo cardápio. */
+function avisarPedidoNovo(texto) {
   atualizarBadge();
   if (!$('[data-secao="pedidos"].secao').hidden) renderPedidos();
   const tocou = alertas.tocarAlerta();
-  toast(`Novo pedido #${novo.num} de ${novo.cliente}${tocou ? "" : " (clique na tela para liberar o som)"}`, "sino");
+  toast(`${texto}${tocou ? "" : " (clique na tela para liberar o som)"}`, "sino");
   $("#btnSom").classList.add("tocando");
   setTimeout(() => $("#btnSom").classList.remove("tocando"), 2500);
 }
-setTimeout(chegarPedido, 7000);
-setTimeout(chegarPedido, 45000);
+let jaSimulou = false;
+try { jaSimulou = sessionStorage.getItem("fomito.simulouPedidos") === "1"; sessionStorage.setItem("fomito.simulouPedidos", "1"); } catch { /* sem armazenamento */ }
+if (!jaSimulou) {
+  setTimeout(chegarPedido, 7000);
+  setTimeout(chegarPedido, 45000);
+}
 
 /* ---------- 5. COMANDAS ----------
    Ficam em comandas.js (mesmas comandas do cliente e do garçom) */
@@ -320,56 +351,84 @@ setTimeout(chegarPedido, 45000);
 /* ---------- 6. CARDÁPIO e CLIENTES ----------
    Ficam em arquivos próprios: cardapio.js, clientes.js e pedido.js */
 
-/* ---------- 7. EQUIPE ---------- */
+/* ---------- 7. EQUIPE ----------
+   O administrador cria o acesso de cada funcionário e escolhe o tipo:
+   garçom (comandas das mesas) ou motoboy (entregas). */
+const TIPOS_FUNCIONARIO = {
+  garcom: {
+    icone: "mesa", sub: "Atende as mesas pelas comandas",
+    regras: [["check", "Entra pelo Portal e vai direto para as comandas"], ["check", "Lança itens, serve os pedidos prontos e fecha a conta"], ["sino", "Recebe aviso quando um pedido da mesa fica pronto"]],
+  },
+  motoboy: {
+    icone: "entrega", sub: "Leva as entregas e recebe o pagamento",
+    regras: [["check", "Entra pelo Portal e vai direto para as entregas"], ["check", "Vê os pedidos prontos separados por bairro, com o endereço em destaque"], ["check", "Recebe o pagamento, informa o troco e finaliza a entrega"], ["sino", "Recebe aviso quando um pedido fica pronto para sair"]],
+  },
+};
+let tipoNovoFuncionario = "garcom";
+
 function renderEquipe() {
   const usuarios = sessao.usuarios();
-  const rotulo = { admin: ["roxo", "Administrador"], garcom: ["laranja", "Garçom"] };
+  const perfis = sessao.PERFIS;
+  const tipo = TIPOS_FUNCIONARIO[tipoNovoFuncionario];
+  const qtd = (perfil) => usuarios.filter((u) => u.perfil === perfil).length;
   $('[data-secao="equipe"].secao').innerHTML = `
     <div class="duas-colunas">
       <div class="card painel-card">
-        <div class="painel-card__topo"><h3>Pessoas com acesso</h3><span class="pequeno fraco">${usuarios.length} usuários</span></div>
+        <div class="painel-card__topo"><h3>Pessoas com acesso</h3><span class="pequeno fraco">${qtd("garcom")} ${qtd("garcom") === 1 ? "garçom" : "garçons"} · ${qtd("motoboy")} ${qtd("motoboy") === 1 ? "motoboy" : "motoboys"}</span></div>
         <div>
           ${usuarios.map((u) => `
             <div class="membro">
               <span class="avatar">${iniciais(u.nome)}</span>
               <div class="membro__info"><span class="forte">${u.nome}</span><span class="pequeno suave">Usuário: ${u.usuario}</span></div>
-              <span class="tag tag--${rotulo[u.perfil][0]}">${rotulo[u.perfil][1]}</span>
-              ${u.perfil === "garcom" ? `<button class="btn-icone" data-remover="${u.usuario}" aria-label="Remover ${u.nome}">${icone("lixo", "ic--sm")}</button>` : `<span style="width:38px"></span>`}
+              <span class="tag tag--${perfis[u.perfil].cor}">${perfis[u.perfil].nome}</span>
+              ${u.perfil !== "admin" ? `<button class="btn-icone" data-remover="${u.usuario}" aria-label="Remover ${u.nome}">${icone("lixo", "ic--sm")}</button>` : `<span style="width:38px"></span>`}
             </div>`).join("")}
         </div>
       </div>
 
-      <form class="card painel-card" id="formGarcom" novalidate>
-        <div class="pilha" style="gap:2px"><h3>Novo garçom</h3><p class="pequeno suave">Crie o usuário e passe a senha para o garçom.</p></div>
-        <div class="campo"><label for="gNome">Nome</label><input class="input" id="gNome" placeholder="Ex.: Paula Souza"></div>
+      <form class="card painel-card" id="formFuncionario" novalidate>
+        <div class="pilha" style="gap:2px"><h3>Novo funcionário</h3><p class="pequeno suave">Escolha o tipo, crie o usuário e passe a senha para a pessoa.</p></div>
+        <div class="campo">
+          <span class="rotulo-campo">Tipo de funcionário</span>
+          <div class="tipos-funcionario">
+            ${Object.entries(TIPOS_FUNCIONARIO).map(([id, t]) => `
+              <button type="button" class="opcao ${id === tipoNovoFuncionario ? "ativa" : ""}" data-tipo-funcionario="${id}">
+                <span class="opcao__icone">${icone(t.icone)}</span>
+                <span class="opcao__texto"><span class="opcao__titulo">${perfis[id].nome}</span><span class="opcao__sub">${t.sub}</span></span>
+                <span class="opcao__radio"></span>
+              </button>`).join("")}
+          </div>
+        </div>
+        <div class="campo"><label for="gNome">Nome</label><input class="input" id="gNome" placeholder="${tipoNovoFuncionario === "motoboy" ? "Ex.: Pedro Alves" : "Ex.: Paula Souza"}"></div>
         <div class="form-grade">
-          <div class="campo"><label for="gUsuario">Usuário</label><input class="input" id="gUsuario" placeholder="Ex.: paula" autocomplete="off"></div>
+          <div class="campo"><label for="gUsuario">Usuário</label><input class="input" id="gUsuario" placeholder="${tipoNovoFuncionario === "motoboy" ? "Ex.: pedro" : "Ex.: paula"}" autocomplete="off"></div>
           <div class="campo"><label for="gSenha">Senha</label><input class="input" id="gSenha" placeholder="Mínimo 4 caracteres" autocomplete="new-password"></div>
         </div>
         <p class="form-erro" id="gErro" hidden></p>
-        <button class="btn btn--primario" type="submit">${icone("mais", "ic--sm")} Criar acesso de garçom</button>
+        <button class="btn btn--primario" type="submit">${icone("mais", "ic--sm")} Criar acesso de ${perfis[tipoNovoFuncionario].nome.toLowerCase()}</button>
         <div class="regras">
-          <span class="rotulo">O que o garçom pode fazer</span>
-          <span class="regra">${icone("check", "ic--sm")}Entrar pelo Portal e ir direto para as comandas</span>
-          <span class="regra">${icone("check", "ic--sm")}Abrir mesas, lançar itens e fechar contas</span>
+          <span class="rotulo">O que o ${perfis[tipoNovoFuncionario].nome.toLowerCase()} pode fazer</span>
+          ${tipo.regras.map(([ic, texto]) => `<span class="regra">${icone(ic, "ic--sm")}${texto}</span>`).join("")}
           <span class="regra">${icone("fechar", "ic--sm")}Não acessa o painel, o financeiro nem as configurações</span>
         </div>
       </form>
     </div>`;
 
-  $("#formGarcom").addEventListener("submit", (e) => {
+  $("#formFuncionario").addEventListener("submit", (e) => {
     e.preventDefault();
     const nome = $("#gNome").value.trim();
     const usuario = $("#gUsuario").value.trim().toLowerCase();
     const senha = $("#gSenha").value;
     const erro = !nome || !usuario ? "Preencha o nome e o usuário."
       : senha.length < 4 ? "A senha precisa ter pelo menos 4 caracteres."
-      : sessao.criarUsuario({ nome, usuario, senha, perfil: "garcom" });
+      : sessao.criarUsuario({ nome, usuario, senha, perfil: tipoNovoFuncionario });
     if (erro) { $("#gErro").textContent = erro; $("#gErro").hidden = false; return; }
     renderEquipe();
-    toast(`Acesso criado para ${nome}. Usuário: ${usuario}`, "equipe");
+    toast(`Acesso de ${perfis[tipoNovoFuncionario].nome.toLowerCase()} criado para ${nome}. Usuário: ${usuario}`, "equipe");
   });
   $('[data-secao="equipe"].secao').onclick = (e) => {
+    const tipoBotao = e.target.closest("[data-tipo-funcionario]");
+    if (tipoBotao) { tipoNovoFuncionario = tipoBotao.dataset.tipoFuncionario; return renderEquipe(); }
     const b = e.target.closest("[data-remover]");
     if (!b) return;
     sessao.removerUsuario(b.dataset.remover);
@@ -501,7 +560,7 @@ function configWhatsApp() {
 /* --- Aba: Impressora e som --- */
 function configImpressao() {
   const { impressao: imp, som } = rascunho;
-  const exemplo = { ...comTotal(pedidos.find((x) => x.num === 1042)) };
+  const exemplo = { ...comTotal(lerPedidos().find((x) => x.modo === "entrega")) };
   return `
     <div class="duas-colunas">
       <div class="pilha" style="gap:16px">
@@ -582,7 +641,7 @@ function ligarConfig() {
       }, 3000);
     }
     if (e.target.closest("#wDesconectar")) { rascunho.whatsapp.conectado = false; return renderConfiguracoes(); }
-    if (e.target.closest("#iTeste")) { alertas.imprimirCupom(comTotal(pedidos.find((x) => x.num === 1042))); toast("Cupom de teste enviado para a impressora", "impressora"); }
+    if (e.target.closest("#iTeste")) { alertas.imprimirCupom(comTotal(lerPedidos().find((x) => x.modo === "entrega"))); toast("Cupom de teste enviado para a impressora", "impressora"); }
     if (e.target.closest("#sTeste")) {
       const salvo = Fomito.config.ler();
       Fomito.config.salvar({ ...salvo, som: { ...rascunho.som, ativo: true } });

@@ -8,6 +8,7 @@
 
    Cada vez que alguém pede, entra uma RODADA na comanda:
      recebido → preparo → pronto → servido
+     (painel: aceita e marca pronto · garçom: é avisado e marca servido)
 
    Quando o garçom fecha a conta, a comanda sai das abertas e vira um
    pedido antigo no histórico (lista "fechadas").
@@ -83,7 +84,9 @@ window.Fomito = window.Fomito || {};
   /** Muda o status de uma rodada (índice) da mesa */
   const statusRodada = (mesa, indice, status) => alterar((d) => {
     const c = d.abertas.find((x) => x.mesa === Number(mesa));
-    if (c?.rodadas[indice]) c.rodadas[indice].status = status;
+    if (!c?.rodadas[indice]) return;
+    c.rodadas[indice].status = status;
+    c.rodadas[indice][`${status}Em`] = Date.now(); // ex.: prontoEm, servidoEm
   });
 
   const pedirConta = (mesa, sim = true) => alterar((d) => {

@@ -7,6 +7,7 @@
    2. Impressão → monta o cupom de 80mm e chama a impressão do navegador
    3. WhatsApp  → monta a mensagem pelo modelo e "envia" pela Evolution API
                   (no protótipo o envio é simulado; veja o README)
+   4. Avisos    → garçom e motoboy: som + vibração + notificação do celular
    ========================================================================== */
 
 window.Fomito = window.Fomito || {};
@@ -138,5 +139,30 @@ window.Fomito = window.Fomito || {};
     return { para: pedido.telefone, titulo: modelo.titulo, texto, simulado: !whatsapp.conectado };
   }
 
-  Fomito.alertas = { tocarAlerta, textoCupom, imprimirCupom, enviarWhatsApp };
+  /* ---------- 4. AVISOS PARA GARÇOM E MOTOBOY ----------
+     No protótipo usa a notificação do navegador (aparece mesmo com a aba
+     em segundo plano). No sistema real vira Web Push com Service Worker,
+     para o celular avisar com a tela bloqueada. */
+  const podeNotificar = () => "Notification" in window;
+  const notificacoesAtivas = () => podeNotificar() && Notification.permission === "granted";
+
+  /** Pede permissão para notificar. Retorna "granted", "denied" ou "default". */
+  async function ativarNotificacoes() {
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    audio.resume?.();
+    if (!podeNotificar()) return "indisponivel";
+    try { return await Notification.requestPermission(); } catch { return "denied"; }
+  }
+
+  /** Som + vibração + notificação. tag evita repetir o mesmo aviso. */
+  function avisar(titulo, texto, tag) {
+    const tocou = tocarAlerta();
+    try { navigator.vibrate?.([200, 100, 200]); } catch { /* sem vibração */ }
+    if (notificacoesAtivas() && document.visibilityState !== "visible") {
+      try { new Notification(titulo, { body: texto, tag, icon: "../compartilhado/img/simbolo.svg" }); } catch { /* alguns celulares exigem Service Worker */ }
+    }
+    return tocou;
+  }
+
+  Fomito.alertas = { tocarAlerta, textoCupom, imprimirCupom, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, podeNotificar, avisar };
 })();

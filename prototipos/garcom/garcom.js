@@ -3,17 +3,19 @@
    --------------------------------------------------------------------------
    Organização:
      1. Estado (mesas a partir das comandas compartilhadas)
-     2. Lista de mesas
+     2. Lista de mesas e "Prontos para servir"
      3. Comanda da mesa
      4. Lançar itens
      5. Fechar conta (valor recebido obrigatório, troco e várias formas)
      6. Início
    ========================================================================== */
 
-const { dados, moeda, icone, $, $$, toast, sessao } = Fomito;
+const { dados, moeda, icone, $, $$, toast, sessao, alertas } = Fomito;
 
 /* Garçom e administrador podem usar as comandas */
 const usuarioLogado = sessao.exigir("garcom", "admin");
+
+const novasProntas = new Set(); // rodadas que acabaram de ficar prontas (piscam)
 
 /* ---------- 1. ESTADO ----------
    As comandas ficam em compartilhado/js/comandas.js: as mesmas que o
@@ -21,6 +23,7 @@ const usuarioLogado = sessao.exigir("garcom", "admin");
    status da mesa: "livre" | "ocupada" | "conta" (cliente pediu a conta) */
 const { comandas } = Fomito;
 const TOTAL_MESAS = 12;
+let versaoComandas = JSON.stringify(comandas.abertas()); // para saber o que mudou em outro aparelho
 
 function lerMesas() {
   return Array.from({ length: TOTAL_MESAS }, (_, i) => {
@@ -32,7 +35,8 @@ function lerMesas() {
       pessoas: c?.pessoas || 0,
       desde: c ? Math.max(0, Math.round((Date.now() - c.abertaEm) / 60000)) : null,
       pelaMesa: c?.rodadas.some((r) => r.por === "qr"),
-      naCozinha: c ? c.rodadas.filter((r) => r.status !== "servido").length : 0,
+      naCozinha: c ? c.rodadas.filter((r) => r.status === "recebido" || r.status === "preparo").length : 0,
+      paraServir: c ? c.rodadas.filter((r) => r.status === "pronto").length : 0,
     };
   });
 }
@@ -60,7 +64,7 @@ function renderMesas() {
   $("#grade").innerHTML = mesas
     .filter((m) => estado.filtro === "todas" || m.status === estado.filtro)
     .map((m) => `
-      <button class="mesa mesa--${m.status} ${estado.mesaAtual === m.numero ? "selecionada" : ""}" data-mesa="${m.numero}">
+      <button class="mesa mesa--${m.status} ${m.paraServir ? "mesa--servir" : ""} ${estado.mesaAtual === m.numero ? "selecionada" : ""}" data-mesa="${m.numero}">
         <span class="mesa__cabeca">
           <span><span class="mesa__rotulo">Mesa</span><span class="mesa__numero">${String(m.numero).padStart(2, "0")}</span></span>
           <span class="tag tag--${corTag[m.status]}">${rotulo[m.status]}</span>
@@ -68,11 +72,45 @@ function renderMesas() {
         <span class="mesa__rodape">
           ${m.status === "livre"
             ? `<span class="pequeno fraco">Disponível</span>`
-            : `<span class="mesa__meta"><span>${icone("pessoas")}${m.pessoas}</span><span>${icone("relogio")}${m.desde} min</span>${m.naCozinha ? `<span class="mesa__cozinha">${icone("chama")}${m.naCozinha}</span>` : ""}</span><span class="mesa__valor">${moeda(totalMesa(m))}</span>`}
+            : `<span class="mesa__meta"><span>${icone("pessoas")}${m.pessoas}</span><span>${icone("relogio")}${m.desde} min</span>${m.naCozinha ? `<span class="mesa__cozinha">${icone("chama")}${m.naCozinha}</span>` : ""}${m.paraServir ? `<span class="mesa__servir">${icone("sino")}Servir</span>` : ""}</span><span class="mesa__valor">${moeda(totalMesa(m))}</span>`}
         </span>
       </button>`)
     .join("");
 }
+
+/* Pedidos das mesas que a cozinha marcou como prontos: o garçom leva e marca servido */
+function rodadasProntas() {
+  return comandas.abertas().flatMap((c) => c.rodadas.map((r, i) => ({ c, r, i }))).filter(({ r }) => r.status === "pronto")
+    .sort((a, b) => (a.r.prontoEm || a.r.hora) - (b.r.prontoEm || b.r.hora));
+}
+
+function renderParaServir() {
+  const lista = rodadasProntas();
+  $("#paraServir").innerHTML = lista.length ? `
+    <section class="servir">
+      <div class="servir__topo"><span class="linha" style="gap:8px">${icone("sino", "ic--sm")}<b>Prontos para servir</b></span><span class="servir__qtd">${lista.length}</span></div>
+      <div class="servir__lista">
+        ${lista.map(({ c, r, i }) => `
+          <div class="servir__item ${novasProntas.has(`${c.mesa}-${i}`) ? "servir__item--novo" : ""}">
+            <div class="servir__mesa"><span class="pequeno">Mesa</span><strong>${String(c.mesa).padStart(2, "0")}</strong></div>
+            <div class="pilha" style="gap:2px;flex:1;min-width:0">
+              <span class="pequeno suave">${i + 1}º pedido${r.prontoEm ? ` · pronto às ${comandas.hora(r.prontoEm)}` : ""}</span>
+              <span class="forte corta">${r.itens.map((it) => `${it.qtd}× ${Fomito.produto(it.id).nome}`).join(", ")}</span>
+            </div>
+            <button class="btn btn--sucesso btn--sm" data-servir-pronto="${c.mesa},${i}">${icone("check", "ic--sm")} Servido</button>
+          </div>`).join("")}
+      </div>
+    </section>` : "";
+}
+
+$("#paraServir").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-servir-pronto]");
+  if (!b) return;
+  const [mesa, i] = b.dataset.servirPronto.split(",").map(Number);
+  comandas.statusRodada(mesa, i, "servido");
+  atualizarTudo();
+  toast(`Pedido servido na mesa ${mesa}`, "check");
+});
 
 $("#filtros").addEventListener("click", (e) => {
   const f = e.target.closest("[data-filtro]");
@@ -374,6 +412,8 @@ function abrirFechamento(mesa) {
 /* ---------- 6. INÍCIO ---------- */
 function atualizarTudo() {
   mesas = lerMesas();
+  versaoComandas = JSON.stringify(comandas.abertas());
+  renderParaServir();
   renderFiltros();
   renderMesas();
   if (estado.mesaAtual) renderComanda();
@@ -389,19 +429,49 @@ if (usuarioLogado) {
 $("#btnSair").addEventListener("click", () => sessao.sair());
 atualizarTudo();
 
-/* O cliente pede pelo celular: confere as comandas a cada 3 segundos */
-let versaoComandas = JSON.stringify(comandas.abertas());
+/* ---------- 7. AVISOS ----------
+   A cada 3 segundos confere as comandas (o cliente pede pelo QR e a
+   cozinha marca pronto em outros aparelhos). Pedido pronto para servir
+   e conta pedida tocam o som, vibram e mostram a notificação do celular. */
+function renderAvisoNotificacao() {
+  const el = $("#avisoNotificacao");
+  el.innerHTML = alertas.notificacoesAtivas() ? "" : `
+    <div class="ativar-avisos">
+      ${icone("sino")}
+      <span>Ative os avisos para ser chamado quando um pedido ficar pronto ou uma mesa pedir a conta.</span>
+      <button class="btn btn--destaque btn--sm" data-ativar-avisos>Ativar avisos</button>
+    </div>`;
+}
+$("#avisoNotificacao").addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-ativar-avisos]")) return;
+  const r = await alertas.ativarNotificacoes();
+  alertas.tocarAlerta();
+  toast(r === "granted" ? "Avisos ativados" : "Som ativado. O navegador não liberou a notificação: mantenha esta tela aberta.", r === "granted" ? "sino" : "info");
+  renderAvisoNotificacao();
+});
+renderAvisoNotificacao();
+
 setInterval(() => {
   const agora = JSON.stringify(comandas.abertas());
   if (agora === versaoComandas) return;
   const antes = JSON.parse(versaoComandas);
-  versaoComandas = agora;
-  /* Avisa o garçom do que mudou pelo QR Code */
   comandas.abertas().forEach((c) => {
     const velha = antes.find((x) => x.mesa === c.mesa);
-    if (!velha) toast(`Mesa ${c.mesa} abriu comanda pelo QR Code`, "mesa");
-    else if (c.rodadas.length > velha.rodadas.length) toast(`Mesa ${c.mesa} pediu mais itens`, "chama");
-    else if (c.pediuConta && !velha.pediuConta) toast(`Mesa ${c.mesa} pediu a conta`, "conta");
+    if (!velha) return toast(`Mesa ${c.mesa} abriu comanda pelo QR Code`, "mesa");
+    if (c.rodadas.length > velha.rodadas.length) toast(`Mesa ${c.mesa} pediu mais itens`, "chama");
+    /* Ficou pronto agora: chama o garçom */
+    c.rodadas.forEach((r, i) => {
+      if (r.status === "pronto" && velha.rodadas[i]?.status !== "pronto") {
+        novasProntas.add(`${c.mesa}-${i}`);
+        setTimeout(() => { novasProntas.delete(`${c.mesa}-${i}`); renderParaServir(); }, 4000);
+        alertas.avisar(`Mesa ${String(c.mesa).padStart(2, "0")}: pronto para servir`, `${i + 1}º pedido · ${r.itens.map((it) => `${it.qtd}× ${Fomito.produto(it.id).nome}`).join(", ")}`, `mesa-${c.mesa}-${i}`);
+        toast(`Mesa ${c.mesa}: pedido pronto para servir`, "sino");
+      }
+    });
+    if (c.pediuConta && !velha.pediuConta) {
+      alertas.avisar(`Mesa ${String(c.mesa).padStart(2, "0")} pediu a conta`, "O cliente pediu a conta pelo celular", `conta-${c.mesa}`);
+      toast(`Mesa ${c.mesa} pediu a conta`, "conta");
+    }
   });
   atualizarTudo();
 }, 3000);
