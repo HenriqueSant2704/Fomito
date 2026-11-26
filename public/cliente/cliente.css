@@ -303,3 +303,38 @@ body { background: var(--fundo); }
 /* Produto pausado no painel: aparece, mas não dá para pedir */
 .produto--esgotado { opacity: .55; }
 .produto--esgotado .produto__preco { text-decoration: line-through; }
+
+/* ---------- Transições ---------- */
+/* Troca de tela: entra deslizando (para a frente pela direita, voltando pela esquerda) */
+/* (anima os filhos e não a tela, para o rodapé fixo do produto não sair do lugar) */
+.tela--frente > :not(.rodape-fixo) { animation: telaFrente .32s cubic-bezier(.2,.8,.2,1) both; }
+.tela--volta > :not(.rodape-fixo) { animation: telaVolta .32s cubic-bezier(.2,.8,.2,1) both; }
+.tela--frente > .rodape-fixo, .tela--volta > .rodape-fixo { animation: rodapeSobe .36s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes rodapeSobe { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes telaFrente { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes telaVolta  { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+
+/* Itens da sacola e blocos do finalizar aparecem em sequência */
+.tela--frente .lista-itens > *, .tela--frente #checkout > .bloco { animation: itemSobe .38s cubic-bezier(.2,.8,.2,1) both; }
+.tela--frente .lista-itens > :nth-child(2), .tela--frente #checkout > .bloco:nth-child(2) { animation-delay: .05s; }
+.tela--frente .lista-itens > :nth-child(3), .tela--frente #checkout > .bloco:nth-child(3) { animation-delay: .1s; }
+.tela--frente .lista-itens > :nth-child(n+4), .tela--frente #checkout > .bloco:nth-child(n+4) { animation-delay: .15s; }
+@keyframes itemSobe { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* Foto do produto voando até a sacola */
+.voando { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; border-radius: 50%; overflow: hidden;
+  box-shadow: 0 10px 24px rgba(27, 21, 48, .25); will-change: transform; }
+.voando .foto { border-radius: 50%; }
+
+/* Barra da sacola: sobe ao aparecer e dá um pulinho quando entra item */
+.barra-sacola--entra { animation: barraEntra .42s cubic-bezier(.2,.9,.25,1.2) both; }
+.barra-sacola--pulo { animation: barraPulo .45s cubic-bezier(.3,1.6,.5,1); }
+.barra-sacola--pulo .barra-sacola__qtd { animation: qtdPulo .45s cubic-bezier(.3,1.6,.5,1); }
+@keyframes barraEntra { from { opacity: 0; transform: translate(-50%, 24px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes barraPulo { 0%, 100% { transform: translateX(-50%) scale(1); } 35% { transform: translateX(-50%) scale(1.04); } }
+@keyframes qtdPulo { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.45); background: #fff; color: var(--roxo); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tela--frente > *, .tela--volta > *, .barra-sacola--entra, .barra-sacola--pulo, .barra-sacola--pulo .barra-sacola__qtd,
+  .tela--frente .lista-itens > *, .tela--frente #checkout > .bloco { animation: none !important; }
+}

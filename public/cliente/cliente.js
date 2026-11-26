@@ -45,10 +45,26 @@ const total = () => subtotal() + taxaEntrega();
 const qtdItens = () => estado.carrinho.reduce((s, i) => s + i.qtd, 0);
 
 /* ---------- 2. NAVEGAÇÃO ---------- */
+/* Ordem das telas: indo "para a frente" a nova tela entra pela direita; voltando, pela esquerda */
+const ORDEM_TELAS = { cardapio: 0, produto: 1, carrinho: 2, checkout: 3, acompanhamento: 4 };
+const semMovimento = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let telaAtual = "cardapio";
+
 function irPara(nomeTela) {
+  const frente = (ORDEM_TELAS[nomeTela] ?? 0) >= (ORDEM_TELAS[telaAtual] ?? 0);
+  const mudou = nomeTela !== telaAtual;
+  telaAtual = nomeTela;
   $$(".tela").forEach((t) => (t.hidden = t.dataset.tela !== nomeTela));
   $("#barraSacola").style.display = nomeTela === "cardapio" ? "" : "none";
   window.scrollTo(0, 0);
+  const nova = $(`.tela[data-tela="${nomeTela}"]`);
+  if (mudou && nova && !semMovimento) {
+    nova.classList.remove("tela--frente", "tela--volta");
+    void nova.offsetWidth; // reinicia a animação
+    nova.classList.add(frente ? "tela--frente" : "tela--volta");
+    clearTimeout(nova._fimAnimacao); // depois de entrar, mudanças na tela (ex.: +1 item) não animam de novo
+    nova._fimAnimacao = setTimeout(() => nova.classList.remove("tela--frente", "tela--volta"), 600);
+  }
   if (nomeTela === "checkout" && (estado.mesaQR || minhaComanda())) estado.modo = "local";
   const renderizar = { carrinho: renderCarrinho, checkout: renderCheckout, acompanhamento: renderAcompanhamento };
   renderizar[nomeTela]?.();
@@ -149,7 +165,13 @@ function renderProdutos() {
 
 function atualizarBarraSacola() {
   const qtd = qtdItens();
-  $("#barraSacola").hidden = qtd === 0;
+  const barra = $("#barraSacola");
+  if (barra.hidden && qtd > 0 && !semMovimento) {
+    barra.classList.remove("barra-sacola--entra");
+    void barra.offsetWidth;
+    barra.classList.add("barra-sacola--entra");
+  }
+  barra.hidden = qtd === 0;
   $("#barraQtd").textContent = qtd;
   $("#barraTotal").textContent = moeda(subtotal());
 }
@@ -275,11 +297,40 @@ function abrirProduto(id) {
     atualizarPreco();
   });
   $("#adicionar", tela).addEventListener("click", () => {
+    const origem = $("#adicionar", tela).getBoundingClientRect();
     adicionarASacola(id, escolha.qtd, $("#obs", tela).value.trim(), escolha.extras);
     irPara("cardapio");
+    voarParaSacola(p, origem);
   });
 
   irPara("produto");
+}
+
+/* A foto do produto "voa" do botão Adicionar até a sacola, que dá um pulinho */
+function voarParaSacola(produto, origem) {
+  const barra = $("#barraSacola");
+  const pular = () => {
+    barra.classList.remove("barra-sacola--pulo");
+    void barra.offsetWidth;
+    barra.classList.add("barra-sacola--pulo");
+  };
+  if (semMovimento || barra.hidden) return pular();
+  requestAnimationFrame(() => {
+    const alvo = $("#barraQtd").getBoundingClientRect();
+    const bola = document.createElement("div");
+    bola.className = "voando";
+    bola.innerHTML = Fomito.foto(produto, 56);
+    document.body.appendChild(bola);
+    const x0 = origem.left + origem.width / 2 - 28, y0 = origem.top + origem.height / 2 - 28;
+    const x1 = alvo.left + alvo.width / 2 - 28, y1 = alvo.top + alvo.height / 2 - 28;
+    const meioX = (x0 + x1) / 2, meioY = Math.min(y0, y1) - 140;
+    const voo = bola.animate([
+      { transform: `translate(${x0}px, ${y0}px) scale(1.1)`, opacity: 1 },
+      { transform: `translate(${meioX}px, ${meioY}px) scale(.85)`, opacity: 1, offset: 0.45 },
+      { transform: `translate(${x1}px, ${y1}px) scale(.25)`, opacity: .6 },
+    ], { duration: 700, easing: "cubic-bezier(.45,.05,.35,1)" });
+    voo.onfinish = () => { bola.parentNode?.removeChild(bola); pular(); };
+  });
 }
 
 function adicionarASacola(id, qtd, obs = "", extras = []) {
