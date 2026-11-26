@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fomito · Painel da Lanchonete</title>
+  <link rel="stylesheet" href="../compartilhado/css/tokens.css">
+  <link rel="stylesheet" href="../compartilhado/css/base.css">
+  <link rel="stylesheet" href="painel.css">
+</head>
+<body>
+
+  <!-- ============ MENU LATERAL ============ -->
+  <aside class="menu">
+    <div class="menu__logo" id="logo"></div>
+
+    <div class="menu__loja">
+      <span class="menu__loja-avatar" id="menuLojaAvatar">FO</span>
+      <div class="pilha"><span class="forte" id="menuLojaNome">Fomito</span><span class="pequeno">Plano Pro</span></div>
+    </div>
+
+    <nav class="menu__nav" id="menu">
+      <span class="menu__grupo">Operação</span>
+      <button class="menu__item ativo" data-secao="dashboard"><i data-icone="inicio"></i>Visão geral</button>
+      <button class="menu__item" data-secao="pedidos"><i data-icone="pedidos"></i>Pedidos <b class="menu__badge" id="badgeNovos">2</b></button>
+      <button class="menu__item" data-secao="comandas"><i data-icone="mesa"></i>Comandas</button>
+      <button class="menu__item" data-secao="caixa"><i data-icone="dinheiro"></i>Caixa</button>
+      <span class="menu__grupo">Gestão</span>
+      <button class="menu__item" data-secao="cardapio"><i data-icone="cardapio"></i>Cardápio</button>
+      <button class="menu__item" data-secao="clientes"><i data-icone="pessoas"></i>Clientes</button>
+      <button class="menu__item" data-secao="equipe"><i data-icone="equipe"></i>Equipe</button>
+      <button class="menu__item" data-secao="configuracoes"><i data-icone="ajustes"></i>Configurações</button>
+    </nav>
+
+    <div class="menu__rodape">
+      <a class="menu__item" href="../cliente/"><i data-icone="externo"></i>Ver cardápio do cliente</a>
+      <button class="menu__item" id="btnSair"><i data-icone="sair"></i>Sair</button>
+    </div>
+  </aside>
+
+  <!-- ============ ÁREA PRINCIPAL ============ -->
+  <main class="principal">
+    <header class="topo">
+      <div>
+        <h1 id="tituloSecao">Visão geral</h1>
+        <p class="suave" id="subtituloSecao"></p>
+      </div>
+      <div class="linha" style="gap:14px">
+        <label class="status-loja"><input type="checkbox" checked id="lojaAberta"><span class="status-loja__trilho"></span><span id="textoLoja">Recebendo pedidos</span></label>
+        <button class="btn-icone" id="btnSom" aria-label="Som de novo pedido" title="Som de novo pedido"><i data-icone="sino"></i></button>
+        <div class="avatar" id="avatar" title="">ZS</div>
+      </div>
+    </header>
+
+    <!-- Cada seção abaixo é preenchida pelo painel.js -->
+    <section class="secao" data-secao="dashboard"></section>
+    <section class="secao" data-secao="pedidos" hidden></section>
+    <section class="secao" data-secao="comandas" hidden></section>
+    <section class="secao" data-secao="caixa" hidden></section>
+    <section class="secao" data-secao="cardapio" hidden></section>
+    <section class="secao" data-secao="clientes" hidden></section>
+    <section class="secao" data-secao="equipe" hidden></section>
+    <section class="secao" data-secao="configuracoes" hidden></section>
+  </main>
+
+  <script src="../compartilhado/js/api.js"></script>
+  <script>
+    Fomito.iniciar([
+      "../compartilhado/js/icones.js",
+      "../compartilhado/js/config.js",
+      "../compartilhado/js/ilustracoes.js",
+      "../compartilhado/js/sessao.js",
+      "../compartilhado/js/dados.js",
+      "../compartilhado/js/utils.js",
+      "../compartilhado/js/alertas.js",
+      "../compartilhado/js/clientes.js",
+      "../compartilhado/js/caixa.js",
+      "../compartilhado/js/comandas.js",
+      "../compartilhado/js/pedidos.js",
+      "cardapio.js",
+      "clientes.js",
+      "pedido.js",
+      "comandas.js",
+      "caixa.js",
+      "painel.js",
+    ]);
+  </script>
+  <!-- Partes do painel em arquivos próprios (antes do painel.js, que liga tudo) --></body>
+</html>

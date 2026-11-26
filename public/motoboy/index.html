@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4B2B8F">
+  <title>Fomito · Entregas</title>
+  <link rel="stylesheet" href="../compartilhado/css/tokens.css">
+  <link rel="stylesheet" href="../compartilhado/css/base.css">
+  <link rel="stylesheet" href="motoboy.css">
+</head>
+<body>
+
+  <!-- ============ TOPO ============ -->
+  <header class="topo-moto">
+    <div class="topo-moto__linha">
+      <div class="linha" style="gap:10px;min-width:0">
+        <span id="simbolo" class="topo-moto__simbolo"></span>
+        <div class="pilha" style="gap:0;min-width:0">
+          <span class="topo-moto__titulo">Entregas</span>
+          <span class="pequeno topo-moto__sub" id="nomeMotoboy">Motoboy</span>
+        </div>
+      </div>
+      <div class="linha" style="gap:6px">
+        <a class="btn-icone btn-icone--claro" id="voltarPainel" href="../painel/index.html" aria-label="Voltar ao painel" title="Voltar ao painel" hidden><i data-icone="inicio"></i></a>
+        <button class="btn-icone btn-icone--claro" id="btnSair" aria-label="Sair" title="Sair"><i data-icone="sair"></i></button>
+      </div>
+    </div>
+    <div class="resumo-moto" id="resumo"></div>
+    <nav class="abas-moto" id="abas"></nav>
+  </header>
+
+  <main class="conteudo-moto">
+    <div id="avisoNotificacao"></div>
+    <div id="lista"></div>
+  </main>
+
+  <!-- Barra fixa: aparece quando o motoboy seleciona pedidos para sair -->
+  <div class="barra-saida" id="barraSaida" hidden></div>
+
+  <script src="../compartilhado/js/api.js"></script>
+  <script>
+    Fomito.iniciar([
+      "../compartilhado/js/icones.js",
+      "../compartilhado/js/config.js",
+      "../compartilhado/js/ilustracoes.js",
+      "../compartilhado/js/sessao.js",
+      "../compartilhado/js/dados.js",
+      "../compartilhado/js/utils.js",
+      "../compartilhado/js/alertas.js",
+      "../compartilhado/js/caixa.js",
+      "../compartilhado/js/pedidos.js",
+      "motoboy.js",
+    ]);
+  </script>
+</body>
+</html>

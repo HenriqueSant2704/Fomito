@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fomito · Portal</title>
+  <link rel="stylesheet" href="../compartilhado/css/tokens.css">
+  <link rel="stylesheet" href="../compartilhado/css/base.css">
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+
+  <main class="portal">
+    <!-- Lado da marca (some no celular) -->
+    <section class="portal__marca">
+      <div id="logoClaro"></div>
+      <div class="portal__frase">
+        <h1>Seu negócio sempre no controle.</h1>
+        <p>Pedidos, comandas e cardápio da sua lanchonete em um só lugar.</p>
+      </div>
+      <span class="pequeno" style="opacity:.6">Acesso restrito à equipe</span>
+    </section>
+
+    <!-- Formulário -->
+    <section class="portal__form">
+      <a class="voltar" href="../cliente/"><i data-icone="voltar" class="ic--sm"></i> Voltar ao cardápio</a>
+
+      <form id="formLogin" class="cartao-login" novalidate>
+        <div id="logo" class="so-celular"></div>
+        <div class="pilha" style="gap:4px">
+          <h2>Entrar no Portal</h2>
+          <p class="suave">Use o usuário e a senha que o administrador criou para você.</p>
+        </div>
+
+        <div class="campo">
+          <label for="usuario">Usuário</label>
+          <input class="input" id="usuario" autocomplete="username" placeholder="ex.: carlos">
+        </div>
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <div class="senha">
+            <input class="input" id="senha" type="password" autocomplete="current-password" placeholder="Sua senha">
+            <button type="button" id="verSenha" class="senha__ver">Mostrar</button>
+          </div>
+        </div>
+
+        <p class="erro" id="erro" hidden></p>
+        <button class="btn btn--primario btn--bloco" type="submit">Entrar</button>
+
+      </form>
+    </section>
+  </main>
+
+  <script src="../compartilhado/js/api.js"></script>
+  <script>
+    Fomito.iniciar([
+      "../compartilhado/js/icones.js",
+      "../compartilhado/js/config.js",
+      "../compartilhado/js/utils.js",
+      "../compartilhado/js/sessao.js",
+      "portal.js",
+    ]);
+  </script>
+</body>
+</html>

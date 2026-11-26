@@ -1,0 +1,263 @@
+/* ==========================================================================
+   FOMITO · BASE + COMPONENTES COMPARTILHADOS
+   Usado pelas três telas (cliente, garçom e painel).
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: var(--fonte-texto);
+  font-size: 14px;
+  color: var(--texto);
+  background: var(--fundo);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  font-feature-settings: "cv11", "ss01";
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--fonte-marca);
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -.2px;
+  color: var(--texto);
+  text-wrap: balance;
+}
+h3, h4 { font-family: var(--fonte-texto); font-weight: 600; letter-spacing: 0; }
+
+p { margin: 0; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+input, textarea, select { font: inherit; color: inherit; }
+img { max-width: 100%; display: block; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--roxo-medio); outline-offset: 2px; }
+
+/* ---------- Ícones de linha ---------- */
+.ic { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
+.ic--sm { width: 16px; height: 16px; }
+.ic--lg { width: 22px; height: 22px; }
+
+/* ---------- Logo ---------- */
+.logo { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
+.logo__simbolo { width: 32px; height: 32px; flex: none; }
+.logo__nome {
+  font-family: var(--fonte-marca); font-weight: 900; font-size: 22px;
+  letter-spacing: -.4px; color: var(--roxo);
+}
+.logo--claro .logo__nome { color: #fff; }
+.logo__simbolo--img { object-fit: cover; border-radius: 9px; background: #fff; }
+
+/* ---------- Impressão do cupom (impressora térmica 80mm) ---------- */
+#areaImpressao { display: none; }
+@media print {
+  @page { size: 80mm auto; margin: 3mm; }
+  body > *:not(#areaImpressao) { display: none !important; }
+  #areaImpressao { display: block; margin: 0; width: 74mm; font: 11px/1.35 "Courier New", ui-monospace, monospace; white-space: pre-wrap; color: #000; }
+}
+
+/* ---------- Botões ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 44px; padding: 0 18px;
+  border-radius: var(--raio-md);
+  font-weight: 600; font-size: 14px;
+  transition: background var(--transicao), border-color var(--transicao), color var(--transicao);
+  white-space: nowrap;
+}
+.btn--primario { background: var(--roxo); color: #fff; }
+.btn--primario:hover { background: var(--roxo-hover); }
+.btn--destaque { background: var(--laranja); color: #fff; }
+.btn--destaque:hover { background: var(--laranja-escuro); }
+.btn--secundario { background: var(--roxo-claro); color: var(--roxo); }
+.btn--secundario:hover { background: #E7E0F5; }
+.btn--contorno { border: 1px solid var(--borda-forte); background: var(--superficie); color: var(--texto); }
+.btn--contorno:hover { border-color: var(--roxo-medio); }
+.btn--sucesso { background: var(--verde-escuro); color: #fff; }
+.btn--bloco { width: 100%; }
+.btn--sm { height: 34px; padding: 0 12px; font-size: 13px; border-radius: var(--raio-sm); }
+.btn:disabled { opacity: .4; pointer-events: none; }
+
+.btn-icone {
+  width: 38px; height: 38px; border-radius: var(--raio-md);
+  display: inline-grid; place-items: center;
+  background: var(--superficie); border: 1px solid var(--borda); color: var(--texto-suave);
+  transition: color var(--transicao), border-color var(--transicao);
+}
+.btn-icone:hover { color: var(--roxo); border-color: var(--borda-forte); }
+
+/* ---------- Cartões ---------- */
+.card {
+  background: var(--superficie);
+  border-radius: var(--raio-lg);
+  border: 1px solid var(--borda);
+}
+
+/* ---------- Etiquetas de status ---------- */
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: var(--raio-pill);
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+  background: var(--roxo-claro); color: var(--roxo);
+}
+.tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.tag--laranja  { background: var(--laranja-claro); color: var(--laranja-escuro); }
+.tag--verde    { background: var(--verde-claro); color: var(--verde-escuro); }
+.tag--vermelho { background: var(--vermelho-claro); color: var(--vermelho-escuro); }
+.tag--amarelo  { background: var(--amarelo-claro); color: var(--amarelo-escuro); }
+.tag--cinza    { background: var(--superficie-2); color: var(--texto-suave); }
+
+/* ---------- Filtros (segmentado) ---------- */
+.filtros {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio-md);
+  overflow-x: auto; scrollbar-width: none; max-width: 100%;
+}
+.filtros::-webkit-scrollbar { display: none; }
+.filtro {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: 7px;
+  font-weight: 500; font-size: 13px; color: var(--texto-suave);
+  transition: all var(--transicao);
+}
+.filtro:hover { color: var(--texto); }
+.filtro.ativo { background: var(--superficie); color: var(--texto); box-shadow: var(--sombra-sm), 0 0 0 1px var(--borda); }
+.filtro small { font-size: 12px; color: var(--texto-fraco); font-variant-numeric: tabular-nums; }
+
+/* ---------- Abas sublinhadas ---------- */
+.abas { display: flex; gap: 22px; border-bottom: 1px solid var(--borda); overflow-x: auto; scrollbar-width: none; }
+.abas::-webkit-scrollbar { display: none; }
+.aba {
+  flex: none; padding: 12px 0; margin-bottom: -1px;
+  font-weight: 500; color: var(--texto-suave); border-bottom: 2px solid transparent;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.aba.ativo { color: var(--roxo); border-bottom-color: var(--roxo); font-weight: 600; }
+
+/* ---------- Campos ---------- */
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo label, .rotulo-campo { font-size: 12.5px; font-weight: 500; color: var(--texto-suave); }
+.input {
+  height: 42px; padding: 0 12px; width: 100%;
+  border-radius: var(--raio-md);
+  border: 1px solid var(--borda-forte);
+  background: var(--superficie); outline: none;
+  transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+textarea.input { height: auto; padding: 10px 12px; resize: none; }
+.input:focus { border-color: var(--roxo); box-shadow: 0 0 0 3px var(--roxo-claro); }
+.input:disabled { background: var(--superficie-2); color: var(--texto-fraco); }
+
+/* ---------- Controle de quantidade ---------- */
+.qtd {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--borda-forte); border-radius: var(--raio-md); background: var(--superficie);
+}
+.qtd button { width: 32px; height: 32px; display: grid; place-items: center; color: var(--roxo); }
+.qtd button:hover { background: var(--superficie-2); }
+.qtd span { min-width: 24px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------- Miniatura de produto (até termos fotos reais) ---------- */
+.foto {
+  display: grid; place-items: center; flex: none;
+  border-radius: var(--raio-md);
+  background: var(--superficie-2);
+  color: var(--roxo-medio);
+}
+.foto .ic { width: 45%; height: 45%; stroke-width: 1.4; }
+.foto { overflow: hidden; }
+.foto > svg:not(.ic) { width: 100%; height: 100%; display: block; }
+
+/* ---------- Opções selecionáveis (pagamento etc.) ---------- */
+.opcao {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: var(--raio-md);
+  border: 1px solid var(--borda-forte); background: var(--superficie);
+  text-align: left; width: 100%;
+  transition: border-color var(--transicao), background var(--transicao);
+}
+.opcao:hover { border-color: var(--roxo-medio); }
+.opcao__icone {
+  width: 36px; height: 36px; border-radius: var(--raio-sm);
+  display: grid; place-items: center; flex: none;
+  background: var(--superficie-2); color: var(--texto-suave);
+}
+.opcao__texto { flex: 1; min-width: 0; }
+.opcao__titulo { font-weight: 600; display: block; }
+.opcao__sub { font-size: 12.5px; color: var(--texto-suave); }
+.opcao__radio { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--borda-forte); flex: none; position: relative; }
+.opcao.ativa { border-color: var(--roxo); box-shadow: 0 0 0 1px var(--roxo); }
+.opcao.ativa .opcao__icone { background: var(--roxo-claro); color: var(--roxo); }
+.opcao.ativa .opcao__radio { border-color: var(--roxo); }
+.opcao.ativa .opcao__radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--roxo); }
+
+a.btn, a.btn:hover { text-decoration: none; }
+.link { color: var(--roxo); font-weight: 600; font-size: 13px; }
+.link:hover { text-decoration: underline; }
+.corta { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.foto__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.obrigatorio { color: var(--vermelho-escuro); }
+.form-erro { color: var(--vermelho-escuro); font-size: 13px; }
+
+/* ---------- Modal / folha inferior ---------- */
+.sobreposicao {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(27, 21, 48, .4);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: aparecer .18s ease;
+}
+.sobreposicao--centro { align-items: center; padding: 16px; }
+.folha {
+  background: var(--superficie); width: 100%; max-width: 460px;
+  border-radius: var(--raio-xl) var(--raio-xl) 0 0;
+  padding: 22px; max-height: 92vh; overflow-y: auto;
+  animation: subir .22s ease;
+}
+.sobreposicao--centro .folha { border-radius: var(--raio-xl); box-shadow: var(--sombra-lg); }
+.folha__topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.folha__topo h2 { font-size: 19px; }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  z-index: 100;
+  background: var(--texto); color: #fff;
+  padding: 11px 16px; border-radius: var(--raio-md);
+  font-weight: 500; font-size: 13.5px; box-shadow: var(--sombra-lg);
+  display: flex; align-items: center; gap: 10px; white-space: nowrap;
+  animation: subir .22s ease;
+}
+.toast .ic { color: var(--laranja); }
+
+/* ---------- Aviso ---------- */
+.aviso {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: var(--creme); border: 1px solid #F6E3CA; color: #6B4A1F;
+  padding: 12px 14px; border-radius: var(--raio-md); font-size: 13px;
+}
+.aviso .ic { color: var(--laranja-escuro); margin-top: 1px; }
+
+/* ---------- Utilitários ---------- */
+.linha { display: flex; align-items: center; gap: 8px; }
+.entre { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pilha { display: flex; flex-direction: column; }
+.suave { color: var(--texto-suave); }
+.fraco { color: var(--texto-fraco); }
+.pequeno { font-size: 12.5px; }
+.forte { font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+.preco { font-weight: 600; color: var(--texto); font-variant-numeric: tabular-nums; }
+.rotulo { font-size: 11.5px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--texto-fraco); }
+
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes subir { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+.toast { animation-name: subirToast; }
+@keyframes subirToast { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+@media (max-width: 520px) { .toast { white-space: normal; width: max-content; max-width: calc(100vw - 32px); } }
+
+/* Enquanto o servidor responde uma ação, os botões ficam travados (evita pedido em dobro) */
+body.ocupado { cursor: progress; }
+body.ocupado button, body.ocupado .btn, body.ocupado [data-ok] { pointer-events: none; }
+body.ocupado .btn--primario { opacity: .75; }
