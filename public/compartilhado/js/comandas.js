@@ -44,7 +44,7 @@ window.Fomito = window.Fomito || {};
    */
   const lancar = (mesa, itens, { nome = "" } = {}) => Fomito.acao("POST", "/comandas/lancar", {
     mesa: Number(mesa), codigo: Fomito.codigoMesa, nome,
-    itens: itens.map(({ id, qtd, extras = [], obs = "" }) => ({ id, qtd, extras, obs })),
+    itens: itens.map(({ id, qtd, extras = [], obs = "", sem = [] }) => ({ id, qtd, extras, obs, sem })),
   });
 
   /** Muda o status de uma rodada (índice) da mesa */

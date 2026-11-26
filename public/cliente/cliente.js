@@ -203,7 +203,7 @@ document.addEventListener("click", (e) => {
 function abrirProduto(id) {
   const p = Fomito.produto(id);
   const extras = dados.adicionais[p.cat] || [];
-  const escolha = { qtd: 1, extras: [] };
+  const escolha = { qtd: 1, extras: [], sem: [] }; // sem: ingredientes que o cliente tirou
   const tela = $('[data-tela="produto"]');
 
   tela.innerHTML = `
@@ -242,7 +242,8 @@ function abrirProduto(id) {
 
       <div class="detalhe__bloco">
         <h3>O que vem</h3>
-        <div class="ingredientes">${p.ingredientes.map((i) => `<span>${i}</span>`).join("")}</div>
+        ${p.ingredientes.length > 1 ? `<p class="pequeno fraco" style="margin:-4px 0 2px">Toque no ingrediente que deseja remover <span class="fraco">(opcional)</span></p>` : ""}
+        <div class="ingredientes" id="ingredientes">${p.ingredientes.map((i) => `<button type="button" class="ingrediente" data-ingrediente="${i.replace(/"/g, "&quot;")}" aria-pressed="false">${i}</button>`).join("")}</div>
       </div>
 
       ${extras.length ? `
@@ -295,13 +296,23 @@ function abrirProduto(id) {
     escolha.qtd = Math.max(1, escolha.qtd + Number(b.dataset.q));
     atualizarPreco();
   }));
+  /* Tocar no ingrediente tira (fica riscado); tocar de novo coloca de volta */
+  $("#ingredientes", tela)?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ingrediente]");
+    if (!b) return;
+    const nome = b.dataset.ingrediente;
+    const tirou = !escolha.sem.includes(nome);
+    escolha.sem = tirou ? [...escolha.sem, nome] : escolha.sem.filter((x) => x !== nome);
+    b.classList.toggle("removido", tirou);
+    b.setAttribute("aria-pressed", String(tirou));
+  });
   $("#adicionais", tela)?.addEventListener("change", () => {
     escolha.extras = $$("#adicionais input:checked", tela).map((c) => c.value);
     atualizarPreco();
   });
   $("#adicionar", tela).addEventListener("click", () => {
     const origem = $("#adicionar", tela).getBoundingClientRect();
-    adicionarASacola(id, escolha.qtd, $("#obs", tela).value.trim(), escolha.extras);
+    adicionarASacola(id, escolha.qtd, $("#obs", tela).value.trim(), escolha.extras, escolha.sem);
     irPara("cardapio");
     voarParaSacola(p, origem);
   });
@@ -336,9 +347,9 @@ function voarParaSacola(produto, origem) {
   });
 }
 
-function adicionarASacola(id, qtd, obs = "", extras = []) {
-  const chave = (i) => `${i.id}|${i.obs}|${[...(i.extras || [])].sort()}`;
-  const novo = { id, qtd, obs, extras };
+function adicionarASacola(id, qtd, obs = "", extras = [], sem = []) {
+  const chave = (i) => `${i.id}|${i.obs}|${[...(i.extras || [])].sort()}|${[...(i.sem || [])].sort()}`;
+  const novo = { id, qtd, obs, extras, sem };
   const existente = estado.carrinho.find((i) => chave(i) === chave(novo));
   if (existente) existente.qtd += qtd;
   else estado.carrinho.push(novo);
@@ -367,6 +378,7 @@ function renderCarrinho() {
             <div class="item__info">
               <div class="forte">${p.nome}</div>
               ${adicionaisDe(item).length ? `<div class="item__obs">+ ${adicionaisDe(item).map((a) => a.nome).join(", ")}</div>` : ""}
+              ${item.sem?.length ? `<div class="item__obs item__sem">Sem ${item.sem.join(", ").toLowerCase()}</div>` : ""}
               ${item.obs ? `<div class="item__obs">${item.obs}</div>` : ""}
               <div class="preco pequeno">${moeda(precoUnitario(item) * item.qtd)}</div>
             </div>
@@ -826,7 +838,7 @@ let minhaEntrega = recuperar(CHAVE_ENTREGA, null); // número do pedido de entre
 
 async function confirmarPedido() {
   if (estado.modo === "local") return enviarParaComanda();
-  const itens = estado.carrinho.map((i) => [i.id, i.qtd, i.extras || [], i.obs || ""]);
+  const itens = estado.carrinho.map((i) => [i.id, i.qtd, i.extras || [], i.obs || "", i.sem || []]);
   const pagamento = { pag: estado.pagamento, troco: estado.pagamento === "dinheiro" && !estado.semTroco ? valorTroco() : null };
   let p;
   if (estado.modo === "retirada") {
@@ -891,7 +903,7 @@ function telaComanda(c) {
         return `
           <div class="rodada">
             <div class="entre"><span class="forte">${i + 1}º pedido <span class="pequeno fraco">· ${comandas.hora(r.hora)}${r.por === "garcom" ? " · pelo garçom" : ""}</span></span><span class="tag tag--${st.cor}">${st.nome}</span></div>
-            ${r.itens.map((it) => `<div class="entre pequeno"><span>${it.qtd}× ${Fomito.produto(it.id).nome}${adicionaisDe(it).length ? ` <span class="fraco">+ ${adicionaisDe(it).map((a) => a.nome).join(", ")}</span>` : ""}</span><span class="num">${moeda(comandas.precoItem(it))}</span></div>`).join("")}
+            ${r.itens.map((it) => `<div class="entre pequeno"><span>${it.qtd}× ${it.nome || Fomito.produto(it.id).nome}${adicionaisDe(it).length ? ` <span class="fraco">+ ${adicionaisDe(it).map((a) => a.nome).join(", ")}</span>` : ""}${it.obs ? `<br><span class="fraco">${it.obs}</span>` : ""}</span><span class="num">${moeda(comandas.precoItem(it))}</span></div>`).join("")}
           </div>`;
       }).join("")}
       <div class="entre resumo__total"><span class="forte">Total da comanda</span><span class="preco">${moeda(comandas.total(c))}</span></div>
@@ -942,7 +954,7 @@ function telaEntrega(pedido) {
     </div>
     <div class="card resumo">
       <span class="rotulo">Itens</span>
-      ${pedido.itens.map((item) => `<div class="entre pequeno"><span>${item[1]}× ${item[5] || Fomito.produto(item[0]).nome}</span><span class="num">${moeda(Fomito.pedidos.precoItem(item))}</span></div>`).join("")}
+      ${pedido.itens.map((item) => `<div class="entre pequeno"><span>${item[1]}× ${item[5] || Fomito.produto(item[0]).nome}${item[3] ? `<br><span class="fraco">${item[3]}</span>` : ""}</span><span class="num">${moeda(Fomito.pedidos.precoItem(item))}</span></div>`).join("")}
       <div class="entre resumo__total"><span class="forte">Total</span><span class="preco">${moeda(pedido.total)}</span></div>
     </div>
     <div class="aviso">${icone("pin", "ic--sm")}<span>Entregar para <b>${pedido.cliente}</b> em ${pedido.endereco}</span></div>
@@ -978,7 +990,7 @@ function telaRetirada(pedido) {
     </div>
     <div class="card resumo">
       <span class="rotulo">Itens</span>
-      ${pedido.itens.map((item) => `<div class="entre pequeno"><span>${item[1]}× ${item[5] || Fomito.produto(item[0]).nome}</span><span class="num">${moeda(Fomito.pedidos.precoItem(item))}</span></div>`).join("")}
+      ${pedido.itens.map((item) => `<div class="entre pequeno"><span>${item[1]}× ${item[5] || Fomito.produto(item[0]).nome}${item[3] ? `<br><span class="fraco">${item[3]}</span>` : ""}</span><span class="num">${moeda(Fomito.pedidos.precoItem(item))}</span></div>`).join("")}
       <div class="entre resumo__total"><span class="forte">Total</span><span class="preco">${moeda(pedido.total)}</span></div>
     </div>
     <div class="aviso">${icone("loja", "ic--sm")}<span>Retirar em <b>${dados.lanchonete.endereco || "nosso balcão"}</b> em nome de <b>${pedido.cliente}</b>.</span></div>

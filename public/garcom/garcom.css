@@ -148,3 +148,10 @@ body { background: var(--fundo); min-height: 100vh; }
 
 /* Avisos já ativados neste aparelho */
 .avisos-ok { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--raio-md); background: var(--verde-claro); color: var(--verde-escuro); font-size: 12.5px; font-weight: 500; }
+
+/* Lançar itens: tirar ingrediente e observação por produto */
+.ajuste-item { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; margin: -4px 0 6px; border-radius: var(--raio-md); background: var(--superficie-2); }
+.ingredientes-garcom { display: flex; flex-wrap: wrap; gap: 6px; }
+.ingrediente-garcom { padding: 5px 10px; border-radius: var(--raio-pill); border: 1px solid var(--borda); background: var(--superficie); font: inherit; font-size: 12.5px; cursor: pointer; }
+.ingrediente-garcom.removido { text-decoration: line-through; color: var(--vermelho-escuro); background: #FEF2F2; border-color: #FCA5A5; }
+.ajuste-resumo { color: var(--vermelho-escuro); }

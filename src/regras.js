@@ -5,7 +5,7 @@ const { falhar, arred, numero, texto } = require('./util');
  * Monta um item com o preço do cardápio de agora (o que o cliente mandou só diz o quê e quanto).
  * Guarda o nome e o preço no item: se o produto mudar depois, o pedido antigo continua certo.
  */
-function montarItem(cardapio, { id, qtd, extras = [], obs = '' }) {
+function montarItem(cardapio, { id, qtd, extras = [], obs = '', sem = [] }) {
   const p = cardapio.produtos.find((x) => x.id === Number(id));
   if (!p) falhar(400, 'Um dos produtos não está mais no cardápio. Atualize a página.');
   if (p.esgotado) falhar(409, `${p.nome} acabou de esgotar. Tire da sacola para continuar.`);
@@ -14,7 +14,11 @@ function montarItem(cardapio, { id, qtd, extras = [], obs = '' }) {
   const opcoes = cardapio.adicionais[p.cat] || [];
   const escolhidos = (Array.isArray(extras) ? extras : []).filter((e) => opcoes.some((a) => a.id === e));
   const preco = arred(p.preco + opcoes.filter((a) => escolhidos.includes(a.id)).reduce((s, a) => s + a.preco, 0));
-  return { id: p.id, qtd: q, extras: escolhidos, obs: texto(obs, 140), preco, nome: p.nome };
+  /* Ingredientes que o cliente tirou: viram "SEM alface" na observação, que já aparece
+     no painel, no garçom, na notinha da cozinha e no acompanhamento */
+  const tirados = (Array.isArray(sem) ? sem : []).filter((x) => (p.ingredientes || []).includes(x));
+  const obsFinal = [tirados.map((x) => `SEM ${x.toLowerCase()}`).join(', '), texto(obs, 140)].filter(Boolean).join(' · ');
+  return { id: p.id, qtd: q, extras: escolhidos, obs: obsFinal, ...(tirados.length ? { sem: tirados } : {}), preco, nome: p.nome };
 }
 
 function montarItens(cardapio, itens) {

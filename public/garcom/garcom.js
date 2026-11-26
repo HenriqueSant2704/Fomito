@@ -195,6 +195,9 @@ function renderComanda() {
 /* ---------- 4. LANÇAR ITENS ---------- */
 function abrirLancamento(mesa) {
   const pedido = {};               // { idProduto: qtd }
+  const ajustes = {};              // { idProduto: { sem: [ingredientes tirados], obs } }
+  let ajustando = null;            // produto com o painel "Ajustar" aberto
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   let categoria = dados.categorias[0].id;
 
   const camada = document.createElement("div");
@@ -211,15 +214,27 @@ function abrirLancamento(mesa) {
           ${dados.produtos.filter((p) => p.cat === categoria && !p.esgotado).map((p) => `
             <div class="lancar__produto ${pedido[p.id] ? "tem" : ""}">
               ${Fomito.foto(p, 44)}
-              <div style="flex:1;min-width:0"><div class="forte">${p.nome}</div><span class="pequeno suave num">${moeda(p.preco)}</span></div>
+              <div style="flex:1;min-width:0"><div class="forte">${p.nome}</div><span class="pequeno suave num">${moeda(p.preco)}</span>
+                ${ajustes[p.id]?.sem.length || ajustes[p.id]?.obs ? `<div class="pequeno ajuste-resumo">${[ajustes[p.id].sem.length ? `Sem ${ajustes[p.id].sem.join(", ").toLowerCase()}` : "", esc(ajustes[p.id].obs || "")].filter(Boolean).join(" · ")}</div>` : ""}
+                ${pedido[p.id] && (p.ingredientes || []).length ? `<button class="link pequeno" data-ajustar="${p.id}">${ajustando === p.id ? "Fechar ajustes" : "Tirar ingrediente / obs."}</button>` : ""}</div>
               <div class="qtd"><button data-id="${p.id}" data-q="-1" aria-label="Diminuir">${icone("menos", "ic--sm")}</button><span>${pedido[p.id] || 0}</span><button data-id="${p.id}" data-q="1" aria-label="Aumentar">${icone("mais", "ic--sm")}</button></div>
-            </div>`).join("")}
+            </div>
+            ${ajustando === p.id && pedido[p.id] ? `
+              <div class="ajuste-item">
+                <span class="pequeno fraco">Toque no ingrediente que o cliente não quer</span>
+                <div class="ingredientes-garcom">${(p.ingredientes || []).map((ing) => `<button class="ingrediente-garcom ${ajustes[p.id]?.sem.includes(ing) ? "removido" : ""}" data-tirar="${p.id}" data-ing="${esc(ing)}">${esc(ing)}</button>`).join("")}</div>
+                <input class="input" data-obs-item="${p.id}" placeholder="Observação (ex.: carne bem passada)" value="${esc(ajustes[p.id]?.obs || "")}" maxlength="140">
+              </div>` : ""}`).join("")}
         </div>
         <button class="btn btn--primario btn--bloco" data-enviar ${qtdTotal ? "" : "disabled"}>Enviar para a cozinha${qtdTotal ? ` · ${qtdTotal} ${qtdTotal > 1 ? "itens" : "item"}` : ""}</button>
       </div>`;
   }
   render();
 
+  camada.addEventListener("input", (e) => {
+    const o = e.target.closest("[data-obs-item]");
+    if (o) (ajustes[o.dataset.obsItem] ||= { sem: [], obs: "" }).obs = o.value; // guarda sem redesenhar (não perde o foco)
+  });
   camada.addEventListener("click", async (e) => {
     if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
     const cat = e.target.closest("[data-cat]");
@@ -230,8 +245,19 @@ function abrirLancamento(mesa) {
       pedido[id] = Math.max(0, (pedido[id] || 0) + Number(q.dataset.q));
       return render();
     }
+    const aj = e.target.closest("[data-ajustar]");
+    if (aj) { const id = Number(aj.dataset.ajustar); ajustando = ajustando === id ? null : id; return render(); }
+    const tirar = e.target.closest("[data-tirar]");
+    if (tirar) {
+      const id = Number(tirar.dataset.tirar);
+      const a = (ajustes[id] ||= { sem: [], obs: "" });
+      const ing = tirar.dataset.ing;
+      a.sem = a.sem.includes(ing) ? a.sem.filter((x) => x !== ing) : [...a.sem, ing];
+      return render();
+    }
     if (e.target.closest("[data-enviar]")) {
-      const itens = Object.entries(pedido).filter(([, qtd]) => qtd > 0).map(([id, qtd]) => ({ id: Number(id), qtd }));
+      const itens = Object.entries(pedido).filter(([, qtd]) => qtd > 0)
+        .map(([id, qtd]) => ({ id: Number(id), qtd, sem: ajustes[id]?.sem || [], obs: ajustes[id]?.obs || "" }));
       await comandas.lancar(mesa.numero, itens);
       camada.remove();
       atualizarTudo();

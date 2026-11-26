@@ -126,7 +126,7 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
   /* "local" = balcão: lançado pelo painel ou "Retirar no balcão" no cardápio */
   const retirada = corpo.modo === 'retirada';
   const modo = (equipe && corpo.modo === 'local') || retirada ? 'local' : 'entrega';
-  const itens = montarItens(cardapio, (corpo.itens || []).map((i) => (Array.isArray(i) ? { id: i[0], qtd: i[1], extras: i[2], obs: i[3] } : i)));
+  const itens = montarItens(cardapio, (corpo.itens || []).map((i) => (Array.isArray(i) ? { id: i[0], qtd: i[1], extras: i[2], obs: i[3], sem: i[4] } : i)));
   const subtotal = somaItens(itens);
   const taxa = modo === 'entrega' ? cardapio.lanchonete.taxaEntrega : 0;
   const total = arred(subtotal + taxa);
