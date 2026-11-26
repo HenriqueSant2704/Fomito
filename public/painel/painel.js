@@ -266,6 +266,19 @@ function renderPedidos() {
       ${colunas.map((c) => {
         const lista = todos.filter((p) => c.status.includes(p.status));
         const rodadas = rodadasDaColuna(c.id); // pedidos das mesas (comandas)
+        /* Concluídos: entregas e balcão finalizados + comandas das mesas com a conta fechada, o mais recente primeiro */
+        if (c.id === "concluido") {
+          const fechadas = Fomito.comandas.fechadas();
+          const cards = [
+            ...lista.map((p) => [p.entregueEm || p.criadoEm, cardPedido(p)]),
+            ...fechadas.map((f) => [f.fechadaEm, cardComandaFechada(f)]),
+          ].sort((a, b) => b[0] - a[0]).map(([, html]) => html);
+          return `
+          <div class="coluna" style="--cor-coluna:${c.cor}">
+            <div class="coluna__topo"><h3>${c.titulo}</h3><span class="coluna__qtd">${cards.length}</span></div>
+            ${cards.join("") || `<p class="vazio-coluna">Nenhum pedido</p>`}
+          </div>`;
+        }
         return `
           <div class="coluna" style="--cor-coluna:${c.cor}">
             <div class="coluna__topo"><h3>${c.titulo}</h3><span class="coluna__qtd">${lista.length + rodadas.length}</span></div>

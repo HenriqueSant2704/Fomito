@@ -35,6 +35,28 @@ function cardRodada({ c, r, i }) {
     </div>`;
 }
 
+/* Comanda com a conta fechada: entra em "Concluídos" no quadro de Pedidos, marcada como Mesa */
+function cardComandaFechada(f) {
+  const cmd = Fomito.comandas;
+  const formas = Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome]));
+  const forma = f.forma === "misto" ? "mais de uma forma" : (formas[f.forma] || "").toLowerCase();
+  /* Junta os itens de todas as rodadas: "2× X-Bacon" */
+  const itens = {};
+  f.rodadas.forEach((r) => r.itens.forEach((it) => {
+    const nome = it.nome || Fomito.produto(it.id).nome;
+    itens[nome] = (itens[nome] || 0) + it.qtd;
+  }));
+  const linhas = Object.entries(itens);
+  return `
+    <div class="card pedido pedido--comanda pedido--fechada" title="Comanda fechada">
+      <div class="entre"><span class="forte">${cmd.mesaTexto(f.mesa)}</span><span class="pequeno fraco">comanda #${f.numero}</span></div>
+      <div class="entre"><span class="forte">${f.nome || "Comanda"}</span><span class="tag tag--roxo">${icone("mesa", "ic--sm")} Mesa</span></div>
+      <div class="pedido__itens">${linhas.slice(0, 4).map(([nome, qtd]) => `${qtd}× ${nome}`).join("<br>")}${linhas.length > 4 ? `<br><span class="fraco">+ ${linhas.length - 4} ${linhas.length - 4 > 1 ? "itens" : "item"}</span>` : ""}</div>
+      <div class="pedido__situacao pedido__situacao--concluido">${icone("check", "ic--sm")}<span>Conta fechada${f.por ? ` por <b>${f.por}</b>` : ""} às ${cmd.hora(f.fechadaEm)}${forma ? ` · ${forma}` : ""}</span></div>
+      <div class="entre"><span class="preco">${moeda(f.total)}</span><span class="pequeno fraco">${f.rodadas.length} ${f.rodadas.length > 1 ? "pedidos" : "pedido"}</span></div>
+    </div>`;
+}
+
 document.addEventListener("click", async (e) => {
   const botao = e.target.closest("[data-rodada]");
   if (botao) {
