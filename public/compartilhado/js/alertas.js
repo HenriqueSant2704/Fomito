@@ -140,19 +140,32 @@ window.Fomito = window.Fomito || {};
   }
 
   /* ---------- 4. AVISOS PARA GARÇOM E MOTOBOY ----------
-     No protótipo usa a notificação do navegador (aparece mesmo com a aba
-     em segundo plano). No sistema real vira Web Push com Service Worker,
-     para o celular avisar com a tela bloqueada. */
+     Som + vibração sempre; notificação do navegador quando ele permite
+     (aparece mesmo com a aba em segundo plano). Próximo passo: Web Push com
+     Service Worker, para o celular avisar com a tela bloqueada. */
+  const CHAVE_AVISOS = "fomito.avisos";
   const podeNotificar = () => "Notification" in window;
   const notificacoesAtivas = () => podeNotificar() && Notification.permission === "granted";
+  /** Avisos ligados neste aparelho: o navegador liberou a notificação OU a pessoa já tocou em Ativar (som e vibração) */
+  const avisosLigados = () => {
+    if (notificacoesAtivas()) return true;
+    try { return localStorage.getItem(CHAVE_AVISOS) === "1"; } catch { return false; }
+  };
 
-  /** Pede permissão para notificar. Retorna "granted", "denied" ou "default". */
+  /** Pede permissão para notificar. Retorna "granted", "denied", "default" ou "indisponivel". */
   async function ativarNotificacoes() {
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
     audio.resume?.();
+    try { localStorage.setItem(CHAVE_AVISOS, "1"); } catch { /* sem armazenamento */ }
     if (!podeNotificar()) return "indisponivel";
     try { return await Notification.requestPermission(); } catch { return "denied"; }
   }
+
+  /* O navegador só deixa tocar som depois de um toque na tela: o primeiro toque já libera */
+  const liberarSom = () => {
+    try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume?.(); } catch { /* sem áudio */ }
+  };
+  ["pointerdown", "keydown"].forEach((ev) => document.addEventListener(ev, liberarSom, { once: true, capture: true }));
 
   /** Som + vibração + notificação. tag evita repetir o mesmo aviso. */
   function avisar(titulo, texto, tag) {
@@ -164,5 +177,5 @@ window.Fomito = window.Fomito || {};
     return tocou;
   }
 
-  Fomito.alertas = { tocarAlerta, textoCupom, imprimirCupom, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, podeNotificar, avisar };
+  Fomito.alertas = { tocarAlerta, textoCupom, imprimirCupom, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, avisosLigados, podeNotificar, avisar };
 })();

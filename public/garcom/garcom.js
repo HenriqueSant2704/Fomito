@@ -441,7 +441,11 @@ atualizarTudo();
    e conta pedida tocam o som, vibram e mostram a notificação do celular. */
 function renderAvisoNotificacao() {
   const el = $("#avisoNotificacao");
-  el.innerHTML = alertas.notificacoesAtivas() ? "" : `
+  if (alertas.avisosLigados()) {
+    el.innerHTML = `<div class="avisos-ok">${icone("check", "ic--sm")}Avisos ativados${alertas.notificacoesAtivas() ? "" : " (som e vibração: mantenha esta tela aberta)"}. Você é chamado quando um pedido ficar pronto ou uma mesa pedir a conta.</div>`;
+    return;
+  }
+  el.innerHTML = `
     <div class="ativar-avisos">
       ${icone("sino")}
       <span>Ative os avisos para ser chamado quando um pedido ficar pronto ou uma mesa pedir a conta.</span>

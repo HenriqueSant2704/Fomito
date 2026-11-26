@@ -145,3 +145,6 @@ body { background: var(--fundo); min-height: 100vh; }
 .ativar-avisos .btn { margin-left: auto; flex: none; }
 @media (max-width: 560px) { .ativar-avisos { flex-wrap: wrap; } .ativar-avisos .btn { margin-left: 0; } }
 .mesa__meta { flex-wrap: wrap; row-gap: 4px; }
+
+/* Avisos já ativados neste aparelho */
+.avisos-ok { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--raio-md); background: var(--verde-claro); color: var(--verde-escuro); font-size: 12.5px; font-weight: 500; }

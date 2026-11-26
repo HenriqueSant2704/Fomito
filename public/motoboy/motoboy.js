@@ -314,8 +314,8 @@ function abrirRecebimento(num) {
    toca o som, vibra, mostra o aviso e (com permissão) a notificação do celular. */
 function renderAvisoNotificacao() {
   const el = $("#avisoNotificacao");
-  if (alertas.notificacoesAtivas()) {
-    el.innerHTML = `<div class="avisos-ok">${icone("sino", "ic--sm")}Avisos ativados: você é chamado quando um pedido ficar pronto.</div>`;
+  if (alertas.avisosLigados()) {
+    el.innerHTML = `<div class="avisos-ok">${icone("check", "ic--sm")}Avisos ativados${alertas.notificacoesAtivas() ? "" : " (som e vibração: mantenha esta tela aberta)"}. Você é chamado quando um pedido ficar pronto.</div>`;
     return;
   }
   el.innerHTML = `

@@ -43,7 +43,7 @@ body { background: var(--fundo); min-height: 100vh; padding-bottom: 96px; }
 .ativar-avisos { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--raio-md); background: var(--laranja-claro); border: 1px solid #F6D3A8; color: #6B4A1F; font-size: 13px; }
 .ativar-avisos > .ic { color: var(--laranja-escuro); flex: none; }
 .ativar-avisos .btn { margin-left: auto; flex: none; }
-.avisos-ok { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--verde-escuro); }
+.avisos-ok { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--raio-md); background: var(--verde-claro); color: var(--verde-escuro); font-size: 12.5px; font-weight: 500; }
 
 /* ---------- Grupo por bairro ---------- */
 .bairro { display: flex; flex-direction: column; gap: 10px; }
