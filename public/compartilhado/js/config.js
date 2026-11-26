@@ -55,7 +55,15 @@ window.Fomito = window.Fomito || {};
   };
 
   /* As configurações vêm do servidor. Garçom, motoboy e cliente não recebem a parte do WhatsApp. */
-  const ler = () => mesclar(PADRAO, structuredClone(Fomito.estado?.config || {}));
+  /* O som de pedido novo pode ser ligado/desligado em cada computador (botão do sino) */
+  const somLocal = () => { try { const v = localStorage.getItem("fomito.som"); return v === null ? null : v === "1"; } catch { return null; } };
+  const somNesteAparelho = (ativo) => { try { localStorage.setItem("fomito.som", ativo ? "1" : "0"); } catch { /* sem armazenamento */ } };
+  const ler = () => {
+    const c = mesclar(PADRAO, structuredClone(Fomito.estado?.config || {}));
+    const local = somLocal();
+    if (local !== null) c.som.ativo = local;
+    return c;
+  };
   /** Grava no servidor (só o administrador). */
   const salvar = (config) => Fomito.acao("PUT", "/config", config);
 
@@ -120,7 +128,7 @@ window.Fomito = window.Fomito || {};
   const montarMensagem = (texto, dados) => texto.replace(/\{(\w+)\}/g, (_, chave) => dados[chave] ?? `{${chave}}`);
 
   Fomito.config = {
-    ler, salvar, aplicarMarca, simbolo, montarMensagem, misturar, carregarFonte,
+    ler, salvar, somNesteAparelho, aplicarMarca, simbolo, montarMensagem, misturar, carregarFonte,
     padrao: () => structuredClone(PADRAO),
     FONTES_TITULO, FONTES_TEXTO,
   };

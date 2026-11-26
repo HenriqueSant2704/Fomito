@@ -272,7 +272,7 @@ async function statusRodada(mesa, indice, status, perfil) {
     const r = linha.dados.rodadas[Number(indice)];
     if (!r) falhar(404, 'Pedido da comanda não encontrado.');
     if (PASSOS[r.status] !== status) falhar(409, 'Esse pedido já mudou em outro aparelho. A tela vai atualizar.');
-    if (perfil === 'garcom' && status !== 'servido') falhar(403, 'Quem marca preparo e pronto é a cozinha, pelo painel.');
+    if (perfil === 'garcom' && status !== 'servido') falhar(403, 'Quem marca em preparo e pronto é o atendente, pelo painel.');
     r.status = status;
     r[`${status}Em`] = Date.now();
     const { rows } = await c.query('UPDATE comandas SET dados = $2 WHERE id = $1 RETURNING *', [linha.id, linha.dados]);

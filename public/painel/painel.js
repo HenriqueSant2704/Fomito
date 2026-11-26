@@ -16,8 +16,14 @@
 
 const { dados, moeda, icone, $, $$, toast, sessao, alertas } = Fomito;
 
-/* Só o administrador entra no painel. Garçom ou visitante volta ao Portal. */
-const usuarioLogado = sessao.exigir("admin");
+/* No painel entram o administrador (tudo) e o atendente (a operação do dia).
+   Garçom, motoboy ou visitante voltam ao Portal. */
+const usuarioLogado = sessao.exigir("admin", "atendente");
+const ehAdmin = usuarioLogado.perfil === "admin";
+/* O atendente cuida dos pedidos, das comandas, do caixa e dos clientes.
+   Não vê a Visão geral (faturamento), o Cardápio e as Configurações, e só olha a Equipe. */
+const SECOES_ATENDENTE = ["pedidos", "comandas", "caixa", "clientes", "equipe"];
+const podeVer = (secao) => ehAdmin || SECOES_ATENDENTE.includes(secao);
 const iniciais = (nome) => nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
 /* ---------- 1. DADOS ----------
@@ -61,12 +67,13 @@ const titulos = {
   comandas: ["Comandas", "Mesas abertas pelo QR Code ou pelo garçom, contas fechadas e os QR Codes das mesas."],
   cardapio: ["Cardápio", "Produtos, fotos, categorias, adicionais e a vitrine do topo."],
   clientes: ["Clientes", "Cadastros feitos pelo telefone no finalizar pedido, com os endereços salvos."],
-  equipe: ["Equipe", "Crie o acesso de garçons e motoboys. Cada um entra pelo Portal e vai direto para a sua tela."],
+  equipe: ["Equipe", "Crie o acesso de atendentes, garçons e motoboys. Cada um entra pelo Portal e vai direto para a sua tela."],
   configuracoes: ["Configurações", "Sua marca, WhatsApp, impressora e o funcionamento da loja."],
 };
 
 /* ---------- 2. NAVEGAÇÃO ---------- */
 function abrirSecao(nome) {
+  if (!titulos[nome] || !podeVer(nome)) nome = ehAdmin ? "dashboard" : "pedidos";
   $$(".menu__item").forEach((b) => b.classList.toggle("ativo", b.dataset.secao === nome));
   $$(".secao").forEach((s) => (s.hidden = s.dataset.secao !== nome));
   $("#tituloSecao").textContent = titulos[nome][0];
@@ -87,8 +94,7 @@ function atualizarStatusLoja() {
 }
 $("#lojaAberta").addEventListener("change", async (e) => {
   const aberta = e.target.checked;
-  dados.lanchonete.aberta = aberta;
-  try { await Fomito.salvarCardapio(); } finally { atualizarStatusLoja(); }
+  try { await Fomito.acao("POST", "/loja/aberta", { aberta }); } finally { atualizarStatusLoja(); }
   toast(aberta ? "Loja aberta para pedidos" : "Novos pedidos pausados", aberta ? "check" : "info");
 });
 
@@ -348,16 +354,23 @@ function avisarPedidoNovo(texto) {
    O administrador cria o acesso de cada funcionário e escolhe o tipo:
    garçom (comandas das mesas) ou motoboy (entregas). */
 const TIPOS_FUNCIONARIO = {
+  atendente: {
+    icone: "pedidos", sub: "Cuida dos pedidos, da expedição e do caixa",
+    regras: [["check", "Entra pelo Portal e vai direto para os Pedidos do painel"], ["check", "Aceita, marca em preparo e pronto: entrega o pedido ao motoboy ou ao garçom"], ["check", "Lança pedidos, cuida das comandas, do caixa e dos clientes"], ["sino", "Ouve o alerta de pedido novo"]],
+    nao: "Não vê o faturamento, não mexe no cardápio nem nas configurações e não cria acessos",
+  },
   garcom: {
     icone: "mesa", sub: "Atende as mesas pelas comandas",
     regras: [["check", "Entra pelo Portal e vai direto para as comandas"], ["check", "Lança itens, serve os pedidos prontos e fecha a conta"], ["sino", "Recebe aviso quando um pedido da mesa fica pronto"]],
+    nao: "Não acessa o painel, o financeiro nem as configurações",
   },
   motoboy: {
     icone: "entrega", sub: "Leva as entregas e recebe o pagamento",
     regras: [["check", "Entra pelo Portal e vai direto para as entregas"], ["check", "Vê os pedidos prontos separados por bairro, com o endereço em destaque"], ["check", "Recebe o pagamento, informa o troco e finaliza a entrega"], ["sino", "Recebe aviso quando um pedido fica pronto para sair"]],
+    nao: "Não acessa o painel, o financeiro nem as configurações",
   },
 };
-let tipoNovoFuncionario = "garcom";
+let tipoNovoFuncionario = "atendente";
 
 function renderEquipe() {
   const usuarios = sessao.usuarios();
@@ -402,11 +415,17 @@ function renderEquipe() {
         <div class="regras">
           <span class="rotulo">O que o ${perfis[tipoNovoFuncionario].nome.toLowerCase()} pode fazer</span>
           ${tipo.regras.map(([ic, texto]) => `<span class="regra">${icone(ic, "ic--sm")}${texto}</span>`).join("")}
-          <span class="regra">${icone("fechar", "ic--sm")}Não acessa o painel, o financeiro nem as configurações</span>
+          <span class="regra">${icone("fechar", "ic--sm")}${tipo.nao}</span>
         </div>
       </form>
     </div>`;
 
+  /* O atendente só vê quem tem acesso: não cria nem remove */
+  if (!ehAdmin) {
+    $("#formFuncionario").remove();
+    $$('[data-secao="equipe"].secao [data-remover]').forEach((b) => b.remove());
+    return;
+  }
   $("#formFuncionario").addEventListener("submit", async (e) => {
     e.preventDefault();
     const nome = $("#gNome").value.trim();
@@ -732,10 +751,11 @@ function atualizarBotaoSom() {
   $("#btnSom").innerHTML = icone(ativo ? "sino" : "somoff");
   $("#btnSom").title = ativo ? "Som de novo pedido ligado" : "Som de novo pedido desligado";
 }
-$("#btnSom").addEventListener("click", async () => {
+/* O sino liga/desliga o som só neste computador (cada balcão escolhe o seu) */
+$("#btnSom").addEventListener("click", () => {
   const cfg = Fomito.config.ler();
   cfg.som.ativo = !cfg.som.ativo;
-  await Fomito.config.salvar(cfg);
+  Fomito.config.somNesteAparelho(cfg.som.ativo);
   if (rascunho) rascunho.som.ativo = cfg.som.ativo;
   atualizarBotaoSom();
   if (cfg.som.ativo) alertas.tocarAlerta();
@@ -765,4 +785,6 @@ atualizarBotaoSom();
 atualizarStatusLoja();
 atualizarBadge();
 document.addEventListener("fomito:loja", () => { atualizarStatusLoja(); atualizarMenuLoja(); $("#logo").innerHTML = Fomito.logo(true); });
-abrirSecao(new URLSearchParams(location.search).get("secao") || "dashboard");
+/* Menu: o atendente só vê as seções dele */
+$$(".menu__item[data-secao]").forEach((b) => { b.hidden = !podeVer(b.dataset.secao); });
+abrirSecao(new URLSearchParams(location.search).get("secao") || (ehAdmin ? "dashboard" : "pedidos"));

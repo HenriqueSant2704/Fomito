@@ -13,11 +13,13 @@ Stack: HTML, CSS e JavaScript puros no navegador · Node.js + Express no servido
 |---|---|
 | `/` (cardápio) | Cliente: pede para entrega ou, pelo QR Code da mesa, abre a comanda |
 | `/portal/` | Equipe entra com usuário e senha. O link fica discreto no rodapé do cardápio |
-| `/painel/` | Só o **administrador**: pedidos, comandas, caixa, cardápio, clientes, equipe e configurações |
-| `/garcom/` | **Garçom** (e o administrador): mesas, servir o que ficou pronto, lançar itens e fechar a conta |
+| `/painel/` | **Administrador**: tudo. **Atendente**: pedidos (aceita, em preparo, pronto), comandas, caixa e clientes; vê a equipe, sem visão geral, cardápio e configurações |
+| `/garcom/` | **Garçom** (e o atendente e o administrador): mesas, servir o que ficou pronto, lançar itens e fechar a conta |
 | `/motoboy/` | **Motoboy** (e o administrador): prontos por bairro, sair, receber e finalizar |
 
-O primeiro administrador nasce do `.env` (`ADMIN_USER` / `ADMIN_PASSWORD`). Ele cria os garçons e motoboys em **Painel → Equipe**.
+O primeiro administrador nasce do `.env` (`ADMIN_USER` / `ADMIN_PASSWORD`). Ele cria atendentes, garçons e motoboys em **Painel → Equipe**.
+
+Fluxo da expedição: a cozinha prepara e entrega ao **atendente**, que marca **pronto**. Daí o motoboy (entrega) ou o garçom (mesa) é avisado e leva.
 
 ## Rodar no computador
 

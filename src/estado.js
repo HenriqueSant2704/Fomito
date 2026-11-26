@@ -147,7 +147,7 @@ async function estado(req, res) {
     return res.json(r);
   }
 
-  // Administrador: tudo
+  // Administrador: tudo. Atendente: o mesmo, menos a Visão geral (faturamento).
   const { rows: pedidos } = await db.query(`SELECT * FROM pedidos WHERE ${PEDIDOS_DO_DIA} ORDER BY criado_em DESC LIMIT 400`, [hoje]);
   r.pedidos = pedidos.map(pedidoDaLinha);
   r.comandas = await comandasDoDia();
@@ -158,7 +158,7 @@ async function estado(req, res) {
   const { rows: usuarios } = await db.query("SELECT nome, usuario, perfil FROM usuarios ORDER BY perfil = 'admin' DESC, nome");
   r.usuarios = usuarios;
   r.mesas = await loja.mesas();
-  r.relatorio = await relatorio(atual.cardapio);
+  if (u.perfil === 'admin') r.relatorio = await relatorio(atual.cardapio);
   res.json(r);
 }
 

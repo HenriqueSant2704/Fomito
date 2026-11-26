@@ -78,6 +78,12 @@ async function salvarConfig(recebida) {
 }
 
 /** Marca a conexão do WhatsApp (chamado pelo servidor, depois de falar com a Evolution API). */
+/** Pausar ou voltar a receber pedidos (administrador ou atendente) */
+async function definirAberta(aberta) {
+  const cardapio = { ...atual.cardapio, lanchonete: { ...atual.cardapio.lanchonete, aberta: !!aberta } };
+  return gravar({ cardapio });
+}
+
 async function marcarWhatsApp(conectado, numeroLoja = '') {
   const config = structuredClone(atual.config);
   config.whatsapp.conectado = conectado;
@@ -148,4 +154,4 @@ async function mesaDoCodigo(codigo) {
   return rows[0]?.numero || null;
 }
 
-module.exports = { carregar, obter, salvarConfig, salvarCardapio, marcarWhatsApp, configPublica, mesas, mesaDoCodigo, mesclar };
+module.exports = { carregar, obter, salvarConfig, salvarCardapio, definirAberta, marcarWhatsApp, configPublica, mesas, mesaDoCodigo, mesclar };

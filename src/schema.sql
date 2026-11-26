@@ -8,9 +8,12 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nome        text NOT NULL,
   usuario     text NOT NULL UNIQUE,
   senha_hash  text NOT NULL,
-  perfil      text NOT NULL CHECK (perfil IN ('admin', 'garcom', 'motoboy')),
+  perfil      text NOT NULL,
   criado_em   timestamptz NOT NULL DEFAULT now()
 );
+-- Perfis: admin (dono), atendente (balcão/expedição), garcom e motoboy
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_check;
+ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check CHECK (perfil IN ('admin', 'atendente', 'garcom', 'motoboy'));
 
 -- Uma linha só: configurações (marca, WhatsApp, impressão, som) e o cardápio.
 -- "versao" sobe a cada mudança, para as telas baixarem de novo só quando muda.

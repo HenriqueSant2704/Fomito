@@ -14,9 +14,17 @@ const r = express.Router();
 const ok = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).then((v) => { if (!res.headersSent) res.json(v ?? { ok: true }); }).catch(next);
 const nome = (req) => req.usuario?.nome || 'Equipe';
 
+/* Perfis:
+   admin     → tudo
+   atendente → pedidos, comandas, caixa e clientes (sem visão geral, cardápio, configurações e sem criar equipe)
+   garcom    → comandas das mesas
+   motoboy   → entregas */
 const admin = exigir('admin');
-const garcom = exigir('garcom', 'admin');
+const balcao = exigir('admin', 'atendente');
+const garcom = exigir('garcom', 'atendente', 'admin');
 const motoboy = exigir('motoboy', 'admin');
+const ehEquipeLoja = (req) => ['admin', 'atendente'].includes(req.usuario?.perfil);
+const ehSalao = (req) => ['garcom', 'atendente', 'admin'].includes(req.usuario?.perfil);
 
 const limiteLogin = limitador(10, 10 * 60 * 1000);
 const limitePedidos = limitador(15, 60 * 60 * 1000);
@@ -45,7 +53,7 @@ r.post('/usuarios', admin, ok(async (req) => {
   if (!n || !usuario) falhar(400, 'Preencha o nome e o usuário.');
   if (!/^[a-z0-9._-]{3,30}$/.test(usuario)) falhar(400, 'O usuário precisa ter de 3 a 30 letras ou números, sem espaços nem acentos.');
   if (senha.length < 4) falhar(400, 'A senha precisa ter pelo menos 4 caracteres.');
-  if (!['garcom', 'motoboy', 'admin'].includes(perfil)) falhar(400, 'Tipo de funcionário inválido.');
+  if (!['atendente', 'garcom', 'motoboy', 'admin'].includes(perfil)) falhar(400, 'Tipo de funcionário inválido.');
   try {
     await db.query('INSERT INTO usuarios (nome, usuario, senha_hash, perfil) VALUES ($1, $2, $3, $4)', [n, usuario, await bcrypt.hash(senha, 10), perfil]);
   } catch (err) {
@@ -65,7 +73,10 @@ r.delete('/usuarios/:usuario', admin, ok(async (req) => {
 r.put('/config', admin, ok(async (req) => { await loja.salvarConfig(req.body); }));
 r.put('/cardapio', admin, ok(async (req) => { await loja.salvarCardapio(req.body); }));
 
-r.get('/mesas/:numero/qr.svg', admin, ok(async (req, res) => {
+/** Pausar ou voltar a receber pedidos (o atendente também pode) */
+r.post('/loja/aberta', balcao, ok(async (req) => { await loja.definirAberta(req.body.aberta !== false); }));
+
+r.get('/mesas/:numero/qr.svg', balcao, ok(async (req, res) => {
   const mesa = (await loja.mesas()).find((m) => m.numero === Number(req.params.numero));
   if (!mesa) falhar(404, 'Mesa não encontrada.');
   const url = `${req.protocol}://${req.get('host')}/?m=${mesa.codigo}`;
@@ -73,7 +84,7 @@ r.get('/mesas/:numero/qr.svg', admin, ok(async (req, res) => {
 }));
 
 /** Folha para imprimir os QR Codes de todas as mesas. */
-r.get('/mesas/imprimir', admin, ok(async (req, res) => {
+r.get('/mesas/imprimir', balcao, ok(async (req, res) => {
   const { config } = loja.obter();
   const cartoes = await Promise.all((await loja.mesas()).map(async (m) => {
     const svg = await QRCode.toString(`${req.protocol}://${req.get('host')}/?m=${m.codigo}`, { type: 'svg', margin: 1 });
@@ -94,7 +105,7 @@ r.get('/whatsapp/status', admin, ok(() => whatsapp.status()));
 r.post('/whatsapp/desconectar', admin, ok(() => whatsapp.desconectar()));
 
 /* ---------- Clientes: cadastro pelo telefone ---------- */
-const quemPede = (req) => (req.usuario?.perfil === 'admin' ? '*' : dispositivoDe(req) || falhar(400, 'Atualize a página e tente de novo.'));
+const quemPede = (req) => (ehEquipeLoja(req) ? '*' : dispositivoDe(req) || falhar(400, 'Atualize a página e tente de novo.'));
 r.post('/clientes/buscar', ok(async (req) => {
   limiteClientes(req.ip);
   return { cliente: await s.buscarCliente(req.body.telefone, quemPede(req)) };
@@ -106,12 +117,12 @@ r.post('/clientes', ok(async (req) => {
 
 /* ---------- Pedidos de entrega e balcão ---------- */
 r.post('/pedidos', ok(async (req) => {
-  const equipe = req.usuario?.perfil === 'admin';
+  const equipe = ehEquipeLoja(req);
   if (!equipe) limitePedidos(req.ip);
   return s.criarPedido(req.body, { equipe, dispositivo: equipe ? null : dispositivoDe(req) });
 }));
-r.post('/pedidos/:num/avancar', admin, ok((req) => s.avancarPedido(req.params.num)));
-r.post('/pedidos/:num/cancelar', admin, ok((req) => s.cancelarPedido(req.params.num, nome(req))));
+r.post('/pedidos/:num/avancar', balcao, ok((req) => s.avancarPedido(req.params.num)));
+r.post('/pedidos/:num/cancelar', balcao, ok((req) => s.cancelarPedido(req.params.num, nome(req))));
 r.post('/pedidos/sair', motoboy, ok((req) => s.sairParaEntrega(req.body.nums, nome(req))));
 r.post('/pedidos/:num/entregar', motoboy, ok((req) => s.concluirEntrega(req.params.num, req.body, nome(req))));
 
@@ -131,23 +142,23 @@ async function mesaDoCliente(req) {
 }
 
 r.post('/comandas/lancar', ok(async (req) => {
-  const equipe = ['garcom', 'admin'].includes(req.usuario?.perfil);
+  const equipe = ehSalao(req);
   if (equipe) return s.lancarNaComanda(req.body.mesa, req.body.itens, { nome: req.body.nome, por: 'garcom' });
   limitePedidos(req.ip);
   return s.lancarNaComanda(await mesaDoCliente(req), req.body.itens, { nome: req.body.nome, por: 'qr', dispositivo: dispositivoDe(req) });
 }));
 r.post('/comandas/:mesa/rodadas/:i', garcom, ok((req) => s.statusRodada(req.params.mesa, req.params.i, req.body.status, req.usuario.perfil)));
 r.post('/comandas/conta', ok(async (req) => {
-  const equipe = ['garcom', 'admin'].includes(req.usuario?.perfil);
+  const equipe = ehSalao(req);
   return s.pedirConta(equipe ? req.body.mesa : await mesaDoCliente(req), req.body.sim !== false);
 }));
 r.post('/comandas/:mesa/fechar', garcom, ok((req) => s.fecharComanda(req.params.mesa, req.body, nome(req))));
 
-/* ---------- Caixa (administrador) ---------- */
-r.post('/caixa/abrir', admin, ok((req) => s.abrirCaixa(req.body, nome(req))));
-r.post('/caixa/movimento', admin, ok((req) => s.movimentoCaixa(req.body, nome(req))));
-r.post('/caixa/corrigir', admin, ok((req) => s.corrigirMovimento(String(req.body.id), req.body.novo || {}, req.body, nome(req))));
-r.post('/caixa/fechar', admin, ok((req) => s.fecharCaixa(req.body, nome(req))));
+/* ---------- Caixa (administrador e atendente) ---------- */
+r.post('/caixa/abrir', balcao, ok((req) => s.abrirCaixa(req.body, nome(req))));
+r.post('/caixa/movimento', balcao, ok((req) => s.movimentoCaixa(req.body, nome(req))));
+r.post('/caixa/corrigir', balcao, ok((req) => s.corrigirMovimento(String(req.body.id), req.body.novo || {}, req.body, nome(req))));
+r.post('/caixa/fechar', balcao, ok((req) => s.fecharCaixa(req.body, nome(req))));
 
 r.use((req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 

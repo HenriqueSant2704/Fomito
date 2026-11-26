@@ -2,7 +2,8 @@
    FOMITO · LOGIN E PERFIS
    --------------------------------------------------------------------------
    Perfis:
-     admin   → dono/gerente: acessa o PAINEL (e as comandas e entregas)
+     admin     → dono/gerente: acessa o PAINEL inteiro (e as comandas e entregas)
+     atendente → balcão/expedição: pedidos, comandas, caixa e clientes no painel
      garcom  → acessa só as COMANDAS (não vê o painel)
      motoboy → acessa só as ENTREGAS (não vê o painel)
    Os usuários ficam no banco (Neon), com a senha criptografada no servidor.
@@ -14,7 +15,8 @@ window.Fomito = window.Fomito || {};
 (() => {
   /* Tipos de funcionário que o administrador pode criar */
   const PERFIS = {
-    admin:   { nome: "Administrador", cor: "roxo",    tela: "../painel/" },
+    admin:     { nome: "Administrador", cor: "roxo",    tela: "../painel/" },
+    atendente: { nome: "Atendente",     cor: "amarelo", tela: "../painel/" },
     garcom:  { nome: "Garçom",        cor: "laranja", tela: "../garcom/" },
     motoboy: { nome: "Motoboy",       cor: "verde",   tela: "../motoboy/" },
   };

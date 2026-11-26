@@ -13,7 +13,7 @@
 const { dados, moeda, icone, $, $$, toast, sessao, alertas } = Fomito;
 
 /* Garçom e administrador podem usar as comandas */
-const usuarioLogado = sessao.exigir("garcom", "admin");
+const usuarioLogado = sessao.exigir("garcom", "atendente", "admin");
 
 const novasProntas = new Set(); // rodadas que acabaram de ficar prontas (piscam)
 
@@ -428,9 +428,9 @@ function atualizarTudo() {
 $("#logo").innerHTML = Fomito.logo();
 if (usuarioLogado) {
   $("#nomeGarcom").textContent = usuarioLogado.nome;
-  $("#perfilGarcom").textContent = usuarioLogado.perfil === "admin" ? "Administrador" : "Garçom";
+  $("#perfilGarcom").textContent = sessao.PERFIS[usuarioLogado.perfil]?.nome || "Garçom";
   $("#avatarGarcom").textContent = usuarioLogado.nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-  $("#voltarPainel").hidden = usuarioLogado.perfil !== "admin";
+  $("#voltarPainel").hidden = !["admin", "atendente"].includes(usuarioLogado.perfil);
 }
 $("#btnSair").addEventListener("click", () => sessao.sair());
 atualizarTudo();
