@@ -127,12 +127,36 @@ function renderDestaques() {
     </button>`).join("");
 }
 
+/* Categorias: botões com ícone, fixos no topo ao rolar. Tocar leva até a categoria
+   (o cardápio inteiro continua na tela) e o botão ativo acompanha a rolagem. */
 function renderCategorias() {
-  const todas = [{ id: "todas", nome: "Todos" }, ...dados.categorias];
-  $("#categorias").innerHTML = todas
-    .map((c) => `<button class="aba ${estado.categoria === c.id ? "ativo" : ""}" data-cat="${c.id}">${c.nome}</button>`)
+  const comItens = dados.categorias.filter((c) => dados.produtos.some((p) => p.cat === c.id));
+  if (!comItens.some((c) => c.id === estado.categoria)) estado.categoria = comItens[0]?.id;
+  $("#categorias").innerHTML = comItens
+    .map((c) => `<button class="chip-cat ${estado.categoria === c.id ? "ativo" : ""}" data-cat="${c.id}">${icone(c.icone || "cardapio", "ic--sm")}<span>${c.nome}</span></button>`)
     .join("");
 }
+
+/* Ativa o botão da categoria e o deixa visível na faixa (rolagem lateral) */
+function marcarCategoria(id) {
+  if (!id || id === estado.categoria) return;
+  estado.categoria = id;
+  $$("#categorias .chip-cat").forEach((b) => {
+    const ativo = b.dataset.cat === id;
+    b.classList.toggle("ativo", ativo);
+    if (ativo) b.parentElement.scrollTo({ left: b.offsetLeft - 16, behavior: "smooth" });
+  });
+}
+
+/* Ao rolar, o botão ativo segue a categoria que está na tela */
+let rolandoAteCategoria = false;
+window.addEventListener("scroll", () => {
+  if (rolandoAteCategoria || $('[data-tela="cardapio"]').hidden) return;
+  const limite = $("#categorias").getBoundingClientRect().bottom + 24;
+  let atual = null;
+  $$("#listaProdutos [data-sec]").forEach((s) => { if (s.getBoundingClientRect().top <= limite) atual = s.dataset.sec; });
+  marcarCategoria(atual || $("#listaProdutos [data-sec]")?.dataset.sec);
+}, { passive: true });
 
 function linhaProduto(p) {
   return `
@@ -154,11 +178,10 @@ function linhaProduto(p) {
 function renderProdutos() {
   const termo = estado.busca.toLowerCase();
   const html = dados.categorias
-    .filter((c) => estado.categoria === "todas" || c.id === estado.categoria)
     .map((c) => {
       const itens = dados.produtos.filter((p) => p.cat === c.id && p.nome.toLowerCase().includes(termo));
       if (!itens.length) return "";
-      return `<section class="secao"><h3 class="secao__titulo">${c.nome}</h3><div class="secao__lista">${itens.map(linhaProduto).join("")}</div></section>`;
+      return `<section class="secao" data-sec="${c.id}" id="sec-${c.id}"><h3 class="secao__titulo">${icone(c.icone || "cardapio", "ic--sm")}${c.nome}<span class="secao__qtd">${itens.length}</span></h3><div class="secao__lista">${itens.map(linhaProduto).join("")}</div></section>`;
     })
     .join("");
 
@@ -182,9 +205,15 @@ function atualizarBarraSacola() {
 $("#categorias").addEventListener("click", (e) => {
   const aba = e.target.closest("[data-cat]");
   if (!aba) return;
-  estado.categoria = aba.dataset.cat;
-  renderCategorias();
-  renderProdutos();
+  const secao = $(`#sec-${aba.dataset.cat}`);
+  marcarCategoria(aba.dataset.cat);
+  if (!secao) return;
+  /* Rola até a categoria, descontando a faixa fixa de categorias */
+  const topo = secao.getBoundingClientRect().top + window.scrollY - $("#categorias").offsetHeight - 6;
+  rolandoAteCategoria = true;
+  window.scrollTo({ top: topo, behavior: "smooth" });
+  clearTimeout(aba._fim);
+  aba._fim = setTimeout(() => (rolandoAteCategoria = false), 700);
 });
 
 $("#busca").addEventListener("input", (e) => {

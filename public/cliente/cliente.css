@@ -85,7 +85,31 @@ body { background: var(--fundo); }
 .destaque__wrap .produto__add { right: 8px; bottom: 8px; }
 
 /* ---------- Categorias + lista ---------- */
-.categorias { padding: 0 20px; position: sticky; top: 0; background: var(--superficie); z-index: 4; margin-top: 18px; }
+/* Faixa de categorias: botões com ícone, fixa no topo enquanto rola o cardápio */
+.categorias {
+  position: sticky; top: 0; z-index: 6; margin-top: 18px;
+  display: flex; gap: 8px; padding: 10px 20px; overflow-x: auto; scrollbar-width: none;
+  background: color-mix(in srgb, var(--superficie) 92%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--borda);
+}
+.categorias::-webkit-scrollbar { display: none; }
+.chip-cat {
+  flex: none; display: inline-flex; align-items: center; gap: 7px;
+  height: 40px; padding: 0 16px 0 12px; border-radius: var(--raio-pill);
+  border: 1px solid var(--borda); background: var(--superficie); color: var(--texto);
+  font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(27, 21, 48, .05);
+  transition: background var(--transicao), color var(--transicao), border-color var(--transicao), transform .15s ease;
+}
+.chip-cat .ic { color: var(--laranja); }
+.chip-cat:active { transform: scale(.96); }
+.chip-cat.ativo { background: var(--roxo); border-color: var(--roxo); color: #fff; box-shadow: 0 4px 12px color-mix(in srgb, var(--roxo) 30%, transparent); }
+.chip-cat.ativo .ic { color: #fff; }
+.secao { scroll-margin-top: 70px; }
+.secao__titulo { display: flex; align-items: center; gap: 8px; }
+.secao__titulo .ic { color: var(--laranja); }
+.secao__qtd { margin-left: auto; font-family: var(--fonte-texto); font-size: 12.5px; font-weight: 600; color: var(--texto-fraco); }
 .secao { display: flex; flex-direction: column; gap: 4px; padding-top: 18px; }
 .secao__titulo { font-size: 18px; font-family: var(--fonte-marca); font-weight: 800; }
 .secao__lista { display: flex; flex-direction: column; }
