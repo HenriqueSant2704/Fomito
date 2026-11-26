@@ -143,3 +143,6 @@ body { background: var(--fundo); min-height: 100vh; padding-bottom: 96px; }
 
 .lista-cartoes { display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 560px) { .ativar-avisos { flex-wrap: wrap; } .ativar-avisos .btn { margin-left: 0; } }
+
+/* Espaço para a barra "Sair com X pedidos" + barra de gestos do iPhone */
+body { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }

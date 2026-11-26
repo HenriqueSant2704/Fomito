@@ -53,6 +53,20 @@ const ORDEM_TELAS = { cardapio: 0, produto: 1, carrinho: 2, checkout: 3, acompan
 const semMovimento = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let telaAtual = "cardapio";
 
+/* Rodapé fixo (sacola, finalizar, produto): a tela ganha espaço embaixo do tamanho
+   exato dele, para o último item e o "Adicionar mais itens" nunca ficarem escondidos */
+const observadorRodape = new ResizeObserver(() => ajustarEspacoRodape());
+function ajustarEspacoRodape() {
+  $$(".tela").forEach((t) => {
+    const r = [...t.children].find((c) => c.classList.contains("rodape-fixo"));
+    t.style.paddingBottom = r && !r.hidden && r.offsetHeight ? `${r.offsetHeight + 28}px` : "";
+  });
+}
+function observarRodapes() {
+  $$(".rodape-fixo").forEach((r) => observadorRodape.observe(r));
+  ajustarEspacoRodape();
+}
+
 function irPara(nomeTela) {
   const frente = (ORDEM_TELAS[nomeTela] ?? 0) >= (ORDEM_TELAS[telaAtual] ?? 0);
   const mudou = nomeTela !== telaAtual;
@@ -71,6 +85,7 @@ function irPara(nomeTela) {
   if (nomeTela === "checkout" && (estado.mesaQR || minhaComanda())) estado.modo = "local";
   const renderizar = { carrinho: renderCarrinho, checkout: renderCheckout, acompanhamento: renderAcompanhamento };
   renderizar[nomeTela]?.();
+  observarRodapes();
 }
 
 document.addEventListener("click", (e) => {
@@ -596,7 +611,7 @@ function blocoPagamento() {
         ${Fomito.formasAtivas().map((f) => `
           <button class="opcao ${estado.pagamento === f.id ? "ativa" : ""}" data-pag="${f.id}">
             <span class="opcao__icone">${icone(f.icone)}</span>
-            <span class="opcao__texto"><span class="opcao__titulo">${f.nome}</span><span class="opcao__sub">${f.sub}</span></span>
+            <span class="opcao__texto"><span class="opcao__titulo">${f.nome}</span><span class="opcao__sub">${estado.modo === "retirada" ? f.sub.replace(/(na|da) entrega/, "$1 retirada") : f.sub}</span></span>
             <span class="opcao__radio"></span>
           </button>
           ${f.id === "dinheiro" && estado.pagamento === "dinheiro" ? blocoTroco() : ""}`).join("")}

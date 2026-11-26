@@ -394,3 +394,9 @@ button.anterior:hover { border-color: var(--roxo-medio); }
 .loja__local .ic { color: var(--laranja); flex: none; }
 .loja__endereco { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loja__mapa { flex: none; color: var(--roxo); font-weight: 700; }
+
+/* ---------- Rodapés fixos e a área do iPhone (barra de gestos) ---------- */
+/* O espaço embaixo de cada tela é medido no cliente.js (ajustarEspacoRodape) */
+.rodape-fixo { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+.barra-sacola { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+.tela { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }

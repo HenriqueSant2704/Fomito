@@ -284,3 +284,7 @@ button, a, label, select, input, textarea, [data-ir], [data-produto] { touch-act
 .toast--aviso { border-left-color: var(--laranja); }
 .toast--aviso .ic { color: var(--laranja-escuro); }
 @media (max-width: 520px) { .toast { white-space: normal; width: max-content; max-width: calc(100vw - 32px); } }
+
+/* Janelas (folhas): no celular, a altura é a da tela visível (sem a barra do navegador),
+   para os botões de baixo nunca ficarem escondidos */
+.folha { max-height: 92vh; max-height: 92dvh; padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }

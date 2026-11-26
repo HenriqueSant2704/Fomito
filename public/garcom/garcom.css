@@ -155,3 +155,10 @@ body { background: var(--fundo); min-height: 100vh; }
 .ingrediente-garcom { padding: 5px 10px; border-radius: var(--raio-pill); border: 1px solid var(--borda); background: var(--superficie); font: inherit; font-size: 12.5px; cursor: pointer; }
 .ingrediente-garcom.removido { text-decoration: line-through; color: var(--vermelho-escuro); background: #FEF2F2; border-color: #FCA5A5; }
 .ajuste-resumo { color: var(--vermelho-escuro); }
+
+/* Celular: a comanda ocupa a tela visível de verdade (sem a barra do navegador) e
+   os botões Lançar / Fechar conta ficam acima da barra de gestos do iPhone */
+@media (max-width: 860px) {
+  .comanda { height: 100vh; height: 100dvh; }
+  .comanda__rodape { padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+}
