@@ -52,7 +52,7 @@ src/
 ├── servicos.js   ← pedidos, comandas, caixa e clientes (sempre em transação)
 ├── regras.js     ← preço dos itens e contas do caixa (o navegador nunca decide preço)
 ├── loja.js       ← marca, cardápio, fotos e códigos das mesas
-├── whatsapp.js   ← mensagens automáticas pela Evolution API
+├── whatsapp.js   ← WhatsApp da loja pelo QR Code (Baileys, igual ao BarberFlow)
 ├── auth.js       ← login com cookie protegido (JWT) e perfis
 ├── schema.sql    ← tabelas do banco
 └── padrao/       ← cardápio e configurações iniciais
@@ -76,10 +76,10 @@ public/
 - **Cadastro pelo telefone:** um aparelho novo não vê os endereços de outra pessoa só sabendo o número.
 - Limite de tentativas de login e de pedidos por conexão.
 
-## WhatsApp (Evolution API)
+## WhatsApp
 
-Em **Painel → Configurações → WhatsApp**: URL da API, chave e nome da instância. Salve, toque em **Conectar e gerar QR Code** e leia com o WhatsApp da loja.
-O servidor envia: pedido recebido, em preparo (ao aceitar), saiu para entrega e entregue. Se o WhatsApp falhar, o pedido segue normal.
+Igual ao BarberFlow, sem API paga: em **Painel → Configurações → WhatsApp**, toque em **Conectar e gerar QR Code** e leia com o WhatsApp da loja (Aparelhos conectados). A sessão fica no banco (tabela `wa_auth`), então o Render pode reiniciar que ele volta sozinho.
+O servidor envia: pedido recebido, em preparo (ao aceitar), saiu para entrega e entregue. Se o WhatsApp falhar, o pedido segue normal. Use de preferência um chip só para a loja.
 
 ## Impressora térmica (POS-80)
 

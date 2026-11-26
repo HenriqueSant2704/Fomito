@@ -74,8 +74,8 @@ async function iniciar() {
     console.log(`  Cardápio do cliente: http://localhost:${PORT}`);
     console.log(`  Portal da equipe:    http://localhost:${PORT}/portal/\n`);
   });
-  // De tempos em tempos confere se o WhatsApp da loja continua conectado
-  setInterval(() => require('./whatsapp').status().catch(() => {}), 5 * 60 * 1000).unref();
+  // Se a loja já tinha conectado o WhatsApp, reconecta sozinho (a sessão fica no banco)
+  require('./whatsapp').iniciar();
 }
 
 iniciar().catch((err) => {

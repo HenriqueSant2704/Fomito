@@ -6,7 +6,7 @@
    1. Som       → toca um "ding-dong" quando chega pedido novo (Web Audio)
    2. Impressão → monta o cupom de 80mm e chama a impressão do navegador
    3. WhatsApp  → monta a prévia da mensagem pelo modelo (quem envia de verdade
-                  é o servidor, em src/whatsapp.js, pela Evolution API)
+                  é o servidor, em src/whatsapp.js, conectado pelo QR Code)
    4. Avisos    → garçom e motoboy: som + vibração + notificação do celular
    ========================================================================== */
 
@@ -117,7 +117,7 @@ window.Fomito = window.Fomito || {};
     return texto;
   }
 
-  /* ---------- 3. WHATSAPP (Evolution API) ---------- */
+  /* ---------- 3. WHATSAPP (prévia das mensagens) ---------- */
   /**
    * Monta a mensagem do status e "envia".
    * No sistema real, o backend Node.js faz:

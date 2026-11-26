@@ -91,3 +91,9 @@ CREATE TABLE IF NOT EXISTS caixas (
   fechado_em  timestamptz
 );
 CREATE UNIQUE INDEX IF NOT EXISTS caixas_um_aberto ON caixas ((true)) WHERE aberto;
+
+-- Sessão do WhatsApp da loja (igual ao BarberFlow): fica no banco para voltar sozinha quando o Render reinicia
+CREATE TABLE IF NOT EXISTS wa_auth (
+  key   text PRIMARY KEY,
+  value text NOT NULL
+);

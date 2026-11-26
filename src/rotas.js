@@ -99,7 +99,7 @@ r.get('/mesas/imprimir', balcao, ok(async (req, res) => {
 <div class="g">${cartoes.join('')}</div><script>window.print()</script></html>`);
 }));
 
-/* ---------- WhatsApp (Evolution API) ---------- */
+/* ---------- WhatsApp da loja (QR Code, igual ao BarberFlow) ---------- */
 r.post('/whatsapp/conectar', admin, ok(() => whatsapp.conectar()));
 r.get('/whatsapp/status', admin, ok(() => whatsapp.status()));
 r.post('/whatsapp/desconectar', admin, ok(() => whatsapp.desconectar()));

@@ -68,7 +68,7 @@ async function salvarConfig(recebida) {
   m.nome = texto(m.nome, 60) || 'Fomito';
   m.slogan = texto(m.slogan, 120);
   for (const c of ['corPrincipal', 'corDestaque']) if (!/^#[0-9a-f]{6}$/i.test(m[c])) m[c] = CONFIG_PADRAO.marca[c];
-  // O navegador nunca decide se o WhatsApp está conectado: isso vem da Evolution API
+  // O navegador nunca decide se o WhatsApp está conectado: isso vem da conexão do servidor (src/whatsapp.js)
   config.whatsapp.conectado = atual.config.whatsapp.conectado;
   config.whatsapp.numero = atual.config.whatsapp.numero;
   config.whatsapp.apiUrl = texto(config.whatsapp.apiUrl, 300).replace(/\/+$/, '');
@@ -77,7 +77,7 @@ async function salvarConfig(recebida) {
   return gravar({ config, cardapio });
 }
 
-/** Marca a conexão do WhatsApp (chamado pelo servidor, depois de falar com a Evolution API). */
+/** Marca a conexão do WhatsApp (chamado pelo servidor, quando a conexão abre ou cai). */
 /** Pausar ou voltar a receber pedidos (administrador ou atendente) */
 async function definirAberta(aberta) {
   const cardapio = { ...atual.cardapio, lanchonete: { ...atual.cardapio.lanchonete, aberta: !!aberta } };

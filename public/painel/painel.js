@@ -552,7 +552,7 @@ function previaApp(m) {
     </div>`;
 }
 
-/* --- Aba: WhatsApp (Evolution API) --- */
+/* --- Aba: WhatsApp (conexão pelo QR Code e mensagens automáticas) --- */
 function configWhatsApp() {
   const w = rascunho.whatsapp;
   const exemplo = { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00" };
@@ -561,22 +561,17 @@ function configWhatsApp() {
       <div class="pilha" style="gap:16px">
         <div class="card painel-card">
           <div class="painel-card__topo">
-            <div class="pilha" style="gap:2px"><h3>Conexão com a Evolution API</h3><p class="pequeno suave">O número da loja envia as mensagens automáticas para o cliente.</p></div>
+            <div class="pilha" style="gap:2px"><h3>WhatsApp da loja</h3><p class="pequeno suave">O número da loja envia as mensagens automáticas para o cliente.</p></div>
             <span class="tag ${w.conectado ? "tag--verde" : "tag--cinza"}">${w.conectado ? "Conectado" : "Desconectado"}</span>
           </div>
-          <div class="form-grade">
-            <div class="campo" style="grid-column:1/-1"><label for="wUrl">URL da API</label><input id="wUrl" class="input" data-whats="apiUrl" value="${w.apiUrl}"></div>
-            <div class="campo"><label for="wKey">Chave da API (apikey)</label><input id="wKey" class="input" type="password" data-whats="apiKey" value="${w.apiKey}" placeholder="Cole a chave aqui"></div>
-            <div class="campo"><label for="wInst">Nome da instância</label><input id="wInst" class="input" data-whats="instancia" value="${w.instancia}"></div>
-          </div>
           ${w.conectado
-            ? `<div class="whats-conectado">${icone("whatsapp")}<div class="pilha" style="flex:1"><b>${w.numero ? `+${w.numero}` : "Número conectado"}</b><span class="pequeno suave">Instância “${w.instancia}” pronta para enviar</span></div><button class="btn btn--contorno btn--sm" id="wDesconectar">Desconectar</button></div>
+            ? `<div class="whats-conectado">${icone("whatsapp")}<div class="pilha" style="flex:1"><b>${w.numero ? `+${w.numero}` : "Número conectado"}</b><span class="pequeno suave">Pronto para enviar as mensagens automáticas</span></div><button class="btn btn--contorno btn--sm" id="wDesconectar">Desconectar</button></div>
                <div class="campo"><label for="wTesteNum">Enviar mensagem de teste</label>
                  <div class="busca-tel-painel"><input id="wTesteNum" class="input" inputmode="tel" placeholder="(11) 90000-0000"><button class="btn btn--secundario" id="wTeste">Enviar teste</button></div></div>`
-            : `<div class="linha" style="gap:10px"><button class="btn btn--primario" id="wConectar">${icone("whatsapp", "ic--sm")} Conectar e gerar QR Code</button><span class="pequeno fraco">Abra o WhatsApp da loja e escaneie.</span></div>
+            : `<div class="linha" style="gap:10px;flex-wrap:wrap"><button class="btn btn--primario" id="wConectar">${icone("whatsapp", "ic--sm")} Conectar e gerar QR Code</button><span class="pequeno fraco">Abra o WhatsApp da loja e escaneie.</span></div>
                <div id="wQr" hidden></div>`}
         </div>
-        <div class="aviso">${icone("info", "ic--sm")}<span>Quem envia as mensagens é o servidor, pela Evolution API (igual ao BarberFlow). A chave fica guardada só no servidor e nunca vai para o celular do cliente, do garçom ou do motoboy.</span></div>
+        <div class="aviso">${icone("info", "ic--sm")}<span>Funciona como o WhatsApp Web: você lê o QR Code uma vez e o sistema fica conectado, mesmo depois de reiniciar. Use de preferência um chip só para a loja, não o seu WhatsApp pessoal.</span></div>
       </div>
 
       <div class="card painel-card">
@@ -759,27 +754,38 @@ function ligarConfig() {
   };
 }
 
-/* WhatsApp: salva a URL, a chave e a instância, gera o QR Code na Evolution API
+/* WhatsApp: pede o QR Code ao servidor
    e fica conferindo até o celular da loja ler o código */
 let esperaWhatsApp = null;
 async function conectarWhatsApp() {
-  await Fomito.config.salvar(rascunho);
-  const r = await Fomito.acao("POST", "/whatsapp/conectar");
-  if (r.conectado) { rascunho = Fomito.config.ler(); toast("WhatsApp conectado", "whatsapp"); return renderConfiguracoes(); }
-  $("#wQr").hidden = false;
-  $("#wQr").innerHTML = `<div class="qr">${r.qr ? `<img src="${r.qr}" width="160" height="160" alt="QR Code para conectar o WhatsApp">` : ""}<div class="pilha" style="gap:4px"><b>Escaneie com o WhatsApp da loja</b><span class="pequeno suave">WhatsApp → Aparelhos conectados → Conectar aparelho</span>${r.codigo ? `<span class="pequeno">Ou use o código: <b>${r.codigo}</b></span>` : ""}<span class="pequeno fraco">Esperando a leitura...</span></div></div>`;
+  const desenhar = (s) => {
+    const el = $("#wQr");
+    if (!el) return;
+    el.hidden = false;
+    el.innerHTML = s.qr
+      ? `<div class="qr"><img src="${s.qr}" width="180" height="180" alt="QR Code para conectar o WhatsApp"><div class="pilha" style="gap:4px"><b>Escaneie com o WhatsApp da loja</b><span class="pequeno suave">No celular: WhatsApp → Aparelhos conectados → Conectar um aparelho</span><span class="pequeno fraco">Esperando a leitura... o código muda sozinho a cada 20 segundos.</span></div></div>`
+      : s.erro
+        ? `<div class="aviso">${icone("info", "ic--sm")}<span>${s.erro}</span></div>`
+        : `<div class="pequeno suave linha" style="gap:8px">${icone("relogio", "ic--sm")}Gerando o QR Code...</div>`;
+  };
+  desenhar(await Fomito.acao("POST", "/whatsapp/conectar"));
   clearInterval(esperaWhatsApp);
-  let tentativas = 0;
+  let vezes = 0;
   esperaWhatsApp = setInterval(async () => {
-    if (++tentativas > 40 || abaConfig !== "whatsapp") return clearInterval(esperaWhatsApp);
+    if (++vezes > 100 || abaConfig !== "whatsapp") return clearInterval(esperaWhatsApp);
     const s = await Fomito.api("GET", "/whatsapp/status").catch(() => null);
-    if (!s?.conectado) return;
+    if (!s) return;
+    if (!s.conectado) {
+      desenhar(s);
+      if (s.estado === "off") clearInterval(esperaWhatsApp);
+      return;
+    }
     clearInterval(esperaWhatsApp);
     await Fomito.sincronizar();
     rascunho = Fomito.config.ler();
     renderConfiguracoes();
     toast("WhatsApp conectado", "whatsapp");
-  }, 3000);
+  }, 2000);
 }
 
 /* Nome e iniciais do restaurante no menu lateral */
