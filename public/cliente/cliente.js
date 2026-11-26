@@ -29,6 +29,7 @@ const estado = {
   cliente: null,            // cadastro encontrado ou criado (clientes.js)
   enderecoId: null,
   novoEndereco: false,      // formulário de "Adicionar novo endereço" aberto?
+  editandoEndereco: null,   // id do endereço salvo sendo editado
   mesaQR: Fomito.estado.mesaQR || null, // mesa lida pelo QR Code (?m=código da mesa; o servidor diz qual é)
   mesa: "",
   nomeLocal: "",
@@ -86,6 +87,11 @@ function irPara(nomeTela) {
   const renderizar = { carrinho: renderCarrinho, checkout: renderCheckout, acompanhamento: renderAcompanhamento };
   renderizar[nomeTela]?.();
   observarRodapes();
+  /* Já pediu por este celular: o cadastro (nome e endereços) aparece sozinho */
+  if (nomeTela === "checkout" && estado.modo === "entrega" && estado.etapaCliente === "telefone" && $("#tel")) {
+    const salvo = recuperar("fomito.telefone", "");
+    if (clientes.telefoneValido(salvo)) { $("#tel").value = clientes.formatarTelefone(salvo); buscarTelefone(); }
+  }
 }
 
 document.addEventListener("click", (e) => {
@@ -521,6 +527,7 @@ function blocoCliente() {
       <span class="cliente-topo__avatar">${c ? iniciais(c.nome) : icone("usuario", "ic--sm")}</span>
       <div class="pilha" style="gap:0;flex:1;min-width:0">
         <span class="forte">${c ? `Olá, ${c.nome.split(" ")[0]}!` : "Primeira vez por aqui?"}</span>
+        ${c ? `<span class="pequeno">${c.nome}</span>` : ""}
         <span class="pequeno suave">${clientes.formatarTelefone(estado.telefone)}</span>
       </div>
       <button class="link" id="trocarTel">Trocar</button>
@@ -545,12 +552,21 @@ function blocoCliente() {
       <h3 class="bloco__titulo">${icone("pin")} Entregar em</h3>
       ${topo}
       <div class="pilha" style="gap:8px" id="enderecos">
-        ${c.enderecos.map((e) => `
-          <button class="opcao ${e.id === estado.enderecoId ? "ativa" : ""}" data-endereco="${e.id}">
-            <span class="opcao__icone">${icone(e.apelido === "Trabalho" ? "loja" : "pin")}</span>
-            <span class="opcao__texto"><span class="opcao__titulo">${e.apelido}</span><span class="opcao__sub">${clientes.textoEndereco(e)}${e.ref ? `<br>Ref.: ${e.ref}` : ""}</span></span>
-            <span class="opcao__radio"></span>
-          </button>`).join("")}
+        ${c.enderecos.map((e) => estado.editandoEndereco === e.id ? `
+          <div class="novo-endereco">
+            <span class="forte">Editar endereço</span>
+            ${formEndereco(e.apelido, e)}
+            <p class="form-erro" id="erroCadastro" hidden></p>
+            <div class="duas"><button class="btn btn--contorno" id="cancelarEdicao">Cancelar</button><button class="btn btn--secundario" id="salvarEdicao">Salvar alterações</button></div>
+          </div>` : `
+          <div class="endereco-linha">
+            <button class="opcao ${e.id === estado.enderecoId ? "ativa" : ""}" data-endereco="${e.id}">
+              <span class="opcao__icone">${icone(e.apelido === "Trabalho" ? "loja" : "pin")}</span>
+              <span class="opcao__texto"><span class="opcao__titulo">${e.apelido}</span><span class="opcao__sub">${clientes.textoEndereco(e)}${e.ref ? `<br>Ref.: ${e.ref}` : ""}</span></span>
+              <span class="opcao__radio"></span>
+            </button>
+            <button class="btn-icone endereco-editar" data-editar-endereco="${e.id}" aria-label="Editar o endereço ${e.apelido}" title="Editar">${icone("editar", "ic--sm")}</button>
+          </div>`).join("")}
       </div>
       ${estado.novoEndereco ? `
         <div class="novo-endereco">
@@ -564,17 +580,18 @@ function blocoCliente() {
 }
 
 /* Campos de endereço (usados no cadastro e no "novo endereço") */
-function formEndereco(apelidoPadrao) {
+function formEndereco(apelidoPadrao, e = {}) {
+  const v = (t) => String(t || "").replace(/"/g, "&quot;");
   return `
     <div class="campo"><label>Nome do endereço</label>
       <div class="apelidos" id="apelidos">${["Casa", "Trabalho", "Outro"].map((a) => `<button class="apelido ${a === apelidoPadrao ? "ativo" : ""}" data-apelido="${a}">${a}</button>`).join("")}</div>
     </div>
-    <div class="campo"><label for="endRua">Rua e número</label><input id="endRua" class="input" autocomplete="street-address" placeholder="Ex.: Rua das Flores, 120"></div>
+    <div class="campo"><label for="endRua">Rua e número</label><input id="endRua" class="input" autocomplete="street-address" placeholder="Ex.: Rua das Flores, 120" value="${v(e.rua)}"></div>
     <div class="duas">
-      <div class="campo"><label for="endBairro">Bairro</label><input id="endBairro" class="input" placeholder="Bairro"></div>
-      <div class="campo"><label for="endCompl">Complemento</label><input id="endCompl" class="input" placeholder="Apto, bloco"></div>
+      <div class="campo"><label for="endBairro">Bairro</label><input id="endBairro" class="input" placeholder="Bairro" value="${v(e.bairro)}"></div>
+      <div class="campo"><label for="endCompl">Complemento</label><input id="endCompl" class="input" placeholder="Apto, bloco" value="${v(e.compl)}"></div>
     </div>
-    <div class="campo"><label for="endRef">Ponto de referência <span class="fraco">(opcional)</span></label><input id="endRef" class="input" placeholder="Ex.: portão verde"></div>`;
+    <div class="campo"><label for="endRef">Ponto de referência <span class="fraco">(opcional)</span></label><input id="endRef" class="input" placeholder="Ex.: portão verde" value="${v(e.ref)}"></div>`;
 }
 
 /* Lê os campos de endereço. Retorna null (e mostra o erro) se faltar algo. */
@@ -624,6 +641,7 @@ async function buscarTelefone() {
   estado.telefone = clientes.soDigitos($("#tel").value);
   if (!clientes.telefoneValido(estado.telefone)) return toast("Digite o celular com DDD", "info");
   estado.cliente = await clientes.buscarRemoto(estado.telefone);
+  guardar("fomito.telefone", estado.telefone); // da próxima vez o cadastro já aparece sozinho
   estado.etapaCliente = "identificado";
   renderCheckout();
   if (estado.cliente) toast(`Cadastro encontrado: ${estado.cliente.enderecos.length} endereço(s) salvo(s)`, "check");
@@ -635,7 +653,8 @@ $("#checkout").addEventListener("click", async (e) => {
 
   if (e.target.closest("#buscarTel")) return buscarTelefone();
   if (e.target.closest("#trocarTel")) {
-    Object.assign(estado, { etapaCliente: "telefone", cliente: null, novoEndereco: false });
+    Object.assign(estado, { etapaCliente: "telefone", cliente: null, novoEndereco: false, editandoEndereco: null });
+    guardar("fomito.telefone", null);
     renderCheckout();
     return $("#tel").focus();
   }
@@ -646,7 +665,20 @@ $("#checkout").addEventListener("click", async (e) => {
   const endereco = e.target.closest("[data-endereco]");
   if (endereco) { estado.enderecoId = Number(endereco.dataset.endereco); return renderCheckout(); }
 
-  if (e.target.closest("#novoEndereco")) { estado.novoEndereco = true; renderCheckout(); return $("#endRua").focus(); }
+  const editar = e.target.closest("[data-editar-endereco]");
+  if (editar) { estado.editandoEndereco = Number(editar.dataset.editarEndereco); estado.novoEndereco = false; renderCheckout(); return $("#endRua").focus(); }
+  if (e.target.closest("#cancelarEdicao")) { estado.editandoEndereco = null; return renderCheckout(); }
+  if (e.target.closest("#salvarEdicao")) {
+    const end = lerEndereco();
+    if (!end) return;
+    const salvo = await clientes.editarEndereco(estado.telefone, estado.editandoEndereco, end);
+    estado.cliente = salvo;
+    estado.enderecoId = salvo.enderecoId;
+    estado.editandoEndereco = null;
+    renderCheckout();
+    return toast("Endereço atualizado", "pin");
+  }
+  if (e.target.closest("#novoEndereco")) { estado.novoEndereco = true; estado.editandoEndereco = null; renderCheckout(); return $("#endRua").focus(); }
   if (e.target.closest("#cancelarEndereco")) { estado.novoEndereco = false; return renderCheckout(); }
 
   if (e.target.closest("#salvarEndereco")) {
@@ -676,6 +708,16 @@ $("#checkout").addEventListener("input", (e) => {
   if (e.target.id === "tel") e.target.value = clientes.formatarTelefone(e.target.value);
   if (e.target.id === "retTel") { e.target.value = clientes.formatarTelefone(e.target.value); estado.retTel = clientes.soDigitos(e.target.value); }
   if (e.target.id === "retNome") estado.retNome = e.target.value;
+  /* Retirada: com o celular completo, puxa o nome do cadastro (se ainda não digitou) */
+  if (e.target.id === "retTel" && clientes.telefoneValido(estado.retTel) && !estado.retNome.trim()) {
+    clientes.buscarRemoto(estado.retTel).then((c) => {
+      if (!c || estado.retNome.trim()) return;
+      estado.retNome = c.nome;
+      const campo = $("#retNome");
+      if (campo) campo.value = c.nome;
+      renderRodapeCheckout();
+    }).catch(() => {});
+  }
   if (e.target.id === "retTel" || e.target.id === "retNome") renderRodapeCheckout();
   if (e.target.id === "mesa") estado.mesa = e.target.value;
   if (e.target.id === "nomeLocal") estado.nomeLocal = e.target.value;
@@ -757,7 +799,7 @@ function podeConfirmar() {
   if (dados.lanchonete.aberta === false) return false;
   if (estado.modo === "local") return !!minhaComanda() || (!!estado.mesaQR && estado.nomeLocal.trim().length > 1);
   if (estado.modo === "retirada") { if (estado.retNome.trim().length < 2 || !clientes.telefoneValido(estado.retTel)) return false; }
-  else if (!estado.cliente || estado.novoEndereco) return false;
+  else if (!estado.cliente || estado.novoEndereco || estado.editandoEndereco != null) return false;
   if (!estado.pagamento) return false;
   if (estado.pagamento === "dinheiro") return estado.semTroco || valorTroco() >= total();
   return true;

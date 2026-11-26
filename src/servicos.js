@@ -343,14 +343,13 @@ const enderecosVisiveis = (cliente, dispositivo) => (dispositivo === '*'
 
 const limparEndereco = ({ dispositivos, ...e }) => e;
 
-async function buscarCliente(telefone, dispositivo) {
+/** Procura o cadastro pelo celular (em qualquer aparelho): nome completo e endereços salvos. */
+async function buscarCliente(telefone) {
   const tel = soDigitos(telefone);
   if (tel.length < 10) falhar(400, 'Digite o celular com DDD.');
   const { rows } = await db.query('SELECT * FROM clientes WHERE telefone = $1', [tel]);
   if (!rows[0]) return null;
-  const enderecos = enderecosVisiveis(rows[0], dispositivo);
-  if (!enderecos.length) return null; // aparelho novo: cadastra de novo, sem ver os dados de ninguém
-  return { telefone: tel, nome: rows[0].nome, enderecos: enderecos.map(limparEndereco) };
+  return { telefone: tel, nome: rows[0].nome, enderecos: rows[0].enderecos.map(limparEndereco) };
 }
 
 function lerEndereco(e = {}) {
@@ -362,23 +361,34 @@ function lerEndereco(e = {}) {
   return end;
 }
 
-/** Cadastra o cliente ou soma um endereço (se o telefone já existe). Retorna o que este aparelho vê. */
-async function salvarCliente({ telefone, nome, endereco }, dispositivo) {
+/**
+ * Cadastra o cliente, soma um endereço ou edita um endereço salvo (enderecoId).
+ * Se o telefone já existe e veio um nome, o nome é atualizado.
+ */
+async function salvarCliente({ telefone, nome, endereco, enderecoId }, dispositivo) {
   const tel = soDigitos(telefone);
   if (tel.length < 10) falhar(400, 'Digite o celular com DDD.');
   const end = lerEndereco(endereco);
   return db.tx(async (c) => {
     const { rows } = await c.query('SELECT * FROM clientes WHERE telefone = $1 FOR UPDATE', [tel]);
     let cliente = rows[0];
+    const n = texto(nome, 80);
     if (!cliente) {
-      const n = texto(nome, 80);
       if (n.length < 2) falhar(400, 'Digite seu nome.');
       ({ rows: [cliente] } = await c.query('INSERT INTO clientes (telefone, nome) VALUES ($1, $2) RETURNING *', [tel, n]));
+    } else if (n.length >= 2 && n !== cliente.nome) {
+      await c.query('UPDATE clientes SET nome = $2 WHERE telefone = $1', [tel, n]);
+      cliente.nome = n;
     }
     const lista = cliente.enderecos;
-    const igual = lista.find((e) => e.rua.toLowerCase() === end.rua.toLowerCase() && e.bairro.toLowerCase() === end.bairro.toLowerCase() && (e.compl || '') === end.compl);
+    const editando = enderecoId != null ? lista.find((e) => e.id === Number(enderecoId)) : null;
+    if (enderecoId != null && !editando) falhar(404, 'Esse endereço não está mais no cadastro.');
+    const igual = editando || lista.find((e) => e.rua.toLowerCase() === end.rua.toLowerCase() && e.bairro.toLowerCase() === end.bairro.toLowerCase() && (e.compl || '') === end.compl);
     let id;
-    if (igual) {
+    if (editando) {
+      Object.assign(editando, end);
+      id = editando.id;
+    } else if (igual) {
       Object.assign(igual, { ...end, apelido: igual.apelido });
       if (!(igual.dispositivos ||= []).includes(dispositivo)) igual.dispositivos.push(dispositivo);
       id = igual.id;
@@ -387,8 +397,7 @@ async function salvarCliente({ telefone, nome, endereco }, dispositivo) {
       lista.push({ ...end, id, dispositivos: [dispositivo] });
     }
     await c.query('UPDATE clientes SET enderecos = $2 WHERE telefone = $1', [tel, JSON.stringify(lista)]);
-    const visiveis = enderecosVisiveis({ enderecos: lista }, dispositivo);
-    return { telefone: tel, nome: cliente.nome, enderecos: visiveis.map(limparEndereco), enderecoId: id };
+    return { telefone: tel, nome: cliente.nome, enderecos: lista.map(limparEndereco), enderecoId: id };
   });
 }
 

@@ -9,8 +9,9 @@
         endereço é somado ao cadastro que já existe).
      4. Ele pode ter vários endereços (Casa, Trabalho...) e escolhe um por pedido.
 
-   Segurança: um aparelho novo NÃO vê os endereços de outro só sabendo o
-   número. O próximo passo é confirmar o telefone por código no WhatsApp.
+   O cadastro vale em qualquer aparelho: digitou o celular, vêm o nome e os
+   endereços salvos (pedido do cliente). Próximo passo de segurança:
+   confirmar o telefone por um código no WhatsApp antes de mostrar.
    Os clientes ficam no banco (tabela "clientes"). O painel vê todos.
    ========================================================================== */
 
@@ -18,7 +19,12 @@ window.Fomito = window.Fomito || {};
 
 (() => {
   /* ---------- Telefone ---------- */
-  const soDigitos = (texto) => String(texto || "").replace(/\D/g, "").slice(0, 11);
+  /* Só os números, sem o 55 do Brasil se a pessoa colar o número completo */
+  const soDigitos = (texto) => {
+    let d = String(texto || "").replace(/\D/g, "");
+    if (d.length >= 12 && d.startsWith("55")) d = d.slice(2);
+    return d.slice(0, 11);
+  };
 
   /** "11988887777" → "(11) 98888-7777" (vai formatando enquanto digita) */
   const formatarTelefone = (texto) => {
@@ -46,8 +52,11 @@ window.Fomito = window.Fomito || {};
   /** Soma mais um endereço ao cliente. Retorna o cliente atualizado, com enderecoId do novo. */
   const adicionarEndereco = (telefone, endereco) => Fomito.acao("POST", "/clientes", { telefone, endereco });
 
+  /** Edita um endereço salvo. Retorna o cliente atualizado. */
+  const editarEndereco = (telefone, enderecoId, endereco) => Fomito.acao("POST", "/clientes", { telefone, enderecoId, endereco });
+
   /** "Rua das Flores, 120 · Centro · Ap 3" */
   const textoEndereco = (e) => [e.rua, e.bairro, e.compl].filter(Boolean).join(" · ");
 
-  Fomito.clientes = { lista, buscar, buscarRemoto, cadastrar, adicionarEndereco, textoEndereco, soDigitos, formatarTelefone, telefoneValido };
+  Fomito.clientes = { lista, buscar, buscarRemoto, cadastrar, adicionarEndereco, editarEndereco, textoEndereco, soDigitos, formatarTelefone, telefoneValido };
 })();

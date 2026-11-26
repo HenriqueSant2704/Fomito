@@ -400,3 +400,8 @@ button.anterior:hover { border-color: var(--roxo-medio); }
 .rodape-fixo { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 .barra-sacola { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 .tela { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+
+/* Endereço salvo com o botão de editar ao lado */
+.endereco-linha { display: flex; align-items: stretch; gap: 8px; }
+.endereco-linha .opcao { flex: 1; min-width: 0; }
+.endereco-editar { flex: none; align-self: center; }

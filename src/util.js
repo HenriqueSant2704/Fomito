@@ -11,7 +11,12 @@ const numero = (v) => {
   return Number.isFinite(n) ? arred(n) : NaN;
 };
 
-const soDigitos = (texto) => String(texto || '').replace(/\D/g, '').slice(0, 11);
+/** Celular só com números, sem o 55 do Brasil: "+55 (11) 98888-7777" → "11988887777" */
+const soDigitos = (texto) => {
+  let d = String(texto || '').replace(/\D/g, '');
+  if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);
+  return d.slice(0, 11);
+};
 const formatarTelefone = (texto) => {
   const d = soDigitos(texto);
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
