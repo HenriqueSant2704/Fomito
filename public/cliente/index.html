@@ -38,10 +38,14 @@
           <span class="tag tag--verde" id="statusLoja">Aberto</span>
         </div>
         <div class="loja__meta">
-          <span><i data-icone="relogio" class="ic--sm"></i><span id="tempoLoja"></span></span>
+          <span id="blocoHorario"><i data-icone="relogio" class="ic--sm"></i><span id="horarioLoja"></span></span>
           <span><i data-icone="entrega" class="ic--sm"></i><span id="taxaLoja"></span></span>
           <span><i data-icone="local" class="ic--sm"></i>Salão com mesas</span>
         </div>
+        <!-- Endereço: tocar abre o mapa no ponto exato -->
+        <a class="loja__local" id="localLoja" target="_blank" rel="noopener" hidden>
+          <i data-icone="pin" class="ic--sm"></i><span class="loja__endereco" id="enderecoLoja"></span><span class="loja__mapa">Ver no mapa</span>
+        </a>
       </section>
 
       <!-- Comanda aberta da mesa (aparece depois que o cliente pede para comer no local) -->

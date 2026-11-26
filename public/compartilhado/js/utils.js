@@ -100,3 +100,39 @@ Fomito.dialogo = ({ titulo, texto = "", topo = "", campos = [], confirmar = "Con
 /** Pergunta sim/não. Ex.: if (!(await Fomito.confirmar("Cancelar pedido?", "...", "Cancelar pedido"))) return; */
 Fomito.confirmar = (titulo, texto, botao = "Confirmar", perigo = true) =>
   Fomito.dialogo({ titulo, texto, confirmar: botao, cancelar: "Voltar", perigo }).then(Boolean);
+
+/* ---------- Funcionamento e localização da loja (Configurações → Loja e entrega) ---------- */
+Fomito.DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+/** "18:00" → "18h", "23:30" → "23h30" */
+const horaCurta = (h) => {
+  const [hh, mm] = String(h || "").split(":");
+  return hh ? `${Number(hh)}h${mm && mm !== "00" ? mm : ""}` : "";
+};
+
+/** Dias abertos em texto: "Todos os dias", "Qua a Dom" (seguidos, mesmo passando do sábado) ou "Seg, Qua e Sex" */
+Fomito.textoDias = (dias) => {
+  const lista = [...new Set((dias || []).map(Number))].filter((d) => d >= 0 && d <= 6);
+  if (!lista.length) return "";
+  if (lista.length === 7) return "Todos os dias";
+  /* Procura um começo de onde todos os dias seguem em sequência (ex.: Qua, Qui, Sex, Sáb, Dom) */
+  for (const inicio of lista) {
+    const seq = lista.map((_, i) => (inicio + i) % 7);
+    if (seq.every((d) => lista.includes(d)) && lista.length > 2) return `${Fomito.DIAS[inicio]} a ${Fomito.DIAS[seq.at(-1)]}`;
+  }
+  const nomes = [1, 2, 3, 4, 5, 6, 0].filter((d) => lista.includes(d)).map((d) => Fomito.DIAS[d]);
+  return nomes.length > 1 ? `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}` : nomes[0];
+};
+
+/** "Qua a Dom · 18h às 23h30" (usa o texto livre antigo se não houver dias marcados) */
+Fomito.textoFuncionamento = (loja) => {
+  const dias = Fomito.textoDias(loja.dias);
+  const horas = loja.abre && loja.fecha ? `${horaCurta(loja.abre)} às ${horaCurta(loja.fecha)}` : "";
+  return [dias, horas].filter(Boolean).join(" · ") || loja.horario || "";
+};
+
+/** Link que abre o mapa no ponto exato: o link colado pelo dono ou a busca pelo endereço */
+Fomito.linkMapa = (loja) => {
+  if (/^https:\/\//i.test(loja.mapa || "")) return loja.mapa;
+  return loja.endereco ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loja.endereco)}` : "";
+};

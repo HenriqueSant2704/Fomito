@@ -656,7 +656,11 @@ function configLoja() {
           <div class="campo" style="grid-column:1/-1"><label for="cfgEnd">Endereço</label><input id="cfgEnd" class="input" data-loja="endereco" value="${esc(l.endereco)}"></div>
           <div class="campo"><label for="cfgAbre">Abre às</label><input id="cfgAbre" class="input" type="time" data-loja="abre" value="${esc(l.abre)}"></div>
           <div class="campo"><label for="cfgFecha">Fecha às</label><input id="cfgFecha" class="input" type="time" data-loja="fecha" value="${esc(l.fecha)}"></div>
-          <div class="campo" style="grid-column:1/-1"><label for="cfgHorario">Horário (como aparece no cardápio)</label><input id="cfgHorario" class="input" data-loja="horario" value="${esc(l.horario)}"></div>
+          <div class="campo" style="grid-column:1/-1"><span class="rotulo-campo">Dias de funcionamento</span>
+            <div class="dias-semana">${[1, 2, 3, 4, 5, 6, 0].map((d) => `<button type="button" class="dia ${(l.dias || []).includes(d) ? "ativo" : ""}" data-dia="${d}">${Fomito.DIAS[d]}</button>`).join("")}</div>
+            <span class="pequeno suave" id="previaFuncionamento">No cardápio aparece: <b>${Fomito.textoFuncionamento(l) || "-"}</b></span></div>
+          <div class="campo" style="grid-column:1/-1"><label for="cfgMapa">Link do Google Maps <span class="fraco">(opcional)</span></label><input id="cfgMapa" class="input" data-loja="mapa" value="${esc(l.mapa)}" placeholder="https://maps.app.goo.gl/...">
+            <span class="pequeno fraco">No Google Maps, procure a loja → Compartilhar → Copiar link. Sem o link, o cardápio abre o mapa pelo endereço.</span></div>
           <div class="campo"><label for="cfgTaxa">Taxa de entrega (R$)</label><input id="cfgTaxa" class="input" inputmode="decimal" data-loja="taxaEntrega" value="${String(l.taxaEntrega).replace(".", ",")}"></div>
           <div class="campo"><label for="cfgTempo">Tempo estimado</label><input id="cfgTempo" class="input" data-loja="tempoEntrega" value="${esc(l.tempoEntrega)}"></div>
         </div>
@@ -686,6 +690,14 @@ function ligarConfig() {
       return renderConfiguracoes();
     }
     if (e.target.closest("#mLogoRemover")) { rascunho.marca.logo = ""; return renderConfiguracoes(); }
+    const dia = e.target.closest("[data-dia]");
+    if (dia) {
+      const d = Number(dia.dataset.dia);
+      rascunhoLoja.dias = (rascunhoLoja.dias || []).includes(d) ? rascunhoLoja.dias.filter((x) => x !== d) : [...(rascunhoLoja.dias || []), d];
+      dia.classList.toggle("ativo");
+      $("#previaFuncionamento").innerHTML = `No cardápio aparece: <b>${Fomito.textoFuncionamento(rascunhoLoja) || "-"}</b>`;
+      return;
+    }
     if (e.target.closest("#wConectar")) return conectarWhatsApp();
     if (e.target.closest("#wDesconectar")) {
       await Fomito.acao("POST", "/whatsapp/desconectar");
@@ -716,7 +728,7 @@ function ligarConfig() {
       await Fomito.config.salvar(rascunho);
       if (rascunhoLoja) {
         const { formas, ...loja } = rascunhoLoja;
-        Object.assign(dados.lanchonete, loja, { taxaEntrega: parseFloat(String(loja.taxaEntrega).replace(",", ".")) || 0, mesas: Number(loja.mesas) || 0 });
+        Object.assign(dados.lanchonete, loja, { taxaEntrega: parseFloat(String(loja.taxaEntrega).replace(",", ".")) || 0, mesas: Number(loja.mesas) || 0, horario: Fomito.textoFuncionamento(loja) });
         dados.formasPagamento.forEach((f) => { f.ativa = formas[f.id]; });
         await Fomito.salvarCardapio();
         rascunhoLoja = null;
@@ -755,7 +767,11 @@ function ligarConfig() {
       rascunho.whatsapp.modelos[t.dataset.modelo].texto = t.value;
       $(`#previa-${t.dataset.modelo}`).textContent = Fomito.config.montarMensagem(t.value, { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00" });
     }
-    if (t.dataset.loja) rascunhoLoja[t.dataset.loja] = t.value;
+    if (t.dataset.loja) {
+      rascunhoLoja[t.dataset.loja] = t.value;
+      const previa = $("#previaFuncionamento");
+      if (previa) previa.innerHTML = `No cardápio aparece: <b>${Fomito.textoFuncionamento(rascunhoLoja) || "-"}</b>`;
+    }
     if (t.id === "iRodape") rascunho.impressao.rodape = t.value;
     if (t.id === "iVias") rascunho.impressao.vias = Number(t.value);
     if (t.id === "sVolume") rascunho.som.volume = Number(t.value);

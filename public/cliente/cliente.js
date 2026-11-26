@@ -1173,11 +1173,18 @@ function renderLoja() {
   $("#logo").innerHTML = Fomito.config.simbolo(marca);
   $("#nomeLoja").textContent = marca.nome;
   $("#sloganLoja").textContent = marca.slogan;
-  $("#tempoLoja").textContent = loja.tempoEntrega;
+  /* Dias e horário de funcionamento e o endereço com o link do mapa */
+  const funcionamento = Fomito.textoFuncionamento(loja);
+  $("#horarioLoja").textContent = funcionamento;
+  $("#blocoHorario").hidden = !funcionamento;
+  const mapa = Fomito.linkMapa(loja);
+  $("#localLoja").hidden = !loja.endereco;
+  $("#localLoja").href = mapa || "#";
+  $("#enderecoLoja").textContent = loja.endereco || "";
   $("#taxaLoja").textContent = loja.taxaEntrega > 0 ? `Entrega ${moeda(loja.taxaEntrega)}` : "Frete grátis";
   $("#rodapeNome").textContent = marca.nome;
   $("#rodapeEndereco").textContent = loja.endereco;
-  $("#rodapeHorario").textContent = loja.horario;
+  $("#rodapeHorario").textContent = funcionamento;
   const aberta = loja.aberta !== false;
   $("#statusLoja").textContent = aberta ? "Aberto" : "Fechado agora";
   $("#statusLoja").className = `tag tag--${aberta ? "verde" : "cinza"}`;

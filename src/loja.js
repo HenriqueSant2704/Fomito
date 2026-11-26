@@ -109,6 +109,8 @@ async function salvarCardapio(recebido) {
     telefone: texto(l.telefone, 30),
     abre: texto(l.abre, 5),
     fecha: texto(l.fecha, 5),
+    dias: Array.isArray(l.dias) ? [...new Set(l.dias.map(Number))].filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : (atual.cardapio.lanchonete.dias || []),
+    mapa: /^https:\/\/[^\s"<>]+$/i.test(texto(l.mapa, 500)) ? texto(l.mapa, 500) : '', // link do Google Maps (opcional)
     tempoEntrega: texto(l.tempoEntrega, 30),
     taxaEntrega: Math.max(0, numero(l.taxaEntrega) || 0),
     mesas: Math.min(200, Math.max(0, parseInt(l.mesas, 10) || 0)),

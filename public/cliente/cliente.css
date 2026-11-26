@@ -388,3 +388,9 @@ button.anterior:hover { border-color: var(--roxo-medio); }
 .detalhe-item { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; }
 .detalhe-item__obs { color: var(--vermelho-escuro); }
 .detalhe-totais { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--borda); }
+
+/* Endereço da loja: toca e abre o mapa */
+.loja__local { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 10px 12px; border-radius: var(--raio-md); background: var(--superficie-2); color: var(--texto); font-size: 13px; text-decoration: none; }
+.loja__local .ic { color: var(--laranja); flex: none; }
+.loja__endereco { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loja__mapa { flex: none; color: var(--roxo); font-weight: 700; }
