@@ -6,6 +6,9 @@
 window.Fomito = window.Fomito || {};
 
 /* Formata número como moeda: 24.9 -> "R$ 24,90" */
+/* Taxa de entrega: R$ 0 vira "Frete grátis" */
+Fomito.taxaTexto = (valor) => (Number(valor) > 0 ? Fomito.moeda(Number(valor)) : "Frete grátis");
+
 Fomito.moeda = (valor) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 

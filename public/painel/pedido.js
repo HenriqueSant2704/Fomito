@@ -69,7 +69,7 @@ function abrirPedido(num) {
         }).join("")}
         <div class="totais">
           <div class="entre pequeno"><span class="suave">Subtotal</span><span class="num">${moeda(subtotalPedido)}</span></div>
-          ${entrega ? `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span class="num">${moeda(p.taxa ?? dados.lanchonete.taxaEntrega)}</span></div>` : ""}
+          ${entrega ? `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span class="num">${Fomito.taxaTexto(p.taxa ?? dados.lanchonete.taxaEntrega)}</span></div>` : ""}
           <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(totalPedido(p))}</span></div>
         </div>
       </div>
@@ -223,7 +223,7 @@ function rodapeLancar() {
   return `
     <div class="pilha" style="gap:2px;flex:1;min-width:0">
       <span class="pequeno suave corta">${itens.length ? itens.map(([id, q]) => `${q}× ${Fomito.produto(id).nome}`).join(", ") : "Nenhum item ainda"}</span>
-      <span class="linha" style="gap:8px"><span class="forte">Total</span><span class="preco">${moeda(totalNovo())}</span>${novo.modo === "entrega" ? `<span class="pequeno fraco">com taxa de ${moeda(dados.lanchonete.taxaEntrega)}</span>` : ""}</span>
+      <span class="linha" style="gap:8px"><span class="forte">Total</span><span class="preco">${moeda(totalNovo())}</span>${novo.modo === "entrega" ? `<span class="pequeno fraco">${dados.lanchonete.taxaEntrega > 0 ? `com taxa de ${moeda(dados.lanchonete.taxaEntrega)}` : "frete grátis"}</span>` : ""}</span>
     </div>
     <button class="btn btn--primario" data-confirmar-novo ${itens.length ? "" : "disabled"}>${icone("check", "ic--sm")} Lançar pedido</button>`;
 }

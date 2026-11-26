@@ -23,9 +23,11 @@ window.Fomito = window.Fomito || {};
     audio.resume?.();
   }, { once: true });
 
-  function tocarAlerta() {
+  /** Toca o alerta. volume (0,1 a 1) serve para testar antes de salvar. */
+  function tocarAlerta(volume) {
     const { som } = Fomito.config.ler();
-    if (!som.ativo) return false;
+    if (!som.ativo && volume == null) return false;
+    const nivel = Math.min(1, Math.max(0.05, Number(volume ?? som.volume) || 0.6));
     try {
       audio ||= new (window.AudioContext || window.webkitAudioContext)();
       const notas = [[988, 0], [1319, 0.16], [988, 0.5], [1319, 0.66]]; // si-mi, duas vezes
@@ -36,7 +38,7 @@ window.Fomito = window.Fomito || {};
         osc.type = "sine";
         osc.frequency.value = freq;
         vol.gain.setValueAtTime(0.0001, t);
-        vol.gain.exponentialRampToValueAtTime(som.volume * 0.5, t + 0.02);
+        vol.gain.exponentialRampToValueAtTime(nivel * nivel * 0.9, t + 0.02); // ao quadrado: o ouvido percebe melhor a diferença
         vol.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
         osc.connect(vol).connect(audio.destination);
         osc.start(t);
@@ -89,7 +91,7 @@ window.Fomito = window.Fomito || {};
       linha,
       itens,
       linha,
-      ...(pedido.modo === "entrega" ? [colunas("Taxa de entrega", valor(loja.taxaEntrega))] : []),
+      ...(pedido.modo === "entrega" ? [colunas("Taxa de entrega", (pedido.taxa ?? loja.taxaEntrega) > 0 ? valor(pedido.taxa ?? loja.taxaEntrega) : "Grátis")] : []),
       colunas("TOTAL", "R$ " + valor(total)),
       linha,
       pedido.modo === "entrega" ? `Pagamento: ${forma?.nome || "-"} (na entrega)` : "Pagamento com o garçom",

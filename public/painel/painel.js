@@ -507,8 +507,12 @@ function configMarca() {
           </div>
         </div>
         <div class="form-grade">
-          <div class="campo"><label for="mCor1">Cor principal</label><div class="cor-campo"><input type="color" id="mCor1" data-marca="corPrincipal" value="${m.corPrincipal}"><span class="num">${m.corPrincipal.toUpperCase()}</span></div></div>
-          <div class="campo"><label for="mCor2">Cor de destaque</label><div class="cor-campo"><input type="color" id="mCor2" data-marca="corDestaque" value="${m.corDestaque}"><span class="num">${m.corDestaque.toUpperCase()}</span></div></div>
+          <div class="campo"><label for="mHex1">Cor principal</label><div class="cor-campo"><input type="color" data-marca="corPrincipal" value="${m.corPrincipal}" aria-label="Escolher a cor principal"><input class="cor-hex num" id="mHex1" data-hex="corPrincipal" value="${m.corPrincipal.toUpperCase()}" maxlength="7" spellcheck="false" autocomplete="off"></div></div>
+          <div class="campo"><label for="mHex2">Cor de destaque</label><div class="cor-campo"><input type="color" data-marca="corDestaque" value="${m.corDestaque}" aria-label="Escolher a cor de destaque"><input class="cor-hex num" id="mHex2" data-hex="corDestaque" value="${m.corDestaque.toUpperCase()}" maxlength="7" spellcheck="false" autocomplete="off"></div></div>
+        </div>
+        <div class="linha" style="gap:10px;flex-wrap:wrap">
+          <button class="btn btn--contorno btn--sm" id="mInverter" type="button">${icone("seta", "ic--sm")} Inverter as cores</button>
+          <span class="pequeno fraco">Digite o código (ex.: #1E3A8A) ou clique no quadradinho.</span>
         </div>
         <div class="campo"><label>Combinações prontas</label>
           <div class="paletas">
@@ -564,7 +568,9 @@ function configWhatsApp() {
             <div class="campo"><label for="wInst">Nome da instância</label><input id="wInst" class="input" data-whats="instancia" value="${w.instancia}"></div>
           </div>
           ${w.conectado
-            ? `<div class="whats-conectado">${icone("whatsapp")}<div class="pilha" style="flex:1"><b>${w.numero}</b><span class="pequeno suave">Instância “${w.instancia}” pronta para enviar</span></div><button class="btn btn--contorno btn--sm" id="wDesconectar">Desconectar</button></div>`
+            ? `<div class="whats-conectado">${icone("whatsapp")}<div class="pilha" style="flex:1"><b>${w.numero ? `+${w.numero}` : "Número conectado"}</b><span class="pequeno suave">Instância “${w.instancia}” pronta para enviar</span></div><button class="btn btn--contorno btn--sm" id="wDesconectar">Desconectar</button></div>
+               <div class="campo"><label for="wTesteNum">Enviar mensagem de teste</label>
+                 <div class="busca-tel-painel"><input id="wTesteNum" class="input" inputmode="tel" placeholder="(11) 90000-0000"><button class="btn btn--secundario" id="wTeste">Enviar teste</button></div></div>`
             : `<div class="linha" style="gap:10px"><button class="btn btn--primario" id="wConectar">${icone("whatsapp", "ic--sm")} Conectar e gerar QR Code</button><span class="pequeno fraco">Abra o WhatsApp da loja e escaneie.</span></div>
                <div id="wQr" hidden></div>`}
         </div>
@@ -668,8 +674,18 @@ function ligarConfig() {
       toast("WhatsApp desconectado", "whatsapp");
       return renderConfiguracoes();
     }
+    if (e.target.closest("#wTeste")) {
+      const numero = Fomito.clientes.soDigitos($("#wTesteNum").value);
+      if (numero.length < 10) return toast("Digite o celular com DDD", "info");
+      await Fomito.acao("POST", "/whatsapp/teste", { numero });
+      return toast("Mensagem de teste enviada", "whatsapp");
+    }
+    if (e.target.closest("#mInverter")) {
+      [rascunho.marca.corPrincipal, rascunho.marca.corDestaque] = [rascunho.marca.corDestaque, rascunho.marca.corPrincipal];
+      return renderConfiguracoes();
+    }
     if (e.target.closest("#iTeste")) { alertas.imprimirCupom(comTotal(pedidoExemplo())); toast("Cupom de teste enviado para a impressora", "impressora"); }
-    if (e.target.closest("#sTeste")) { if (!alertas.tocarAlerta()) toast("Ligue o som e salve para testar", "info"); }
+    if (e.target.closest("#sTeste")) alertas.tocarAlerta(rascunho.som.volume);
     if (e.target.closest("#cfgRestaurar")) {
       const atual = Fomito.config.ler();
       rascunho = Fomito.config.padrao();
@@ -697,9 +713,21 @@ function ligarConfig() {
 
   sec.oninput = (e) => {
     const t = e.target;
+    /* Código da cor digitado: aceita com ou sem # e atualiza o quadradinho */
+    if (t.dataset.hex) {
+      const hex = t.value.trim().replace(/^#?/, "#");
+      const valido = /^#[0-9a-f]{6}$/i.test(hex);
+      t.classList.toggle("cor-hex--erro", !valido && t.value.trim().length >= 6);
+      if (valido) {
+        rascunho.marca[t.dataset.hex] = hex.toUpperCase();
+        t.previousElementSibling.value = hex.toLowerCase();
+        atualizarPrevia();
+        const previaLogo = $(".logo-envio__previa"); if (previaLogo) previaLogo.innerHTML = Fomito.config.simbolo(rascunho.marca);
+      }
+    }
     if (t.dataset.marca) {
       rascunho.marca[t.dataset.marca] = t.value;
-      if (t.type === "color") t.nextElementSibling.textContent = t.value.toUpperCase();
+      if (t.type === "color") t.nextElementSibling.value = t.value.toUpperCase();
       atualizarPrevia();
       const previaLogo = $(".logo-envio__previa"); if (previaLogo) previaLogo.innerHTML = Fomito.config.simbolo(rascunho.marca);
     }
@@ -721,6 +749,7 @@ function ligarConfig() {
     if (t.id === "iAuto") rascunho.impressao.aoAceitar = t.checked;
     if (t.id === "iLargura") rascunho.impressao.largura = t.value;
     if (t.id === "sAtivo") rascunho.som.ativo = t.checked;
+    if (t.id === "sVolume") alertas.tocarAlerta(rascunho.som.volume); // ao soltar o controle, já toca no volume escolhido
     if (t.dataset.formaAtiva) rascunhoLoja.formas[t.dataset.formaAtiva] = t.checked;
     if (t.id === "mLogo" && t.files[0]) {
       Fomito.lerImagem(t.files[0], 512).then((url) => { rascunho.marca.logo = url; renderConfiguracoes(); });

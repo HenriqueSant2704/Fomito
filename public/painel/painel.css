@@ -394,3 +394,6 @@ button.tag { cursor: pointer; }
 .formas-painel .opcao__icone { width: 30px; height: 30px; }
 .historico-corr { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid #F6E3CA; background: var(--creme); border-radius: var(--raio-md); }
 .historico-corr s, .tabela s { color: var(--texto-fraco); }
+.cor-campo .cor-hex { flex: 1; min-width: 0; height: 30px; border: 0; background: none; font: inherit; font-size: 13.5px; color: var(--texto); text-transform: uppercase; outline: none; }
+.cor-campo:focus-within { border-color: var(--roxo-medio); box-shadow: 0 0 0 3px var(--roxo-claro); }
+.cor-hex--erro { color: var(--vermelho-escuro) !important; }

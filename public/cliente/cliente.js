@@ -387,7 +387,7 @@ function renderCarrinho() {
 function linhasResumo() {
   return `
     <div class="entre pequeno"><span class="suave">Subtotal</span><span class="num">${moeda(subtotal())}</span></div>
-    ${estado.modo === "entrega" ? `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span class="num">${moeda(taxaEntrega())}</span></div>` : ""}
+    ${estado.modo === "entrega" ? `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span class="num ${taxaEntrega() > 0 ? "" : "frete-gratis"}">${Fomito.taxaTexto(taxaEntrega())}</span></div>` : ""}
     <div class="entre linha-total"><span class="forte">Total</span><span class="preco">${moeda(total())}</span></div>`;
 }
 
@@ -418,7 +418,7 @@ function renderCheckout() {
       <div class="modo-escolha">
         <button class="modo-card ${entrega ? "ativo" : ""}" data-modo="entrega">
           <span class="modo-card__icone">${icone("entrega")}</span>
-          <b>Entrega</b><span>${dados.lanchonete.tempoEntrega} · ${moeda(dados.lanchonete.taxaEntrega)}</span>
+          <b>Entrega</b><span>${dados.lanchonete.tempoEntrega} · ${Fomito.taxaTexto(dados.lanchonete.taxaEntrega)}</span>
         </button>
         <button class="modo-card ${!entrega ? "ativo" : ""}" data-modo="local">
           <span class="modo-card__icone">${icone("local")}</span>
@@ -965,7 +965,7 @@ function renderLoja() {
   $("#nomeLoja").textContent = marca.nome;
   $("#sloganLoja").textContent = marca.slogan;
   $("#tempoLoja").textContent = loja.tempoEntrega;
-  $("#taxaLoja").textContent = `Entrega ${moeda(loja.taxaEntrega)}`;
+  $("#taxaLoja").textContent = loja.taxaEntrega > 0 ? `Entrega ${moeda(loja.taxaEntrega)}` : "Frete grátis";
   $("#rodapeNome").textContent = marca.nome;
   $("#rodapeEndereco").textContent = loja.endereco;
   $("#rodapeHorario").textContent = loja.horario;

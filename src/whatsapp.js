@@ -47,11 +47,28 @@ async function avisar(pedido, tipo) {
       previsao: cardapio.lanchonete.tempoEntrega,
       pagamento: forma ? forma.nome + (pedido.pag === 'dinheiro' && pedido.troco ? `, troco para ${moeda(pedido.troco)}` : '') : '-',
     });
-    await conexao.chamar('POST', `/message/sendText/${conexao.instancia}`, { number: '55' + digitos, text: texto });
+    await enviarTexto(conexao, digitos, texto);
     await db.query(`UPDATE pedidos SET dados = jsonb_set(dados, '{whats}', to_jsonb($2::text)) WHERE num = $1`, [pedido.num, modelo.titulo]);
   } catch (err) {
     console.error(`WhatsApp (pedido #${pedido.num}, ${tipo}):`, err.message);
   }
+}
+
+/* Evolution API v2 usa { number, text }; a v1 usava { number, textMessage: { text } }. Mandamos os dois. */
+function enviarTexto(conexao, digitos, texto) {
+  const numero = digitos.startsWith('55') && digitos.length >= 12 ? digitos : '55' + digitos;
+  return conexao.chamar('POST', `/message/sendText/${conexao.instancia}`, { number: numero, text: texto, textMessage: { text: texto } });
+}
+
+/** Mensagem de teste do painel (Configurações → WhatsApp) */
+async function testar(numero) {
+  const conexao = api();
+  if (!conexao) throw Object.assign(new Error('Preencha e salve a URL, a chave e a instância.'), { status: 400 });
+  const digitos = String(numero || '').replace(/\D/g, '');
+  if (digitos.length < 10) throw Object.assign(new Error('Digite o celular com DDD.'), { status: 400 });
+  const { config } = loja.obter();
+  await enviarTexto(conexao, digitos, `Teste do ${config.marca.nome}: as mensagens automáticas dos pedidos estão funcionando. ✅`);
+  return { ok: true };
 }
 
 /** Gera o QR Code para conectar o número da loja. Cria a instância se ainda não existir. */
@@ -63,7 +80,8 @@ async function conectar() {
   } catch { /* a instância já existe */ }
   const r = await conexao.chamar('GET', `/instance/connect/${conexao.instancia}`);
   if (r?.instance?.state === 'open') { await status(); return { conectado: true }; }
-  return { qr: r.base64 || null, codigo: r.pairingCode || null };
+  const qr = r.base64 || r.qrcode?.base64 || null;
+  return { qr: qr && !qr.startsWith('data:') ? `data:image/png;base64,${qr}` : qr, codigo: r.pairingCode || null };
 }
 
 /** Pergunta à Evolution API se o número está conectado e guarda a resposta. */
@@ -91,4 +109,4 @@ async function desconectar() {
   await loja.marcarWhatsApp(false);
 }
 
-module.exports = { avisar, conectar, status, desconectar };
+module.exports = { avisar, conectar, status, desconectar, testar };

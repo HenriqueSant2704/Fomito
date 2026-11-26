@@ -103,6 +103,7 @@ r.get('/mesas/imprimir', balcao, ok(async (req, res) => {
 r.post('/whatsapp/conectar', admin, ok(() => whatsapp.conectar()));
 r.get('/whatsapp/status', admin, ok(() => whatsapp.status()));
 r.post('/whatsapp/desconectar', admin, ok(() => whatsapp.desconectar()));
+r.post('/whatsapp/teste', admin, ok((req) => whatsapp.testar(req.body.numero)));
 
 /* ---------- Clientes: cadastro pelo telefone ---------- */
 const quemPede = (req) => (ehEquipeLoja(req) ? '*' : dispositivoDe(req) || falhar(400, 'Atualize a página e tente de novo.'));

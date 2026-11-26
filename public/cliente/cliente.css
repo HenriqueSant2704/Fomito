@@ -338,3 +338,6 @@ body { background: var(--fundo); }
   .tela--frente > *, .tela--volta > *, .barra-sacola--entra, .barra-sacola--pulo, .barra-sacola--pulo .barra-sacola__qtd,
   .tela--frente .lista-itens > *, .tela--frente #checkout > .bloco { animation: none !important; }
 }
+
+/* Frete grátis em destaque no resumo */
+.frete-gratis { color: var(--verde-escuro); font-weight: 700; }
