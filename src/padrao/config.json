@@ -1,0 +1,50 @@
+{
+ "marca": {
+  "nome": "Fomito",
+  "slogan": "Lanches na chapa desde 2012",
+  "logo": "",
+  "corPrincipal": "#4B2B8F",
+  "corDestaque": "#FF8A00",
+  "fonteTitulo": "Nunito",
+  "fonteTexto": "Inter"
+ },
+ "whatsapp": {
+  "apiUrl": "",
+  "apiKey": "",
+  "instancia": "fomito",
+  "conectado": false,
+  "numero": "",
+  "modelos": {
+   "recebido": {
+    "ativo": true,
+    "titulo": "Pedido recebido",
+    "texto": "Olá, {nome}! Recebemos seu pedido #{pedido} na {loja}. Total: {total}. Já vamos começar o preparo."
+   },
+   "preparo": {
+    "ativo": true,
+    "titulo": "Em preparo",
+    "texto": "{nome}, seu pedido #{pedido} já está na chapa! 🔥 Previsão de entrega: {previsao}."
+   },
+   "saiu": {
+    "ativo": true,
+    "titulo": "Saiu para entrega",
+    "texto": "Boa notícia, {nome}! Seu pedido #{pedido} saiu para entrega e chega em breve. 🛵 Pagamento na entrega: {pagamento}."
+   },
+   "entregue": {
+    "ativo": true,
+    "titulo": "Entregue",
+    "texto": "Pedido #{pedido} entregue. Obrigado pela preferência, {nome}! Bom apetite. 😋"
+   }
+  }
+ },
+ "impressao": {
+  "aoAceitar": true,
+  "vias": 1,
+  "largura": "80mm",
+  "rodape": "Obrigado pela preferência!"
+ },
+ "som": {
+  "ativo": true,
+  "volume": 0.6
+ }
+}

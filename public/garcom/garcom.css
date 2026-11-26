@@ -1,0 +1,150 @@
+/* ==========================================================================
+   FOMITO · TELA DO GARÇOM
+   Tablet/celular. No tablet: mesas à esquerda e comanda à direita.
+   No celular: a comanda abre por cima, em tela cheia.
+   ========================================================================== */
+
+body { background: var(--fundo); min-height: 100vh; }
+
+/* ---------- Barra superior ---------- */
+.barra {
+  height: 64px; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--superficie); border-bottom: 1px solid var(--borda);
+  position: sticky; top: 0; z-index: 10;
+}
+.barra__divisor { width: 1px; height: 22px; background: var(--borda); }
+.garcom-perfil { display: flex; align-items: center; gap: 12px; line-height: 1.3; }
+.avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--roxo-claro); color: var(--roxo);
+  display: grid; place-items: center; font-weight: 600; font-size: 13px;
+}
+
+/* ---------- Layout em duas colunas ---------- */
+.layout { display: grid; grid-template-columns: 1fr 380px; min-height: calc(100vh - 64px); }
+
+.mesas { padding: 28px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.mesas__topo { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.mesas h1 { font-size: 26px; }
+
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 12px; }
+
+/* ---------- Cartão de mesa ---------- */
+.mesa {
+  text-align: left; background: var(--superficie);
+  border: 1px solid var(--borda); border-radius: var(--raio-lg);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 132px;
+  transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+.mesa:hover { border-color: var(--borda-forte); box-shadow: var(--sombra-md); }
+.mesa__cabeca { display: flex; justify-content: space-between; align-items: flex-start; }
+.mesa__numero { font-family: var(--fonte-marca); font-weight: 800; font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.mesa__rotulo { font-size: 12px; color: var(--texto-fraco); margin-bottom: 4px; display: block; }
+.mesa__rodape { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
+.mesa__meta { display: flex; gap: 10px; font-size: 12.5px; color: var(--texto-suave); }
+.mesa__meta span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.mesa__meta .ic { width: 14px; height: 14px; color: var(--texto-fraco); }
+.mesa__valor { font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+
+.mesa--livre { background: transparent; border-style: dashed; }
+.mesa--livre .mesa__numero { color: var(--texto-fraco); }
+.mesa--conta { border-color: #F3C58C; }
+.mesa.selecionada { border-color: var(--roxo); box-shadow: 0 0 0 1px var(--roxo); }
+
+/* ---------- Painel da comanda ---------- */
+.comanda {
+  background: var(--superficie); border-left: 1px solid var(--borda);
+  display: flex; flex-direction: column;
+  position: sticky; top: 64px; height: calc(100vh - 64px);
+}
+.comanda__vazia { margin: auto; text-align: center; padding: 24px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.vazio__icone { width: 56px; height: 56px; border-radius: 50%; background: var(--superficie-2); display: grid; place-items: center; color: var(--texto-fraco); margin-bottom: 6px; }
+.comanda__topo { padding: 20px 22px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--borda); }
+.comanda__topo h2 { font-size: 22px; margin: 2px 0 4px; }
+
+.comanda__itens { flex: 1; overflow-y: auto; padding: 6px 22px; }
+.linha-item { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borda); }
+.linha-item:last-child { border-bottom: 0; }
+.linha-item__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
+.comanda__rodape { padding: 18px 22px 22px; border-top: 1px solid var(--borda); display: flex; flex-direction: column; gap: 14px; }
+.comanda__total { font-size: 20px; }
+.comanda__acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ---------- Lançar itens ---------- */
+.lancar { display: flex; flex-direction: column; gap: 16px; max-width: 520px; }
+.lancar__lista { display: flex; flex-direction: column; max-height: 46vh; overflow-y: auto; }
+.lancar__produto { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.lancar__produto:last-child { border-bottom: 0; }
+.lancar__produto.tem .forte { color: var(--roxo); }
+
+/* ---------- Fechar conta ---------- */
+.conta { display: flex; flex-direction: column; gap: 16px; }
+.conta__total { padding: 18px; border-radius: var(--raio-lg); background: var(--superficie-2); display: flex; flex-direction: column; gap: 2px; }
+.conta__total .preco { font-size: 30px; font-family: var(--fonte-marca); font-weight: 800; }
+.divisao { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+.formas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.formas .opcao { padding: 10px 12px; }
+.formas .opcao__icone { width: 32px; height: 32px; }
+.troco-caixa { background: var(--verde-claro); color: var(--verde-escuro); padding: 12px 14px; border-radius: var(--raio-md); font-weight: 500; display: flex; justify-content: space-between; }
+.troco-caixa.erro { background: var(--vermelho-claro); color: var(--vermelho-escuro); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.check input { width: 16px; height: 16px; accent-color: var(--roxo); }
+
+/* ---------- Celular ---------- */
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .barra { padding: 0 16px; }
+  .barra__divisor, .barra__divisor + span, .garcom-perfil .pilha { display: none; }
+  .mesas { padding: 20px 16px; }
+  .grade { grid-template-columns: repeat(2, 1fr); }
+  .comanda { position: fixed; inset: 0; height: auto; z-index: 30; border: 0; display: none; }
+  .comanda.aberta { display: flex; }
+}
+@media (min-width: 861px) { .comanda__fechar-painel { display: none !important; } }
+
+/* ---------- Rodadas da comanda (cada vez que a mesa pediu) ---------- */
+.rodada-garcom { display: flex; flex-direction: column; padding: 14px 0 10px; border-bottom: 1px dashed var(--borda-forte); }
+.rodada-garcom:last-child { border-bottom: 0; }
+.rodada-garcom .linha-item { padding: 8px 0; border-bottom: 0; }
+.rodada-garcom .btn { align-self: flex-start; margin-top: 4px; }
+.mesa__cozinha { color: var(--laranja-escuro); font-weight: 600; }
+.mesa__meta .mesa__cozinha .ic { color: var(--laranja); }
+.aviso--conta { margin: 0 22px; }
+
+/* ---------- Fechar conta: recebido obrigatório e várias formas ---------- */
+.input--pendente { border-color: #F3C58C; background: var(--creme); }
+.notas { display: flex; flex-wrap: wrap; gap: 6px; }
+.notas button { height: 30px; padding: 0 12px; border-radius: var(--raio-sm); border: 1px solid var(--borda); background: var(--superficie); font-size: 13px; font-weight: 500; }
+.notas button:hover { border-color: var(--roxo); color: var(--roxo); }
+.troco-caixa.aviso-campo { background: var(--creme); color: var(--laranja-escuro); justify-content: flex-start; gap: 8px; font-size: 13px; align-items: center; }
+.pagos { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.pago { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.pago > .ic { color: var(--verde-escuro); }
+.falta { padding-top: 8px; border-top: 1px dashed var(--borda); font-size: 14px; }
+.falta strong { color: var(--laranja-escuro); }
+.btn-icone--sm { width: 28px; height: 28px; }
+.flex1 { flex: 1; }
+
+/* ---------- Prontos para servir e avisos (v8) ---------- */
+.servir { border: 1px solid #F3C58C; background: var(--creme); border-radius: var(--raio-lg); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.servir__topo { display: flex; align-items: center; justify-content: space-between; color: var(--laranja-escuro); }
+.servir__qtd { min-width: 24px; height: 24px; padding: 0 8px; border-radius: var(--raio-pill); background: var(--laranja); color: #fff; font-size: 12.5px; font-weight: 700; display: inline-grid; place-items: center; }
+.servir__lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.servir__item { display: flex; align-items: center; gap: 12px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-md); padding: 10px 12px; min-width: 0; }
+.servir__item--novo { animation: piscarServir 1.2s ease 3; }
+@keyframes piscarServir { 50% { box-shadow: 0 0 0 4px rgba(255, 138, 0, .35); border-color: var(--laranja); } }
+.servir__mesa { display: flex; flex-direction: column; align-items: center; line-height: 1; padding-right: 12px; border-right: 1px solid var(--borda); color: var(--texto-fraco); }
+.servir__mesa strong { font-family: var(--fonte-marca); font-weight: 800; font-size: 24px; color: var(--texto); margin-top: 2px; }
+.mesa--servir { border-color: var(--laranja); box-shadow: 0 0 0 1px var(--laranja); }
+.mesa__servir { color: var(--laranja-escuro); font-weight: 700; }
+.mesa__meta .mesa__servir .ic { color: var(--laranja); }
+.ativar-avisos { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--raio-md); background: var(--laranja-claro); border: 1px solid #F6D3A8; color: #6B4A1F; font-size: 13px; }
+.ativar-avisos > .ic { color: var(--laranja-escuro); flex: none; }
+.ativar-avisos .btn { margin-left: auto; flex: none; }
+@media (max-width: 560px) { .ativar-avisos { flex-wrap: wrap; } .ativar-avisos .btn { margin-left: 0; } }
+.mesa__meta { flex-wrap: wrap; row-gap: 4px; }
+
+/* Avisos já ativados neste aparelho */
+.avisos-ok { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--raio-md); background: var(--verde-claro); color: var(--verde-escuro); font-size: 12.5px; font-weight: 500; }

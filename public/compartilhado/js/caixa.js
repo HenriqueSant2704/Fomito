@@ -1,0 +1,75 @@
+/* ==========================================================================
+   FOMITO · CONTROLE DE CAIXA
+   --------------------------------------------------------------------------
+   O caixa do dia:
+     1. ABRIR            → com o DINHEIRO INICIAL que o dono deixa na gaveta
+     2. PAGAMENTOS       → cada conta de mesa e entrega, com a forma, o valor
+                           que o cliente deu e o troco devolvido
+     3. TIRAR DINHEIRO   → ex.: levar ao cofre    (no código: tipo "sangria")
+        COLOCAR DINHEIRO → ex.: mais troco        (no código: tipo "suprimento")
+     4. CORRIGIR         → o responsável corrige um pagamento lançado errado
+                           (ex.: o motoboy marcou cartão, mas foi Pix). O valor
+                           original NUNCA é apagado: cada correção guarda o
+                           antes, o depois, quem corrigiu, quando e o motivo.
+     5. FECHAR           → conta o dinheiro da gaveta e compara com o que deveria ter
+
+   Deveria ter na gaveta =
+     dinheiro inicial + notas recebidas − troco devolvido
+     + dinheiro colocado − dinheiro tirado
+
+   O caixa fica no banco (tabela "caixas"). As contas são refeitas no
+   servidor, que é quem grava; aqui elas servem para mostrar na tela.
+   ========================================================================== */
+
+window.Fomito = window.Fomito || {};
+
+(() => {
+  /* ---------- Contas do caixa ---------- */
+  const VENDAS = ["comanda", "entrega", "balcao"];
+  const resumo = (caixa) => {
+    const r = { vendas: 0, porForma: { dinheiro: 0, pix: 0, credito: 0, debito: 0 }, recebidoDinheiro: 0, troco: 0, sangrias: 0, suprimentos: 0, qtdVendas: 0 };
+    caixa.movimentos.forEach((m) => {
+      if (VENDAS.includes(m.tipo)) {
+        r.vendas += m.valor;
+        r.qtdVendas++;
+        r.porForma[m.forma] = (r.porForma[m.forma] || 0) + m.valor;
+        r.troco += m.troco || 0;
+        if (m.forma === "dinheiro") r.recebidoDinheiro += m.recebido ?? m.valor; // notas que o cliente deu
+      }
+      if (m.tipo === "sangria") r.sangrias += m.valor;
+      if (m.tipo === "suprimento") r.suprimentos += m.valor;
+    });
+    r.esperado = caixa.fundo + r.porForma.dinheiro - r.sangrias + r.suprimentos;
+    return r;
+  };
+
+  /* ---------- Consultas ---------- */
+  const estado = () => Fomito.estado.caixa || { aberto: null, fechamentos: [] };
+  const aberto = () => estado().aberto;
+
+  /* ---------- Ações (administrador) ---------- */
+  const abrir = ({ fundo }) => Fomito.acao("POST", "/caixa/abrir", { fundo });
+
+  /** Tirar dinheiro (sangria) ou colocar dinheiro (suprimento) */
+  const registrar = ({ tipo, ref, valor }) => Fomito.acao("POST", "/caixa/movimento", { tipo, ref, valor });
+
+  /** Corrige um pagamento. Retorna o movimento corrigido, ou a mensagem de erro (texto). */
+  async function corrigir(id, novo, { motivo }) {
+    try { return await Fomito.acao("POST", "/caixa/corrigir", { id, novo, motivo }); }
+    catch (err) { return err.message; }
+  }
+
+  /** Todas as correções do caixa, da mais nova para a mais antiga (para o registro) */
+  const correcoes = (caixa) => (caixa?.movimentos || [])
+    .flatMap((m) => (m.correcoes || []).map((c) => ({ ...c, movimento: m })))
+    .sort((a, b) => b.em - a.em);
+
+  /** Fecha o caixa com o dinheiro contado na gaveta */
+  const fechar = ({ contado, obs = "" }) => Fomito.acao("POST", "/caixa/fechar", { contado, obs });
+
+  const FORMAS = { dinheiro: "Dinheiro", pix: "Pix", credito: "Cartão de crédito", debito: "Cartão de débito" };
+  /* Nomes que aparecem na tela (simples, para qualquer um entender) */
+  const NOMES = { sangria: "Tirar dinheiro", suprimento: "Colocar dinheiro", fundo: "Dinheiro inicial" };
+
+  Fomito.caixa = { estado, aberto, abrir, registrar, corrigir, correcoes, fechar, resumo, FORMAS, NOMES };
+})();

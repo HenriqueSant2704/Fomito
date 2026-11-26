@@ -1,0 +1,50 @@
+/* ==========================================================================
+   FOMITO · PORTAL (login da equipe)
+   ========================================================================== */
+
+body { min-height: 100vh; background: var(--superficie); }
+
+.portal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 100vh; }
+
+.portal__marca {
+  background: radial-gradient(120% 80% at 10% 0%, var(--roxo) 0%, var(--roxo-escuro) 70%);
+  color: #fff; padding: 40px 48px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 32px;
+  position: relative; overflow: hidden;
+}
+.portal__marca::after {
+  content: ""; position: absolute; right: -120px; bottom: -120px;
+  width: 360px; height: 360px; border-radius: 50%;
+  border: 48px solid var(--laranja); opacity: .9;
+}
+.portal__frase { max-width: 420px; display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
+.portal__frase h1 { color: #fff; font-size: 40px; font-weight: 900; }
+.portal__frase p { color: rgba(255,255,255,.75); font-size: 16px; }
+
+.portal__form { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 32px 20px; gap: 24px; position: relative; }
+.voltar { position: absolute; top: 24px; left: 24px; display: inline-flex; align-items: center; gap: 6px; color: var(--texto-suave); text-decoration: none; font-weight: 500; }
+.voltar:hover { color: var(--roxo); }
+
+.cartao-login { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; }
+.cartao-login h2 { font-size: 26px; }
+.so-celular { display: none; }
+
+.senha { position: relative; }
+.senha .input { padding-right: 84px; }
+.senha__ver { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 12.5px; font-weight: 600; color: var(--roxo); padding: 6px 8px; }
+
+.erro { background: var(--vermelho-claro); color: var(--vermelho-escuro); padding: 10px 12px; border-radius: var(--raio-md); font-size: 13px; }
+
+.dica-demo { border-top: 1px solid var(--borda); padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.dica-demo__item {
+  display: flex; justify-content: space-between; gap: 8px; text-align: left;
+  padding: 10px 12px; border: 1px dashed var(--borda-forte); border-radius: var(--raio-md); font-size: 13px;
+}
+.dica-demo__item:hover { border-color: var(--roxo-medio); background: var(--superficie-2); }
+
+@media (max-width: 820px) {
+  .portal { grid-template-columns: 1fr; }
+  .portal__marca { display: none; }
+  .so-celular { display: block; }
+  .portal__form { justify-content: flex-start; padding-top: 80px; }
+}

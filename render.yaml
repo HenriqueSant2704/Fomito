@@ -1,0 +1,27 @@
+# Render Blueprint do Fomito: no Render, New → Blueprint → escolha este repositório.
+# Depois preencha DATABASE_URL (Neon) e ADMIN_PASSWORD quando o Render pedir.
+services:
+  - type: web
+    name: fomito
+    runtime: node
+    plan: free
+    branch: main
+    autoDeploy: true
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /saude
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: America/Sao_Paulo
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_NAME
+        value: Administrador
+      - key: ADMIN_PASSWORD
+        sync: false

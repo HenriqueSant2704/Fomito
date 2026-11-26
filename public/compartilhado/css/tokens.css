@@ -1,0 +1,59 @@
+/* ==========================================================================
+   FOMITO · TOKENS DA MARCA
+   --------------------------------------------------------------------------
+   Este é o ÚNICO lugar onde cores, fontes, raios e sombras são definidos.
+   Para mudar o visual do sistema inteiro, altere os valores aqui.
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap");
+
+:root {
+  /* ---- Paleta oficial ---- */
+  --roxo: #4B2B8F;          /* Cor institucional: ações principais, menus */
+  --laranja: #FF8A00;       /* Destaque: usar com moderação (alertas de novo, detalhes) */
+  --creme: #FFF7ED;         /* Fundos de apoio (avisos, resumos) */
+  --verde: #22C55E;         /* Sucesso */
+  --vermelho: #EF4444;      /* Erro / alerta */
+
+  /* ---- Variações (derivadas da paleta oficial) ---- */
+  --roxo-escuro: #2A1757;
+  --roxo-hover: #3D2276;
+  --roxo-medio: #7A62B8;
+  --roxo-claro: #F1EDF9;
+  --laranja-escuro: #C26800;
+  --laranja-claro: #FFF1E0;
+  --verde-escuro: #15803D;
+  --verde-claro: #EAF8EF;
+  --vermelho-escuro: #B91C1C;
+  --vermelho-claro: #FDECEC;
+  --amarelo-escuro: #A16207;
+  --amarelo-claro: #FEF6DC;
+
+  /* ---- Neutros (levemente puxados para o roxo) ---- */
+  --texto: #1B1530;
+  --texto-suave: #5F5A70;
+  --texto-fraco: #9A96A8;
+  --borda: #E7E4EE;
+  --borda-forte: #D5D0E0;
+  --superficie: #FFFFFF;
+  --superficie-2: #F6F4FA;
+  --fundo: #F8F7FA;
+
+  /* ---- Tipografia ---- */
+  --fonte-marca: "Nunito", system-ui, sans-serif;   /* logo e títulos */
+  --fonte-texto: "Inter", system-ui, sans-serif;    /* interface e textos */
+
+  /* ---- Raios ---- */
+  --raio-sm: 6px;
+  --raio-md: 10px;
+  --raio-lg: 14px;
+  --raio-xl: 20px;
+  --raio-pill: 999px;
+
+  /* ---- Sombras (sutis) ---- */
+  --sombra-sm: 0 1px 2px rgba(27, 21, 48, .05);
+  --sombra-md: 0 4px 12px rgba(27, 21, 48, .06);
+  --sombra-lg: 0 16px 40px rgba(27, 21, 48, .12);
+
+  --transicao: 160ms ease;
+}

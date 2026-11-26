@@ -1,0 +1,102 @@
+/* ==========================================================================
+   FOMITO · FUNÇÕES UTILITÁRIAS
+   Pequenas funções usadas por todas as telas. Depende de icones.js e ilustracoes.js.
+   ========================================================================== */
+
+window.Fomito = window.Fomito || {};
+
+/* Formata número como moeda: 24.9 -> "R$ 24,90" */
+/* Taxa de entrega: R$ 0 vira "Frete grátis" */
+Fomito.taxaTexto = (valor) => (Number(valor) > 0 ? Fomito.moeda(Number(valor)) : "Frete grátis");
+
+Fomito.moeda = (valor) =>
+  valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+/* Atalhos para selecionar elementos */
+Fomito.$ = (seletor, raiz = document) => raiz.querySelector(seletor);
+Fomito.$$ = (seletor, raiz = document) => [...raiz.querySelectorAll(seletor)];
+
+/* Mostra uma mensagem rápida no rodapé da tela */
+Fomito.toast = (mensagem, icone = "check") => {
+  document.querySelector(".toast")?.remove();
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = `${Fomito.icone(icone, "ic--sm")}${mensagem}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+};
+
+/* HTML do logo do restaurante (símbolo + nome), vindo das Configurações */
+Fomito.logo = (claro = false) => {
+  const marca = Fomito.config.ler().marca;
+  return `
+  <span class="logo ${claro ? "logo--claro" : ""}">
+    ${Fomito.config.simbolo(marca)}
+    <span class="logo__nome">${marca.nome}</span>
+  </span>`;
+};
+
+/* Uma foto da galeria: imagem enviada pelo dono (src) ou ilustração (desenho + cena) */
+Fomito.imagemFoto = (foto, categoria) => {
+  if (foto?.src) return `<img class="foto__img" src="${foto.src}" alt="${foto.legenda || ""}">`;
+  return foto && Fomito.cena ? Fomito.cena(foto.desenho, foto.cena, categoria) : Fomito.icone(categoria);
+};
+
+/* Miniatura do produto: usa a primeira foto da galeria (a capa) */
+Fomito.foto = (produto, tamanho = 56) =>
+  `<div class="foto" style="width:${tamanho}px;height:${tamanho}px">${Fomito.imagemFoto(produto.fotos?.[0], produto.cat)}</div>`;
+
+/* Soma o total de uma lista de itens [{id, qtd}] */
+Fomito.totalItens = (itens) =>
+  itens.reduce((soma, item) => soma + Fomito.produto(item.id).preco * item.qtd, 0);
+
+/* ---------- Janelas no estilo do sistema (no lugar de prompt, alert e confirm) ----------
+   Fomito.dialogo({ titulo, texto, topo, campos: [{ id, rotulo, valor, tipo, placeholder, obrigatorio, ajuda }],
+                    confirmar, cancelar, perigo, aoDigitar(valores, camada) })
+   → Promise com os valores { id: valor } (ou true sem campos), ou null se cancelou. */
+Fomito.dialogo = ({ titulo, texto = "", topo = "", campos = [], confirmar = "Confirmar", cancelar = "Cancelar", perigo = false, aoDigitar } = {}) =>
+  new Promise((resolver) => {
+    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    const camada = document.createElement("div");
+    camada.className = "sobreposicao sobreposicao--centro dialogo";
+    camada.innerHTML = `
+      <form class="folha dialogo__folha" novalidate>
+        <div class="folha__topo"><h2>${titulo}</h2><button type="button" class="btn-icone" data-cancelar aria-label="Fechar">${Fomito.icone("fechar")}</button></div>
+        ${topo}
+        ${texto ? `<p class="suave dialogo__texto">${texto}</p>` : ""}
+        ${campos.map((c) => `
+          <div class="campo">
+            <label for="dlg-${c.id}">${c.rotulo}${c.obrigatorio ? ` <span class="obrigatorio">*</span>` : ""}</label>
+            ${c.tipo === "textarea"
+              ? `<textarea id="dlg-${c.id}" class="input" rows="2" data-campo-dialogo="${c.id}" placeholder="${esc(c.placeholder)}" maxlength="${c.max || 200}">${esc(c.valor)}</textarea>`
+              : `<input id="dlg-${c.id}" class="input" data-campo-dialogo="${c.id}" value="${esc(c.valor)}" placeholder="${esc(c.placeholder)}" maxlength="${c.max || 120}" ${c.tipo === "moeda" ? `inputmode="decimal"` : ""} autocomplete="off">`}
+            ${c.ajuda ? `<span class="pequeno fraco">${c.ajuda}</span>` : ""}
+          </div>`).join("")}
+        <p class="form-erro" hidden></p>
+        <div class="dialogo__acoes">
+          <button type="button" class="btn btn--contorno" data-cancelar>${cancelar}</button>
+          <button type="submit" class="btn ${perigo ? "btn--perigo" : "btn--primario"}">${confirmar}</button>
+        </div>
+      </form>`;
+    document.body.appendChild(camada);
+    const form = camada.querySelector("form");
+    const valores = () => Object.fromEntries(campos.map((c) => [c.id, form.querySelector(`[data-campo-dialogo="${c.id}"]`).value.trim()]));
+    const fechar = (resultado) => { document.removeEventListener("keydown", tecla, true); camada.remove(); resolver(resultado); };
+    const tecla = (e) => { if (e.key === "Escape") { e.stopPropagation(); fechar(null); } };
+    document.addEventListener("keydown", tecla, true);
+    camada.addEventListener("click", (e) => { if (e.target === camada || e.target.closest("[data-cancelar]")) fechar(null); });
+    form.addEventListener("input", () => { form.querySelector(".form-erro").hidden = true; aoDigitar?.(valores(), camada); });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const v = valores();
+      const faltando = campos.find((c) => c.obrigatorio && !v[c.id]);
+      const erro = faltando ? `Preencha: ${faltando.rotulo.toLowerCase()}.` : campos.map((c) => c.validar?.(v[c.id])).find(Boolean);
+      if (erro) { const el = form.querySelector(".form-erro"); el.textContent = erro; el.hidden = false; return; }
+      fechar(campos.length ? v : true);
+    });
+    (form.querySelector("[data-campo-dialogo]") || form.querySelector("[type=submit]")).focus();
+  });
+
+/** Pergunta sim/não. Ex.: if (!(await Fomito.confirmar("Cancelar pedido?", "...", "Cancelar pedido"))) return; */
+Fomito.confirmar = (titulo, texto, botao = "Confirmar", perigo = true) =>
+  Fomito.dialogo({ titulo, texto, confirmar: botao, cancelar: "Voltar", perigo }).then(Boolean);

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fomito · Cardápio</title>
+
+  <!-- Estilos: tokens da marca → base compartilhada → estilo desta tela -->
+  <link rel="stylesheet" href="../compartilhado/css/tokens.css">
+  <link rel="stylesheet" href="../compartilhado/css/base.css">
+  <link rel="stylesheet" href="cliente.css">
+</head>
+<body>
+
+  <!-- Tela inicial do sistema: o cardápio do cliente -->
+  <main class="app" id="app">
+
+    <!-- ============ TELA 1: CARDÁPIO ============ -->
+    <section class="tela" data-tela="cardapio">
+
+      <!-- Vitrine: imagens que o dono escolhe para apresentar a casa -->
+      <header class="vitrine">
+        <div class="vitrine__trilho" id="vitrine"></div>
+        <div class="vitrine__topo">
+          <span class="vitrine__marca" id="logo" aria-label="Logo do restaurante"></span>
+          <button class="vitrine__botao" id="botaoMeusPedidos" aria-label="Meus pedidos" data-ir="acompanhamento"><i data-icone="pedidos"></i></button>
+        </div>
+        <div class="vitrine__pontos" id="vitrinePontos"></div>
+      </header>
+
+      <!-- Cartão da loja, sobreposto à vitrine -->
+      <section class="loja">
+        <div class="entre" style="align-items:flex-start">
+          <div class="pilha" style="gap:2px;min-width:0">
+            <h1 class="loja__nome" id="nomeLoja"></h1>
+            <span class="suave pequeno" id="sloganLoja"></span>
+          </div>
+          <span class="tag tag--verde" id="statusLoja">Aberto</span>
+        </div>
+        <div class="loja__meta">
+          <span><i data-icone="relogio" class="ic--sm"></i><span id="tempoLoja"></span></span>
+          <span><i data-icone="entrega" class="ic--sm"></i><span id="taxaLoja"></span></span>
+          <span><i data-icone="local" class="ic--sm"></i>Salão com mesas</span>
+        </div>
+      </section>
+
+      <!-- Comanda aberta da mesa (aparece depois que o cliente pede para comer no local) -->
+      <div class="conteudo conteudo--comanda" id="minhaComanda"></div>
+
+      <div class="conteudo">
+        <label class="busca">
+          <i data-icone="busca" class="ic--sm"></i>
+          <input type="search" id="busca" placeholder="Buscar lanche, porção ou bebida">
+        </label>
+
+        <!-- Mais pedidos: carrossel horizontal -->
+        <section class="destaques" id="blocoDestaques">
+          <div class="entre"><h2 class="titulo-secao">Os mais pedidos</h2><span class="pequeno fraco">Deslize</span></div>
+          <div class="destaques__trilho" id="destaques"></div>
+        </section>
+      </div>
+
+      <nav class="abas categorias" id="categorias"></nav>
+      <div class="conteudo" id="listaProdutos"></div>
+
+      <!-- Rodapé com o acesso discreto ao Portal da equipe -->
+      <footer class="rodape-loja">
+        <div class="pilha" style="gap:4px">
+          <span class="forte" id="rodapeNome"></span>
+          <span class="pequeno suave" id="rodapeEndereco"></span>
+          <span class="pequeno suave" id="rodapeHorario"></span>
+        </div>
+        <div class="entre rodape-loja__base">
+          <span class="pequeno fraco">Pedidos com Fomito</span>
+          <a class="portal-link" href="../portal/"><i data-icone="cadeado" class="ic--sm"></i>Portal</a>
+        </div>
+      </footer>
+
+      <!-- Barra da sacola (aparece quando há itens) -->
+      <button class="barra-sacola" id="barraSacola" data-ir="carrinho" hidden>
+        <span class="linha"><i data-icone="sacola"></i><span>Ver sacola</span><span class="barra-sacola__qtd" id="barraQtd">0</span></span>
+        <span class="num" id="barraTotal">R$ 0,00</span>
+      </button>
+    </section>
+
+    <!-- ============ TELA 2: DETALHE DO PRODUTO ============ -->
+    <section class="tela tela--produto" data-tela="produto" hidden></section>
+
+    <!-- ============ TELA 3: SACOLA ============ -->
+    <section class="tela" data-tela="carrinho" hidden>
+      <header class="cabecalho">
+        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar"><i data-icone="voltar"></i></button>
+        <h2>Sacola</h2>
+        <span class="cabecalho__espaco"></span>
+      </header>
+      <div class="conteudo" id="itensCarrinho"></div>
+      <footer class="rodape-fixo" id="resumoCarrinho"></footer>
+    </section>
+
+    <!-- ============ TELA 4: FINALIZAR ============ -->
+    <section class="tela" data-tela="checkout" hidden>
+      <header class="cabecalho">
+        <button class="btn-icone" data-ir="carrinho" aria-label="Voltar"><i data-icone="voltar"></i></button>
+        <h2>Finalizar pedido</h2>
+        <span class="cabecalho__espaco"></span>
+      </header>
+      <div class="conteudo" id="checkout"></div>
+      <footer class="rodape-fixo" id="rodapeCheckout"></footer>
+    </section>
+
+    <!-- ============ TELA 5: ACOMPANHAMENTO ============ -->
+    <section class="tela" data-tela="acompanhamento" hidden>
+      <header class="cabecalho">
+        <button class="btn-icone" data-ir="cardapio" aria-label="Voltar"><i data-icone="voltar"></i></button>
+        <h2>Meus pedidos</h2>
+        <span class="cabecalho__espaco"></span>
+      </header>
+      <div class="conteudo" id="acompanhamento"></div>
+    </section>
+
+  </main>
+
+  <!-- Scripts: ícones → ilustrações → dados → utilitários → lógica desta tela -->
+
+  <script src="../compartilhado/js/api.js"></script>
+  <script>
+    Fomito.iniciar([
+      "../compartilhado/js/icones.js",
+      "../compartilhado/js/config.js",
+      "../compartilhado/js/ilustracoes.js",
+      "../compartilhado/js/dados.js",
+      "../compartilhado/js/utils.js",
+      "../compartilhado/js/clientes.js",
+      "../compartilhado/js/comandas.js",
+      "../compartilhado/js/pedidos.js",
+      "cliente.js",
+    ]);
+  </script>
+</body>
+</html>

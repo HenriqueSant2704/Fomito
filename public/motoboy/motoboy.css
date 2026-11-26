@@ -1,0 +1,145 @@
+/* ==========================================================================
+   FOMITO · TELA DO MOTOBOY
+   Feita para o celular, usada com uma mão. O ENDEREÇO e o PEDIDO ficam
+   em destaque, e as entregas aparecem separadas por bairro.
+   ========================================================================== */
+
+body { background: var(--fundo); min-height: 100vh; padding-bottom: 96px; }
+
+/* ---------- Topo roxo com resumo e abas ---------- */
+.topo-moto {
+  background: var(--roxo); color: #fff;
+  padding: 14px 16px 0; position: sticky; top: 0; z-index: 20;
+  padding-top: max(14px, env(safe-area-inset-top));
+}
+.topo-moto__linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 720px; margin: 0 auto; }
+.topo-moto__simbolo .logo__simbolo { width: 36px; height: 36px; display: block; }
+.topo-moto__titulo { font-family: var(--fonte-marca); font-weight: 800; font-size: 19px; line-height: 1.1; }
+.topo-moto__sub { color: rgba(255, 255, 255, .72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-icone--claro { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .16); color: #fff; }
+.btn-icone--claro:hover { color: #fff; border-color: rgba(255, 255, 255, .4); }
+
+.resumo-moto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 720px; margin: 14px auto 0; }
+.resumo-moto__item { background: rgba(255, 255, 255, .1); border-radius: var(--raio-md); padding: 9px 11px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.resumo-moto__item span { font-size: 11.5px; color: rgba(255, 255, 255, .72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.resumo-moto__item strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+
+.abas-moto { display: flex; gap: 4px; max-width: 720px; margin: 12px auto 0; }
+.abas-moto button {
+  flex: 1; height: 44px; color: rgba(255, 255, 255, .72); font-weight: 600; font-size: 14px;
+  border-bottom: 3px solid transparent; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.abas-moto button.ativo { color: #fff; border-bottom-color: var(--laranja); }
+.abas-moto small {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--raio-pill);
+  background: rgba(255, 255, 255, .16); font-size: 11.5px; display: inline-grid; place-items: center;
+}
+.abas-moto button.ativo small { background: var(--laranja); color: #fff; }
+
+/* ---------- Conteúdo ---------- */
+.conteudo-moto { max-width: 720px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+#lista { display: flex; flex-direction: column; gap: 22px; }
+
+.ativar-avisos { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--raio-md); background: var(--laranja-claro); border: 1px solid #F6D3A8; color: #6B4A1F; font-size: 13px; }
+.ativar-avisos > .ic { color: var(--laranja-escuro); flex: none; }
+.ativar-avisos .btn { margin-left: auto; flex: none; }
+.avisos-ok { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--raio-md); background: var(--verde-claro); color: var(--verde-escuro); font-size: 12.5px; font-weight: 500; }
+
+/* ---------- Grupo por bairro ---------- */
+.bairro { display: flex; flex-direction: column; gap: 10px; }
+.bairro__topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bairro__nome { display: flex; align-items: center; gap: 8px; font-family: var(--fonte-marca); font-weight: 800; font-size: 18px; min-width: 0; }
+.bairro__nome .ic { color: var(--roxo); flex: none; }
+.bairro__qtd { font-family: var(--fonte-texto); font-size: 12px; font-weight: 600; color: var(--roxo); background: var(--roxo-claro); border-radius: var(--raio-pill); padding: 2px 9px; white-space: nowrap; }
+
+/* ---------- Cartão da entrega ---------- */
+.entrega {
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-lg);
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+.entrega--selecionavel { cursor: pointer; }
+.entrega.selecionada { border-color: var(--roxo); box-shadow: 0 0 0 1px var(--roxo); }
+.entrega--nova { animation: piscar 1.2s ease 3; }
+@keyframes piscar { 50% { box-shadow: 0 0 0 4px rgba(255, 138, 0, .35); border-color: var(--laranja); } }
+
+.entrega__cabeca { display: flex; align-items: center; gap: 10px; }
+.entrega__num { font-weight: 700; font-variant-numeric: tabular-nums; }
+.entrega__tempo { margin-left: auto; font-size: 12px; color: var(--texto-fraco); white-space: nowrap; }
+.marcador {
+  width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--borda-forte);
+  display: grid; place-items: center; flex: none; color: #fff;
+}
+.selecionada .marcador { background: var(--roxo); border-color: var(--roxo); }
+.marcador .ic { width: 15px; height: 15px; stroke-width: 2.4; }
+
+/* Endereço: a informação mais importante, bem grande */
+.endereco-moto { display: flex; gap: 10px; align-items: flex-start; }
+.endereco-moto > .ic { color: var(--roxo); margin-top: 3px; flex: none; }
+.endereco-moto__rua { font-size: 19px; font-weight: 700; line-height: 1.25; letter-spacing: -.2px; }
+.endereco-moto__extra { font-size: 13.5px; color: var(--texto-suave); margin-top: 2px; }
+.endereco-moto__ref { font-size: 13px; color: var(--laranja-escuro); margin-top: 4px; display: flex; gap: 6px; align-items: flex-start; }
+.endereco-moto__ref .ic { width: 14px; height: 14px; margin-top: 2px; flex: none; }
+
+.cliente-moto { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.cliente-moto .ic { color: var(--texto-fraco); }
+
+.itens-moto { background: var(--superficie-2); border-radius: var(--raio-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.itens-moto b { font-variant-numeric: tabular-nums; }
+.itens-moto .obs { font-size: 12.5px; color: var(--laranja-escuro); }
+
+/* Quanto cobrar e como */
+.cobrar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--raio-md); border: 1px solid var(--borda); }
+.cobrar__icone { width: 36px; height: 36px; border-radius: var(--raio-sm); display: grid; place-items: center; background: var(--roxo-claro); color: var(--roxo); flex: none; }
+.cobrar__texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cobrar__valor { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cobrar--dinheiro { border-color: #F3C58C; background: var(--creme); }
+.cobrar--dinheiro .cobrar__icone { background: var(--laranja-claro); color: var(--laranja-escuro); }
+.levar-troco { color: var(--laranja-escuro); font-weight: 600; }
+
+.acoes-moto { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; }
+.acoes-moto .btn { height: 48px; }
+.acoes-moto .btn--contorno { padding: 0 14px; }
+
+/* Em preparo: só para o motoboy se planejar */
+.em-preparo { display: flex; flex-direction: column; gap: 8px; }
+.preparo-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--superficie); border: 1px dashed var(--borda-forte); border-radius: var(--raio-md); font-size: 13.5px; }
+.preparo-item .ic { color: var(--amarelo-escuro); flex: none; }
+
+/* Entregues hoje */
+.acerto { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-lg); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.acerto__destaque { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: var(--raio-md); background: var(--creme); color: #6B4A1F; }
+.acerto__destaque strong { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--laranja-escuro); }
+.feita { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--borda); }
+.feita:last-child { border-bottom: 0; }
+.feita__icone { width: 34px; height: 34px; border-radius: 50%; background: var(--verde-claro); color: var(--verde-escuro); display: grid; place-items: center; flex: none; }
+
+.vazio-moto { text-align: center; padding: 48px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--texto-suave); }
+.vazio-moto__icone { width: 64px; height: 64px; border-radius: 50%; background: var(--superficie-2); display: grid; place-items: center; color: var(--texto-fraco); margin-bottom: 6px; }
+
+/* ---------- Barra fixa "Sair com X pedidos" ---------- */
+.barra-saida {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  background: var(--superficie); border-top: 1px solid var(--borda); box-shadow: 0 -8px 24px rgba(27, 21, 48, .08);
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+}
+.barra-saida__dentro { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.barra-saida .btn { height: 50px; flex: 1; font-size: 15px; }
+
+/* ---------- Finalizar entrega (recebido obrigatório no dinheiro) ---------- */
+.receber { display: flex; flex-direction: column; gap: 16px; }
+.receber__total { padding: 16px; border-radius: var(--raio-lg); background: var(--superficie-2); display: flex; flex-direction: column; gap: 2px; }
+.receber__total .preco { font-size: 30px; font-family: var(--fonte-marca); font-weight: 800; }
+.formas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.formas .opcao { padding: 10px 12px; }
+.formas .opcao__icone { width: 32px; height: 32px; }
+.notas { display: flex; flex-wrap: wrap; gap: 6px; }
+.notas button { height: 34px; padding: 0 12px; border-radius: var(--raio-sm); border: 1px solid var(--borda); background: var(--superficie); font-size: 13px; font-weight: 500; }
+.notas button:hover { border-color: var(--roxo); color: var(--roxo); }
+.input--pendente { border-color: #F3C58C; background: var(--creme); }
+.troco-caixa { background: var(--verde-claro); color: var(--verde-escuro); padding: 12px 14px; border-radius: var(--raio-md); font-weight: 500; display: flex; justify-content: space-between; }
+.troco-caixa.erro { background: var(--vermelho-claro); color: var(--vermelho-escuro); }
+.troco-caixa.aviso-campo { background: var(--creme); color: var(--laranja-escuro); justify-content: flex-start; gap: 8px; font-size: 13px; align-items: center; }
+
+.lista-cartoes { display: flex; flex-direction: column; gap: 10px; }
+@media (max-width: 560px) { .ativar-avisos { flex-wrap: wrap; } .ativar-avisos .btn { margin-left: 0; } }
