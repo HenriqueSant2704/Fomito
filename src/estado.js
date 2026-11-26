@@ -123,12 +123,12 @@ async function estado(req, res) {
     r.pedidos = [];
     r.comandas = { abertas: [], fechadas: [] };
     if (disp) {
-      const { rows } = await db.query(`SELECT * FROM pedidos WHERE dispositivo = $1 AND criado_em > now() - interval '7 days' ORDER BY criado_em DESC LIMIT 20`, [disp]);
+      const { rows } = await db.query(`SELECT * FROM pedidos WHERE dispositivo = $1 AND criado_em > now() - interval '90 days' ORDER BY criado_em DESC LIMIT 30`, [disp]);
       r.pedidos = rows.map(pedidoDaLinha);
     }
     const { rows: abertas } = await db.query(`SELECT * FROM comandas WHERE aberta AND ((dados->'dispositivos') ? $1 OR mesa = $2)`, [disp || '-', mesaQR || 0]);
     const { rows: fechadas } = disp
-      ? await db.query(`SELECT * FROM comandas WHERE NOT aberta AND (dados->'dispositivos') ? $1 AND fechada_em > now() - interval '1 day'`, [disp])
+      ? await db.query(`SELECT * FROM comandas WHERE NOT aberta AND (dados->'dispositivos') ? $1 AND fechada_em > now() - interval '90 days' ORDER BY fechada_em DESC LIMIT 20`, [disp])
       : { rows: [] };
     r.comandas = { abertas: abertas.map(comandaDaLinha), fechadas: fechadas.map(comandaDaLinha) };
     return res.json(r);

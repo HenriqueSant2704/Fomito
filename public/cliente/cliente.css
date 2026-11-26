@@ -353,3 +353,14 @@ body { background: var(--fundo); }
 .item__sem { color: var(--vermelho-escuro) !important; }
 /* No celular a galeria passa com o dedo: as setas ficam só no computador */
 @media (hover: none), (max-width: 600px) { .galeria__setas { display: none; } }
+
+/* Meus pedidos: cartões dos pedidos anteriores e detalhes */
+button.anterior { width: 100%; font: inherit; color: inherit; cursor: pointer; border: 1px solid var(--borda); transition: border-color var(--transicao), box-shadow var(--transicao); }
+button.anterior:hover { border-color: var(--roxo-medio); }
+.anterior__seta { color: var(--texto-fraco); display: grid; place-items: center; }
+.detalhe-pedido__folha { display: flex; flex-direction: column; gap: 14px; max-width: 460px; }
+.detalhe-cabeca { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.detalhe-bloco { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--borda); }
+.detalhe-item { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; }
+.detalhe-item__obs { color: var(--vermelho-escuro); }
+.detalhe-totais { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--borda); }

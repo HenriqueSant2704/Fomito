@@ -876,14 +876,21 @@ async function enviarParaComanda() {
 }
 
 /* --- Tela "Meus pedidos" --- */
+/* "Meus pedidos": o que está em andamento (comanda aberta e pedidos ainda não entregues)
+   e, embaixo, todos os pedidos anteriores deste celular (entrega, retirada e mesa),
+   vindos do servidor. Tocar num cartão abre os detalhes. */
+const ATIVOS = ["novo", "preparo", "pronto", "rota"];
 function renderAcompanhamento() {
   verificarFechamento();
   const c = minhaComanda();
   const partes = [];
   if (c) partes.push(telaComanda(c));
-  const entrega = minhaEntrega && Fomito.pedidos.doNumero(minhaEntrega);
-  if (entrega) partes.push(telaEntrega(entrega));
-  const antigos = anteriores.filter((a) => a.numero !== entrega?.num);
+  const meus = Fomito.pedidos.lista();
+  meus.filter((p) => ATIVOS.includes(p.status)).forEach((p) => partes.push(telaEntrega(p)));
+  const antigos = [
+    ...meus.filter((p) => !ATIVOS.includes(p.status)).map((p) => ({ tipo: p.modo === "local" ? "retirada" : "entrega", chave: `p${p.num}`, data: p.entregueEm || p.canceladoEm || p.criadoEm, p })),
+    ...comandas.fechadas().map((f) => ({ tipo: "comanda", chave: `c${f.numero}`, data: f.fechadaEm, f })),
+  ].sort((a, b) => b.data - a.data);
   if (antigos.length) partes.push(listaAnteriores(antigos));
   $("#acompanhamento").innerHTML = partes.join(`<hr class="divisor">`) || `
     <div class="vazio"><span class="vazio__icone">${icone("pedidos", "ic--lg")}</span><p>Você ainda não fez nenhum pedido.</p><button class="btn btn--secundario" data-ir="cardapio">Ver cardápio</button></div>`;
@@ -997,19 +1004,111 @@ function telaRetirada(pedido) {
     ${forma ? `<div class="aviso">${icone(forma.icone, "ic--sm")}<span>Pagamento na retirada: <b>${forma.nome}</b>${pedido.pag === "dinheiro" && pedido.troco ? `, troco para ${moeda(pedido.troco)}` : ""}.</span></div>` : ""}`;
 }
 
+const dataHora = (ts) => new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " + comandas.hora(ts);
+const TITULO_TIPO = { entrega: "Entrega", retirada: "Retirada no balcão", comanda: "Comanda" };
+const ICONE_TIPO = { entrega: "entrega", retirada: "loja", comanda: "mesa" };
+
 function listaAnteriores(lista) {
-  const data = (ts) => new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " + comandas.hora(ts);
   return `
     <div class="pilha" style="gap:10px">
       <span class="rotulo">Pedidos anteriores</span>
-      ${lista.map((a) => `
-        <div class="card anterior">
-          <span class="anterior__icone">${icone(a.tipo === "comanda" ? "mesa" : a.tipo === "retirada" ? "loja" : "entrega", "ic--sm")}</span>
-          <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${a.titulo}</span><span class="pequeno suave">#${a.numero} · ${data(a.data)} · ${a.itens} itens</span></div>
-          <div class="pilha" style="gap:2px;align-items:flex-end"><span class="num forte">${moeda(a.total)}</span><span class="tag tag--${a.tipo === "comanda" ? "verde" : "cinza"}">${a.tipo === "comanda" ? "Paga" : a.tipo === "retirada" ? "No balcão" : "Na entrega"}</span></div>
-        </div>`).join("")}
+      ${lista.map((a) => {
+        const cancelado = a.p?.status === "cancelado";
+        const numero = a.p ? a.p.num : a.f.numero;
+        const titulo = a.tipo === "comanda" ? `Comanda · ${comandas.mesaTexto(a.f.mesa)}` : TITULO_TIPO[a.tipo];
+        const itens = a.p ? Fomito.pedidos.qtdItens(a.p) : comandas.qtdItens(a.f);
+        const total = a.p ? a.p.total : a.f.total;
+        const tag = cancelado ? ["vermelho", "Cancelado"] : a.tipo === "comanda" ? ["verde", "Paga"] : a.tipo === "retirada" ? ["verde", "Retirado"] : ["verde", "Entregue"];
+        return `
+        <button class="card anterior" data-ver-pedido="${a.chave}">
+          <span class="anterior__icone">${icone(ICONE_TIPO[a.tipo], "ic--sm")}</span>
+          <div class="pilha" style="gap:0;flex:1;min-width:0;text-align:left"><span class="forte">${titulo}</span><span class="pequeno suave">#${numero} · ${dataHora(a.data)} · ${itens} ${itens === 1 ? "item" : "itens"}</span></div>
+          <div class="pilha" style="gap:2px;align-items:flex-end"><span class="num forte">${moeda(total)}</span><span class="tag tag--${tag[0]}">${tag[1]}</span></div>
+          <span class="anterior__seta">${icone("seta", "ic--sm")}</span>
+        </button>`;
+      }).join("")}
     </div>`;
 }
+
+/* Detalhes de um pedido anterior: itens, pagamento e quanto foi pago */
+function abrirDetalhePedido(chave) {
+  const tipoChave = chave[0];
+  const numero = Number(chave.slice(1));
+  const p = tipoChave === "p" ? Fomito.pedidos.doNumero(numero) : null;
+  const f = tipoChave === "c" ? comandas.fechadas().find((x) => x.numero === numero) : null;
+  if (!p && !f) return;
+  const formas = Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome]));
+  const linhaItem = (qtd, nome, valor, obs, extras = []) => `
+    <div class="detalhe-item">
+      <div class="entre"><span><b>${qtd}×</b> ${nome}</span><span class="num">${moeda(valor)}</span></div>
+      ${extras.length ? `<span class="pequeno suave">+ ${extras.join(", ")}</span>` : ""}
+      ${obs ? `<span class="pequeno detalhe-item__obs">${obs}</span>` : ""}
+    </div>`;
+  const nomesExtras = (id, ids = []) => (dados.adicionais[Fomito.produto(id).cat] || []).filter((a) => ids.includes(a.id)).map((a) => a.nome);
+  let corpo;
+  if (p) {
+    const retirada = p.modo === "local";
+    const subtotal = p.itens.reduce((s, it) => s + Fomito.pedidos.precoItem(it), 0);
+    const pago = p.pagoCom
+      ? `${formas[p.pagoCom] || p.pagoCom}${p.recebido ? ` · você deu ${moeda(p.recebido)}${p.trocoDado ? `, troco de ${moeda(p.trocoDado)}` : ""}` : ""}`
+      : `${formas[p.pag] || "-"}${p.pag === "dinheiro" && p.troco ? ` · troco para ${moeda(p.troco)}` : ""}`;
+    corpo = `
+      <div class="detalhe-cabeca">
+        <span class="tag tag--${p.status === "cancelado" ? "vermelho" : "verde"}">${p.status === "cancelado" ? "Cancelado" : retirada ? "Retirado" : "Entregue"}</span>
+        <span class="pequeno suave">${dataHora(p.criadoEm)}</span>
+      </div>
+      <div class="detalhe-bloco"><span class="rotulo">Itens</span>
+        ${p.itens.map((it) => linhaItem(it[1], it[5] || Fomito.produto(it[0]).nome, Fomito.pedidos.precoItem(it), it[3], nomesExtras(it[0], it[2]))).join("")}
+        <div class="detalhe-totais">
+          <div class="entre pequeno"><span class="suave">Subtotal</span><span class="num">${moeda(subtotal)}</span></div>
+          ${retirada ? "" : `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span class="num">${Fomito.taxaTexto(p.taxa ?? 0)}</span></div>`}
+          <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(p.total)}</span></div>
+        </div>
+      </div>
+      <div class="detalhe-bloco"><span class="rotulo">Pagamento</span>
+        <span>${p.status === "cancelado" ? "Pedido cancelado: nada foi cobrado." : pago}</span>
+        ${p.status === "cancelado" ? "" : `<span class="pequeno suave">Valor pago: <b>${moeda(p.total)}</b>${retirada ? " na retirada" : " na entrega"}</span>`}
+      </div>
+      <div class="detalhe-bloco"><span class="rotulo">${retirada ? "Retirada" : "Entrega"}</span>
+        <span class="pequeno">${retirada ? `No balcão, em nome de ${p.cliente}` : `${p.cliente} · ${p.endereco}`}</span>
+        ${!retirada && p.motoboy && p.entregueEm ? `<span class="pequeno suave">Entregue por ${p.motoboy.split(" ")[0]} às ${comandas.hora(p.entregueEm)}</span>` : ""}
+      </div>`;
+  } else {
+    const consumo = comandas.total(f);
+    corpo = `
+      <div class="detalhe-cabeca">
+        <span class="tag tag--verde">Paga</span>
+        <span class="pequeno suave">${comandas.hora(f.abertaEm)} – ${comandas.hora(f.fechadaEm)} · ${dataHora(f.fechadaEm).split(" às ")[0]}</span>
+      </div>
+      <div class="detalhe-bloco"><span class="rotulo">Itens</span>
+        ${f.rodadas.flatMap((r) => r.itens).map((it) => linhaItem(it.qtd, it.nome || Fomito.produto(it.id).nome, comandas.precoItem(it), it.obs, nomesExtras(it.id, it.extras))).join("")}
+        <div class="detalhe-totais">
+          <div class="entre pequeno"><span class="suave">Consumo</span><span class="num">${moeda(consumo)}</span></div>
+          ${f.servico ? `<div class="entre pequeno"><span class="suave">Serviço (10%)</span><span class="num">${moeda(f.servico)}</span></div>` : ""}
+          <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(f.total)}</span></div>
+        </div>
+      </div>
+      <div class="detalhe-bloco"><span class="rotulo">Pagamento</span>
+        ${(f.pagamentos || []).map((pg) => `<div class="entre pequeno"><span>${formas[pg.forma] || pg.forma}${pg.recebido ? ` <span class="suave">(deu ${moeda(pg.recebido)}, troco ${moeda(pg.troco || 0)})</span>` : ""}</span><span class="num">${moeda(pg.valor)}</span></div>`).join("") || `<span>${formas[f.forma] || "-"}</span>`}
+        <span class="pequeno suave">Valor pago: <b>${moeda(f.total)}</b></span>
+      </div>`;
+  }
+  const titulo = p ? `Pedido #${p.num} · ${TITULO_TIPO[p.modo === "local" ? "retirada" : "entrega"]}` : `Comanda #${f.numero} · ${comandas.mesaTexto(f.mesa)}`;
+  const camada = document.createElement("div");
+  camada.className = "sobreposicao detalhe-pedido";
+  camada.innerHTML = `
+    <div class="folha detalhe-pedido__folha">
+      <div class="folha__topo"><h2>${titulo}</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+      ${corpo}
+      <button class="btn btn--contorno btn--bloco" data-fechar>Fechar</button>
+    </div>`;
+  document.body.appendChild(camada);
+  camada.addEventListener("click", (e) => { if (e.target === camada || e.target.closest("[data-fechar]")) camada.remove(); });
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ver-pedido]");
+  if (b) abrirDetalhePedido(b.dataset.verPedido);
+});
 
 /* Botões da comanda (no início e em "Meus pedidos") */
 document.addEventListener("click", async (e) => {
@@ -1033,8 +1132,8 @@ function atualizarTelas() {
   if (!$('[data-tela="acompanhamento"]').hidden) renderAcompanhamento();
 }
 setInterval(() => {
-  const entrega = minhaEntrega && Fomito.pedidos.doNumero(minhaEntrega);
-  const versao = JSON.stringify([minha ? comandas.daMesa(minha.mesa) : null, entrega?.status, entrega?.motoboy]);
+  const versao = JSON.stringify([minha ? comandas.daMesa(minha.mesa) : null,
+    Fomito.pedidos.lista().map((p) => [p.num, p.status, p.motoboy]), comandas.fechadas().map((f) => f.numero)]);
   if (versao !== ultimaVersao) { ultimaVersao = versao; atualizarTelas(); }
 }, 3000);
 
