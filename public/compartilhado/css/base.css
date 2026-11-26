@@ -270,3 +270,13 @@ body.ocupado .btn--primario { opacity: .75; }
 .dialogo__acoes { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
 .dialogo__acoes .btn { min-width: 110px; }
 @media (max-width: 480px) { .dialogo__acoes .btn { flex: 1; } }
+
+/* ---------- Celular: sem zoom ao tocar ----------
+   O celular dá zoom sozinho quando o campo tem letra menor que 16px, e o
+   toque duplo também dá zoom. Aqui os campos ficam com 16px no celular e o
+   toque não amplia a tela (a página fica sempre parada, só escreve). */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
+button, a, label, select, input, textarea, [data-ir], [data-produto] { touch-action: manipulation; }
+@media (max-width: 900px), (pointer: coarse) {
+  input, select, textarea, .input { font-size: 16px !important; }
+}
