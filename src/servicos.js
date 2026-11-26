@@ -244,13 +244,13 @@ async function comandaAberta(c, mesa) {
 }
 
 /** Lança uma rodada. Se a mesa não tem comanda aberta, abre uma. */
-async function lancarNaComanda(mesa, itensRecebidos, { nome = '', por = 'qr', dispositivo = null } = {}) {
+async function lancarNaComanda(mesa, itensRecebidos, { nome = '', por = 'qr', quem = '', dispositivo = null } = {}) {
   const { cardapio } = loja.obter();
   const n = Number(mesa);
   if (!Number.isInteger(n) || n < 1 || n > cardapio.lanchonete.mesas) falhar(400, 'Mesa inválida.');
   if (por === 'qr' && cardapio.lanchonete.aberta === false) falhar(409, 'A loja não está recebendo pedidos agora. Chame o garçom.');
   const itens = montarItens(cardapio, itensRecebidos);
-  const rodada = { hora: Date.now(), por, status: 'recebido', itens };
+  const rodada = { hora: Date.now(), por, ...(quem ? { quem } : {}), status: 'recebido', itens }; // quem: nome do garçom/atendente que lançou
 
   const tentar = () => db.tx(async (c) => {
     let linha = await comandaAberta(c, n);

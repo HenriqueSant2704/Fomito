@@ -67,12 +67,13 @@ window.Fomito = window.Fomito || {};
     const data = agora.toLocaleDateString("pt-BR") + " " + agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const forma = Fomito.dados.formasPagamento.find((f) => f.id === pedido.pag);
 
-    const itens = pedido.itens.map(([id, qtd, extras = [], obs = ""]) => {
+    /* Cada item guarda o nome e o preço da hora do pedido: [id, qtd, extras, obs, preço unitário, nome] */
+    const itens = pedido.itens.map(([id, qtd, extras = [], obs = "", preco, nome]) => {
       const p = Fomito.produto(id);
       const nomesExtras = (Fomito.dados.adicionais[p.cat] || []).filter((a) => extras.includes(a.id));
-      const unit = p.preco + nomesExtras.reduce((s, a) => s + a.preco, 0);
+      const unit = preco ?? p.preco + nomesExtras.reduce((s, a) => s + a.preco, 0);
       return [
-        colunas(`${qtd}x ${p.nome}`.slice(0, 32), valor(unit * qtd)),
+        colunas(`${qtd}x ${nome || p.nome}`.slice(0, 32), valor(unit * qtd)),
         ...nomesExtras.map((a) => `   + ${a.nome}`),
         ...(obs ? [`   OBS: ${obs}`] : []),
       ].join("\n");
@@ -83,7 +84,7 @@ window.Fomito = window.Fomito || {};
       centro(marca.nome.toUpperCase()),
       centro(loja.endereco),
       linha,
-      colunas(`PEDIDO #${pedido.num}`, pedido.modo === "entrega" ? "ENTREGA" : "NO LOCAL"),
+      colunas(`PEDIDO #${pedido.num}`, pedido.modo === "entrega" ? "ENTREGA" : "RETIRADA BALCAO"),
       data,
       `Cliente: ${pedido.cliente}`,
       ...(pedido.telefone ? [`Tel: ${pedido.telefone}`] : []),
@@ -94,7 +95,7 @@ window.Fomito = window.Fomito || {};
       ...(pedido.modo === "entrega" ? [colunas("Taxa de entrega", (pedido.taxa ?? loja.taxaEntrega) > 0 ? valor(pedido.taxa ?? loja.taxaEntrega) : "Grátis")] : []),
       colunas("TOTAL", "R$ " + valor(total)),
       linha,
-      pedido.modo === "entrega" ? `Pagamento: ${forma?.nome || "-"} (na entrega)` : "Pagamento com o garçom",
+      pedido.modo === "entrega" ? `Pagamento: ${forma?.nome || "-"} (na entrega)` : forma ? `Pagamento: ${forma.nome} (na retirada)` : "Pagamento no balcão",
       ...(pedido.pag === "dinheiro" && pedido.troco ? [colunas("Troco para", valor(pedido.troco)), colunas("LEVAR DE TROCO", valor(pedido.troco - total))] : []),
       linha,
       centro(impressao.rodape),
@@ -103,9 +104,51 @@ window.Fomito = window.Fomito || {};
     return partes.join("\n");
   }
 
-  /** Imprime o cupom. Retorna o texto para mostrar a prévia na tela. */
-  function imprimirCupom(pedido) {
-    const texto = textoCupom(pedido);
+  /**
+   * Notinha da cozinha de uma rodada da comanda da mesa (QR Code ou garçom).
+   * Sai só com os itens daquela rodada, a mesa, quem pediu e as observações.
+   */
+  function textoCupomComanda(comanda, indice) {
+    const { marca, impressao } = Fomito.config.ler();
+    const r = comanda.rodadas[indice];
+    const centro = (t) => " ".repeat(Math.max(0, Math.floor((42 - t.length) / 2))) + t;
+    const quando = new Date(r.hora);
+    const data = quando.toLocaleDateString("pt-BR") + " " + quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const mesa = `MESA ${String(comanda.mesa).padStart(2, "0")}`;
+    const itens = r.itens.map((it) => {
+      const p = Fomito.produto(it.id);
+      const nomesExtras = (Fomito.dados.adicionais[p.cat] || []).filter((a) => (it.extras || []).includes(a.id));
+      const unit = it.preco ?? p.preco;
+      return [
+        colunas(`${it.qtd}x ${it.nome || p.nome}`.slice(0, 32), valor(unit * it.qtd)),
+        ...nomesExtras.map((a) => `   + ${a.nome}`),
+        ...(it.obs ? [`   OBS: ${it.obs}`] : []),
+      ].join("\n");
+    }).join("\n");
+    const totalRodada = r.itens.reduce((s, it) => s + (it.preco ?? Fomito.produto(it.id).preco) * it.qtd, 0);
+    return [
+      centro(marca.nome.toUpperCase()),
+      centro("*** COMANDA DA MESA ***"),
+      linha,
+      colunas(mesa, `${indice + 1}o PEDIDO`),
+      data,
+      ...(comanda.nome ? [`Cliente: ${comanda.nome}`] : []),
+      `Pedido por: ${r.por === "qr" ? "cliente (QR Code da mesa)" : `garçom${r.quem ? ` ${r.quem}` : ""}`}`,
+      linha,
+      itens,
+      linha,
+      colunas("Total deste pedido", "R$ " + valor(totalRodada)),
+      colunas("Total da comanda", "R$ " + valor(Fomito.comandas.total(comanda))),
+      linha,
+      "Pagamento no fim, com o garçom",
+      linha,
+      centro(impressao.rodape),
+      centro("Pedidos com Fomito"),
+    ].join("\n");
+  }
+
+  /** Manda um texto para a impressora térmica (pela impressão do navegador). */
+  function imprimirTexto(texto) {
     let area = document.getElementById("areaImpressao");
     if (!area) {
       area = document.createElement("pre");
@@ -116,6 +159,11 @@ window.Fomito = window.Fomito || {};
     try { window.print(); } catch { /* alguns ambientes bloqueiam a janela de impressão */ }
     return texto;
   }
+
+  /** Imprime o cupom do pedido. Retorna o texto para mostrar a prévia na tela. */
+  const imprimirCupom = (pedido) => imprimirTexto(textoCupom(pedido));
+  /** Imprime a notinha da cozinha de uma rodada da comanda. */
+  const imprimirComanda = (comanda, indice) => imprimirTexto(textoCupomComanda(comanda, indice));
 
   /* ---------- 3. WHATSAPP (prévia das mensagens) ---------- */
   /**
@@ -179,5 +227,5 @@ window.Fomito = window.Fomito || {};
     return tocou;
   }
 
-  Fomito.alertas = { tocarAlerta, textoCupom, imprimirCupom, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, avisosLigados, podeNotificar, avisar };
+  Fomito.alertas = { tocarAlerta, textoCupom, imprimirCupom, textoCupomComanda, imprimirComanda, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, avisosLigados, podeNotificar, avisar };
 })();

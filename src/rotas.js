@@ -144,7 +144,7 @@ async function mesaDoCliente(req) {
 
 r.post('/comandas/lancar', ok(async (req) => {
   const equipe = ehSalao(req);
-  if (equipe) return s.lancarNaComanda(req.body.mesa, req.body.itens, { nome: req.body.nome, por: 'garcom' });
+  if (equipe) return s.lancarNaComanda(req.body.mesa, req.body.itens, { nome: req.body.nome, por: 'garcom', quem: nome(req) });
   limitePedidos(req.ip);
   return s.lancarNaComanda(await mesaDoCliente(req), req.body.itens, { nome: req.body.nome, por: 'qr', dispositivo: dispositivoDe(req) });
 }));

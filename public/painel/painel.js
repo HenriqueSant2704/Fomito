@@ -315,13 +315,35 @@ document.addEventListener("click", async (e) => {
 
 /* Janela com a prévia do cupom de 80mm. Ao aceitar, já manda imprimir. */
 function mostrarCupom(p, aoAceitar) {
-  const texto = aoAceitar ? alertas.imprimirCupom(comTotal(p)) : alertas.textoCupom(comTotal(p));
+  janelaCupom({
+    titulo: aoAceitar ? "Pedido aceito" : "Cupom do pedido",
+    texto: alertas.textoCupom(comTotal(p)),
+    imprimir: () => alertas.imprimirCupom(comTotal(p)),
+    aoAceitar,
+  });
+}
+
+/* Notinha da cozinha de uma rodada da mesa (pedido pelo QR Code ou pelo garçom) */
+function mostrarCupomComanda(mesa, indice, aoAceitar) {
+  const c = Fomito.comandas.daMesa(mesa);
+  if (!c?.rodadas[indice]) return;
+  janelaCupom({
+    titulo: aoAceitar ? `${Fomito.comandas.mesaTexto(mesa)} aceita` : `Comanda · ${Fomito.comandas.mesaTexto(mesa)}`,
+    texto: alertas.textoCupomComanda(c, indice),
+    imprimir: () => alertas.imprimirComanda(c, indice),
+    aoAceitar,
+  });
+}
+
+/* Janela com a prévia do cupom de 80mm. Ao aceitar, já manda imprimir. */
+function janelaCupom({ titulo, texto, imprimir, aoAceitar }) {
+  if (aoAceitar) imprimir();
   const camada = document.createElement("div");
   camada.className = "sobreposicao sobreposicao--centro";
   camada.innerHTML = `
     <div class="folha" style="max-width:420px;display:flex;flex-direction:column;gap:16px">
       <div class="folha__topo">
-        <div class="pilha"><h2>${aoAceitar ? "Pedido aceito" : "Cupom do pedido"}</h2>
+        <div class="pilha"><h2>${titulo}</h2>
           <span class="pequeno suave">${aoAceitar ? "Cupom enviado para a impressora térmica (80mm)." : "Prévia na largura da impressora térmica (80mm)."}</span></div>
         <button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button>
       </div>
@@ -338,7 +360,7 @@ function mostrarCupom(p, aoAceitar) {
   document.addEventListener("keydown", aoTeclar);
   camada.addEventListener("click", (e) => {
     if (e.target === camada || e.target.closest("[data-fechar]")) return fechar();
-    if (e.target.closest("[data-imprimir]")) { alertas.imprimirCupom(comTotal(p)); toast("Cupom enviado para a impressora", "impressora"); }
+    if (e.target.closest("[data-imprimir]")) { imprimir(); toast("Cupom enviado para a impressora", "impressora"); }
   });
 }
 

@@ -31,7 +31,10 @@ function cardRodada({ c, r, i }) {
       <div class="pedido__pag">${icone("mesa", "ic--sm")}<span>Comanda aberta: ${moeda(cmd.total(c))} até agora${c.pediuConta ? "<br><b>Pediu a conta</b>" : ""}</span></div>
       ${r.status === "pronto" ? `<div class="pedido__situacao pedido__situacao--pronto">${icone("relogio", "ic--sm")}<span>Aguardando o garçom servir</span></div>` : ""}
       <div class="entre"><span class="preco">${moeda(cmd.totalRodada(r))}</span>
-        ${acaoDaRodada[r.status] ? `<button class="btn ${r.status === "recebido" ? "btn--primario" : "btn--contorno"} btn--sm" data-rodada="${c.mesa},${i}">${acaoDaRodada[r.status]}</button>` : ""}</div>
+        <span class="linha" style="gap:6px">
+          <button class="btn-icone" data-cupom-rodada="${c.mesa},${i}" aria-label="Imprimir a comanda da ${cmd.mesaTexto(c.mesa)}" title="Imprimir para a cozinha">${icone("impressora", "ic--sm")}</button>
+          ${acaoDaRodada[r.status] ? `<button class="btn ${r.status === "recebido" ? "btn--primario" : "btn--contorno"} btn--sm" data-rodada="${c.mesa},${i}">${acaoDaRodada[r.status]}</button>` : ""}
+        </span></div>
     </div>`;
 }
 
@@ -58,6 +61,11 @@ function cardComandaFechada(f) {
 }
 
 document.addEventListener("click", async (e) => {
+  const cupom = e.target.closest("[data-cupom-rodada]");
+  if (cupom) {
+    const [mesa, i] = cupom.dataset.cupomRodada.split(",").map(Number);
+    return mostrarCupomComanda(mesa, i, false);
+  }
   const botao = e.target.closest("[data-rodada]");
   if (botao) {
     const [mesa, i] = botao.dataset.rodada.split(",").map(Number);
@@ -67,6 +75,8 @@ document.addEventListener("click", async (e) => {
     await Fomito.comandas.statusRodada(mesa, i, novo);
     renderPedidos();
     versaoComandasPainel = JSON.stringify(Fomito.comandas.abertas());
+    /* Aceitou a rodada: sai a notinha para a cozinha (como no pedido de entrega) */
+    if (novo === "preparo" && Fomito.config.ler().impressao.aoAceitar) return mostrarCupomComanda(mesa, i, true);
     if (novo === "pronto") return toast(`${Fomito.comandas.mesaTexto(mesa)} pronta. O garçom foi avisado para servir.`, "sino");
     return toast(`${Fomito.comandas.mesaTexto(mesa)}: ${i + 1}º pedido ${Fomito.comandas.STATUS[novo].nome.toLowerCase()}`, Fomito.comandas.STATUS[novo].icone);
   }
@@ -185,7 +195,8 @@ function abrirComandaPainel(mesa) {
         const st = cmd.STATUS[r.status];
         return `
           <div class="ficha-bloco">
-            <div class="entre"><span class="rotulo">${i + 1}º pedido · ${cmd.hora(r.hora)} · ${r.por === "qr" ? "QR da mesa" : "garçom"}</span><span class="tag tag--${st.cor}">${st.nome}</span></div>
+            <div class="entre"><span class="rotulo">${i + 1}º pedido · ${cmd.hora(r.hora)} · ${r.por === "qr" ? "QR da mesa" : `garçom${r.quem ? ` ${r.quem}` : ""}`}</span>
+              <span class="linha" style="gap:6px"><button class="btn-icone btn-icone--sm" data-cupom-rodada="${c.mesa},${i}" aria-label="Imprimir este pedido" title="Imprimir para a cozinha">${icone("impressora", "ic--sm")}</button><span class="tag tag--${st.cor}">${st.nome}</span></span></div>
             ${r.itens.map((it) => `<div class="entre pequeno"><span>${it.qtd}× ${it.nome || Fomito.produto(it.id).nome}</span><span class="num">${moeda(cmd.precoItem(it))}</span></div>`).join("")}
           </div>`;
       }).join("")}
