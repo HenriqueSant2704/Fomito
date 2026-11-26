@@ -2,7 +2,7 @@
 // Ficam numa linha da tabela "loja" e numa cópia em memória, atualizada a cada mudança.
 const crypto = require('crypto');
 const db = require('./db');
-const { falhar, texto, numero } = require('./util');
+const { falhar, texto, numero, separarNumero } = require('./util');
 
 const CONFIG_PADRAO = require('./padrao/config.json');
 const CARDAPIO_PADRAO = require('./padrao/cardapio.json');
@@ -104,7 +104,9 @@ async function salvarCardapio(recebido) {
   const l = c.lanchonete || {};
   const lanchonete = {
     ...atual.cardapio.lanchonete,
-    endereco: texto(l.endereco, 200),
+    /* Endereço da loja em partes (rua, número, bairro, cidade); o texto completo é montado aqui */
+    rua: texto(l.rua, 120), numero: texto(l.numero, 12), bairro: texto(l.bairro, 60), cidade: texto(l.cidade, 60),
+    endereco: l.rua ? [[texto(l.rua, 120), texto(l.numero, 12)].filter(Boolean).join(', '), texto(l.bairro, 60), texto(l.cidade, 60)].filter(Boolean).join(', ') : texto(l.endereco, 200),
     horario: texto(l.horario, 120),
     telefone: texto(l.telefone, 30),
     abre: texto(l.abre, 5),

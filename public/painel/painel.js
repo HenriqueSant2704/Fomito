@@ -643,7 +643,15 @@ function configImpressao() {
 let rascunhoLoja = null; // cópia dos dados da loja enquanto o dono edita
 
 function configLoja() {
-  rascunhoLoja ||= { ...structuredClone(dados.lanchonete), formas: Object.fromEntries(dados.formasPagamento.map((f) => [f.id, f.ativa !== false])) };
+  if (!rascunhoLoja) {
+    rascunhoLoja = { ...structuredClone(dados.lanchonete), formas: Object.fromEntries(dados.formasPagamento.map((f) => [f.id, f.ativa !== false])) };
+    /* Endereço antigo num campo só ("Av. Brasil, 1500, Centro"): separa em rua, número e bairro */
+    if (!rascunhoLoja.rua && rascunhoLoja.endereco) {
+      const m = rascunhoLoja.endereco.match(/^(.*?),\s*(\d+\w*|s\/?n)\s*(?:,\s*(.*))?$/i);
+      if (m) Object.assign(rascunhoLoja, { rua: m[1].trim(), numero: m[2], bairro: (m[3] || "").trim() });
+      else rascunhoLoja.rua = rascunhoLoja.endereco;
+    }
+  }
   const l = rascunhoLoja;
   const esc = (v) => String(v ?? "").replace(/"/g, "&quot;");
   return `
@@ -653,7 +661,10 @@ function configLoja() {
         <div class="form-grade">
           <div class="campo"><label for="cfgTel">Telefone / WhatsApp</label><input id="cfgTel" class="input" data-loja="telefone" value="${esc(l.telefone)}" placeholder="(11) 3333-4444"></div>
           <div class="campo"><label for="cfgMesas">Número de mesas</label><input id="cfgMesas" class="input" type="number" min="0" max="200" data-loja="mesas" value="${l.mesas}"></div>
-          <div class="campo" style="grid-column:1/-1"><label for="cfgEnd">Endereço</label><input id="cfgEnd" class="input" data-loja="endereco" value="${esc(l.endereco)}"></div>
+          <div class="campo"><label for="cfgRua">Rua</label><input id="cfgRua" class="input" data-loja="rua" value="${esc(l.rua)}" placeholder="Ex.: Av. Brasil"></div>
+          <div class="campo"><label for="cfgNumero">Número</label><input id="cfgNumero" class="input" data-loja="numero" inputmode="numeric" value="${esc(l.numero)}" placeholder="Ex.: 1500"></div>
+          <div class="campo"><label for="cfgBairro">Bairro</label><input id="cfgBairro" class="input" data-loja="bairro" value="${esc(l.bairro)}" placeholder="Ex.: Centro"></div>
+          <div class="campo"><label for="cfgCidade">Cidade</label><input id="cfgCidade" class="input" data-loja="cidade" value="${esc(l.cidade)}" placeholder="Ex.: São Paulo - SP"></div>
           <div class="campo"><label for="cfgAbre">Abre às</label><input id="cfgAbre" class="input" type="time" data-loja="abre" value="${esc(l.abre)}"></div>
           <div class="campo"><label for="cfgFecha">Fecha às</label><input id="cfgFecha" class="input" type="time" data-loja="fecha" value="${esc(l.fecha)}"></div>
           <div class="campo" style="grid-column:1/-1"><span class="rotulo-campo">Dias de funcionamento</span>

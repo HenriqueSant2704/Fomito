@@ -7,7 +7,7 @@
 const db = require('./db');
 const loja = require('./loja');
 const { pedidoDaLinha, comandaDaLinha } = require('./servicos');
-const { inicioDoDia, dispositivoDe, arred } = require('./util');
+const { inicioDoDia, dispositivoDe, arred, separarNumero } = require('./util');
 
 const PEDIDOS_DO_DIA = `status <> 'cancelado' AND (criado_em >= $1 OR status <> 'concluido')`;
 
@@ -39,7 +39,7 @@ async function clientesComResumo() {
      GROUP BY c.telefone ORDER BY max(p.criado_em) DESC NULLS LAST, c.nome LIMIT 3000`);
   return rows.map((r) => ({
     telefone: r.telefone, nome: r.nome, desde: desde(r.criado_em), pedidos: r.pedidos, gasto: Number(r.gasto),
-    ultimo: quando(r.ultimo), enderecos: r.enderecos.map(({ dispositivos, ...e }) => e),
+    ultimo: quando(r.ultimo), enderecos: r.enderecos.map(({ dispositivos, ...e }) => (e.numero ? e : { ...e, ...separarNumero(e.rua) })),
   }));
 }
 

@@ -198,7 +198,7 @@ function blocoClienteNovo() {
     ${novo.buscou && !c ? `
       <div class="aviso">${icone("info", "ic--sm")}<span>Telefone sem cadastro. Preencha para salvar o cliente.</span></div>
       <div class="campo"><label for="nNome">Nome</label><input id="nNome" class="input" value="${novo.nome}"></div>
-      <div class="campo"><label for="nRua">Rua e número</label><input id="nRua" class="input"></div>
+      <div class="duas-campos"><div class="campo"><label for="nRua">Rua</label><input id="nRua" class="input" placeholder="Ex.: Rua das Flores"></div><div class="campo"><label for="nNumero">Número</label><input id="nNumero" class="input" inputmode="numeric" placeholder="120"></div></div>
       <div class="campo"><label for="nBairro">Bairro</label><input id="nBairro" class="input"></div>` : ""}`;
 }
 
@@ -243,15 +243,15 @@ async function confirmarNovo() {
     if (!novo.buscou) return toast("Busque o telefone do cliente", "info");
     let c = novo.cliente;
     if (!c) {
-      const nome = $("#nNome").value.trim(), rua = $("#nRua").value.trim(), bairro = $("#nBairro").value.trim();
-      if (!nome || !rua || !bairro) return toast("Preencha nome, rua e bairro do cliente", "info");
-      c = await Fomito.clientes.cadastrar({ telefone: novo.telefone, nome, endereco: { apelido: "Casa", rua, bairro, compl: "", ref: "" } });
+      const nome = $("#nNome").value.trim(), rua = $("#nRua").value.trim(), numero = $("#nNumero").value.trim(), bairro = $("#nBairro").value.trim();
+      if (!nome || !rua || !numero || !bairro) return toast("Preencha nome, rua, número e bairro do cliente", "info");
+      c = await Fomito.clientes.cadastrar({ telefone: novo.telefone, nome, endereco: { apelido: "Casa", rua, numero, bairro, compl: "", ref: "" } });
       novo.cliente = c;
       novo.enderecoId = c.enderecoId;
     }
     const e = c.enderecos.find((x) => x.id === novo.enderecoId);
     const troco = parseFloat(String(novo.troco).replace(",", ".")) || null;
-    Object.assign(base, { cliente: c.nome, modo: "entrega", telefone: Fomito.clientes.formatarTelefone(c.telefone), rua: e.rua, compl: e.compl, bairro: e.bairro, ref: e.ref, pag: novo.pag, troco });
+    Object.assign(base, { cliente: c.nome, modo: "entrega", telefone: Fomito.clientes.formatarTelefone(c.telefone), rua: e.rua, numero: e.numero, compl: e.compl, bairro: e.bairro, ref: e.ref, pag: novo.pag, troco });
   } else if (novo.modo === "mesa") {
     /* Mesa não vira pedido solto: entra na comanda da mesa */
     await Fomito.comandas.lancar(novo.mesa, itensNovo().map(([id, qtd]) => ({ id, qtd })), { nome: novo.nome });

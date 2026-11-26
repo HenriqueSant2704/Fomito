@@ -51,4 +51,13 @@ function limitador(max, janelaMs) {
   };
 }
 
-module.exports = { erro, falhar, arred, numero, soDigitos, formatarTelefone, texto, inicioDoDia, dispositivoDe, limitador };
+/**
+ * Separa o número do fim do nome da rua (endereços antigos vinham juntos):
+ * "Rua das Flores, 120" → { rua: "Rua das Flores", numero: "120" }. Sem número no fim, devolve a rua inteira.
+ */
+function separarNumero(rua) {
+  const m = String(rua || '').trim().match(/^(.*?)[,\s]+(?:n[ºo°.]?\s*)?(\d+[A-Za-z]?(?:-\d+)?|s\/?n)\s*$/i);
+  return m && m[1].trim() ? { rua: m[1].trim().replace(/,$/, ''), numero: m[2] } : { rua: String(rua || '').trim(), numero: '' };
+}
+
+module.exports = { erro, falhar, arred, numero, soDigitos, formatarTelefone, texto, inicioDoDia, dispositivoDe, limitador, separarNumero };

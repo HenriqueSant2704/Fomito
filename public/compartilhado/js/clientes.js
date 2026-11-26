@@ -56,7 +56,7 @@ window.Fomito = window.Fomito || {};
   const editarEndereco = (telefone, enderecoId, endereco) => Fomito.acao("POST", "/clientes", { telefone, enderecoId, endereco });
 
   /** "Rua das Flores, 120 · Centro · Ap 3" */
-  const textoEndereco = (e) => [e.rua, e.bairro, e.compl].filter(Boolean).join(" · ");
+  const textoEndereco = (e) => [e.numero ? `${e.rua}, ${e.numero}` : e.rua, e.bairro, e.compl].filter(Boolean).join(" · ");
 
   Fomito.clientes = { lista, buscar, buscarRemoto, cadastrar, adicionarEndereco, editarEndereco, textoEndereco, soDigitos, formatarTelefone, telefoneValido };
 })();

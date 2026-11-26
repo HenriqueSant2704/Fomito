@@ -405,3 +405,7 @@ button.anterior:hover { border-color: var(--roxo-medio); }
 .endereco-linha { display: flex; align-items: stretch; gap: 8px; }
 .endereco-linha .opcao { flex: 1; min-width: 0; }
 .endereco-editar { flex: none; align-self: center; }
+
+/* Rua e número lado a lado (o número é curto) */
+.rua-numero { display: grid; grid-template-columns: 1fr 96px; gap: 10px; }
+.falta-numero { color: var(--vermelho-escuro); }

@@ -3,7 +3,7 @@
 const db = require('./db');
 const loja = require('./loja');
 const whatsapp = require('./whatsapp');
-const { falhar, arred, numero, texto, soDigitos, formatarTelefone } = require('./util');
+const { falhar, arred, numero, texto, soDigitos, formatarTelefone, separarNumero } = require('./util');
 const { montarItens, somaItens, resumoCaixa, conferirPagamento } = require('./regras');
 
 const mesaTexto = (n) => `Mesa ${String(n).padStart(2, '0')}`;
@@ -141,10 +141,12 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
     if (troco !== null && !(troco >= total)) falhar(400, 'O troco precisa ser para um valor maior que o total.');
     Object.assign(dados, {
       cliente: texto(corpo.cliente, 80), telefone: formatarTelefone(tel),
-      rua: texto(corpo.rua, 120), compl: texto(corpo.compl, 60), bairro: texto(corpo.bairro, 60), ref: texto(corpo.ref, 120),
+      /* Rua e número chegam separados; no pedido ficam juntos ("Rua X, 120"), como a notinha e o motoboy usam */
+      rua: [texto(corpo.rua, 120), texto(corpo.numero, 12)].filter(Boolean).join(', '), numero: texto(corpo.numero, 12),
+      compl: texto(corpo.compl, 60), bairro: texto(corpo.bairro, 60), ref: texto(corpo.ref, 120),
       pag: corpo.pag, troco,
     });
-    if (!dados.cliente || !dados.rua || !dados.bairro) falhar(400, 'Preencha o nome, a rua e o bairro.');
+    if (!dados.cliente || !dados.rua || !separarNumero(dados.rua).numero || !dados.bairro) falhar(400, 'Preencha o nome, a rua, o número e o bairro.');
   } else if (retirada) {
     const tel = soDigitos(corpo.telefone);
     if (tel.length < 10) falhar(400, 'Informe o celular com DDD.');
@@ -341,7 +343,8 @@ const enderecosVisiveis = (cliente, dispositivo) => (dispositivo === '*'
   ? cliente.enderecos
   : cliente.enderecos.filter((e) => (e.dispositivos || []).includes(dispositivo)));
 
-const limparEndereco = ({ dispositivos, ...e }) => e;
+/* Endereços antigos tinham "Rua X, 120" num campo só: separa o número do fim, sem perder nada */
+const limparEndereco = ({ dispositivos, ...e }) => (e.numero ? e : { ...e, ...separarNumero(e.rua) });
 
 /** Procura o cadastro pelo celular (em qualquer aparelho): nome completo e endereços salvos. */
 async function buscarCliente(telefone) {
@@ -355,9 +358,10 @@ async function buscarCliente(telefone) {
 function lerEndereco(e = {}) {
   const end = {
     apelido: ['Casa', 'Trabalho', 'Outro'].includes(e.apelido) ? e.apelido : (texto(e.apelido, 30) || 'Casa'),
-    rua: texto(e.rua, 120), bairro: texto(e.bairro, 60), compl: texto(e.compl, 60), ref: texto(e.ref, 120),
+    rua: texto(e.rua, 120), numero: texto(e.numero, 12), bairro: texto(e.bairro, 60), compl: texto(e.compl, 60), ref: texto(e.ref, 120),
   };
-  if (!end.rua || !end.bairro) falhar(400, 'Preencha a rua com número e o bairro.');
+  if (!end.numero) Object.assign(end, separarNumero(end.rua));
+  if (!end.rua || !end.numero || !end.bairro) falhar(400, 'Preencha a rua, o número e o bairro.');
   return end;
 }
 

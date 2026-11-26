@@ -562,7 +562,7 @@ function blocoCliente() {
           <div class="endereco-linha">
             <button class="opcao ${e.id === estado.enderecoId ? "ativa" : ""}" data-endereco="${e.id}">
               <span class="opcao__icone">${icone(e.apelido === "Trabalho" ? "loja" : "pin")}</span>
-              <span class="opcao__texto"><span class="opcao__titulo">${e.apelido}</span><span class="opcao__sub">${clientes.textoEndereco(e)}${e.ref ? `<br>Ref.: ${e.ref}` : ""}</span></span>
+              <span class="opcao__texto"><span class="opcao__titulo">${e.apelido}</span><span class="opcao__sub">${clientes.textoEndereco(e)}${e.ref ? `<br>Ref.: ${e.ref}` : ""}${e.numero ? "" : `<br><b class="falta-numero">Falta o número: toque no lápis</b>`}</span></span>
               <span class="opcao__radio"></span>
             </button>
             <button class="btn-icone endereco-editar" data-editar-endereco="${e.id}" aria-label="Editar o endereço ${e.apelido}" title="Editar">${icone("editar", "ic--sm")}</button>
@@ -586,7 +586,10 @@ function formEndereco(apelidoPadrao, e = {}) {
     <div class="campo"><label>Nome do endereço</label>
       <div class="apelidos" id="apelidos">${["Casa", "Trabalho", "Outro"].map((a) => `<button class="apelido ${a === apelidoPadrao ? "ativo" : ""}" data-apelido="${a}">${a}</button>`).join("")}</div>
     </div>
-    <div class="campo"><label for="endRua">Rua e número</label><input id="endRua" class="input" autocomplete="street-address" placeholder="Ex.: Rua das Flores, 120" value="${v(e.rua)}"></div>
+    <div class="rua-numero">
+      <div class="campo"><label for="endRua">Rua <span class="obrigatorio">*</span></label><input id="endRua" class="input" autocomplete="address-line1" placeholder="Ex.: Rua das Flores" value="${v(e.rua)}"></div>
+      <div class="campo"><label for="endNumero">Número <span class="obrigatorio">*</span></label><input id="endNumero" class="input" inputmode="numeric" placeholder="Ex.: 120" maxlength="12" value="${v(e.numero)}"></div>
+    </div>
     <div class="duas">
       <div class="campo"><label for="endBairro">Bairro</label><input id="endBairro" class="input" placeholder="Bairro" value="${v(e.bairro)}"></div>
       <div class="campo"><label for="endCompl">Complemento</label><input id="endCompl" class="input" placeholder="Apto, bloco" value="${v(e.compl)}"></div>
@@ -597,8 +600,8 @@ function formEndereco(apelidoPadrao, e = {}) {
 /* Lê os campos de endereço. Retorna null (e mostra o erro) se faltar algo. */
 function lerEndereco() {
   const valor = (id) => $(id).value.trim();
-  const endereco = { apelido: $(".apelido.ativo").dataset.apelido, rua: valor("#endRua"), bairro: valor("#endBairro"), compl: valor("#endCompl"), ref: valor("#endRef") };
-  if (!endereco.rua || !endereco.bairro) return mostrarErro("Preencha a rua com número e o bairro."), null;
+  const endereco = { apelido: $(".apelido.ativo").dataset.apelido, rua: valor("#endRua"), numero: valor("#endNumero"), bairro: valor("#endBairro"), compl: valor("#endCompl"), ref: valor("#endRef") };
+  if (!endereco.rua || !endereco.numero || !endereco.bairro) return mostrarErro("Preencha a rua, o número e o bairro."), null;
   return endereco;
 }
 function mostrarErro(texto) {
@@ -800,6 +803,7 @@ function podeConfirmar() {
   if (estado.modo === "local") return !!minhaComanda() || (!!estado.mesaQR && estado.nomeLocal.trim().length > 1);
   if (estado.modo === "retirada") { if (estado.retNome.trim().length < 2 || !clientes.telefoneValido(estado.retTel)) return false; }
   else if (!estado.cliente || estado.novoEndereco || estado.editandoEndereco != null) return false;
+  else if (!estado.cliente.enderecos.find((e) => e.id === estado.enderecoId)?.numero) return false; // endereço sem número
   if (!estado.pagamento) return false;
   if (estado.pagamento === "dinheiro") return estado.semTroco || valorTroco() >= total();
   return true;
@@ -934,7 +938,7 @@ async function confirmarPedido() {
     const endereco = estado.cliente.enderecos.find((e) => e.id === estado.enderecoId);
     p = await Fomito.pedidos.criar({
       modo: "entrega", cliente: estado.cliente.nome, telefone: clientes.formatarTelefone(estado.cliente.telefone),
-      rua: endereco.rua, compl: endereco.compl, bairro: endereco.bairro, ref: endereco.ref, itens, ...pagamento,
+      rua: endereco.rua, numero: endereco.numero, compl: endereco.compl, bairro: endereco.bairro, ref: endereco.ref, itens, ...pagamento,
     });
   }
   minhaEntrega = p.num;
