@@ -116,7 +116,93 @@ window.Fomito = window.Fomito || {};
     });
   }
 
+  /* ---------- Tela de carregamento ----------
+     Aparece na hora, com a marca do restaurante (guardada da última visita),
+     e some suave quando a tela está pronta. */
+  const TEXTOS = { cliente: "Preparando o cardápio", painel: "Abrindo o painel", garcom: "Carregando as mesas", motoboy: "Buscando as entregas", portal: "Abrindo o Portal" };
+  const textoDaTela = TEXTOS[location.pathname.split("/").filter(Boolean)[0] || "cliente"] || "Carregando";
+  const marcaGuardada = () => { try { return JSON.parse(localStorage.getItem("fomito.marca")) || null; } catch { return null; } };
+  const escapar = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function desenharMarca(el, m) {
+    const marca = { nome: "Fomito", corPrincipal: "#4B2B8F", corDestaque: "#FF8A00", logo: "", ...(m || {}) };
+    el.style.setProperty("--cp", marca.corPrincipal);
+    el.style.setProperty("--cd", marca.corDestaque);
+    const inicial = escapar((marca.nome.trim()[0] || "F").toUpperCase());
+    el.querySelector(".carregando__simbolo").innerHTML = marca.logo
+      ? `<img src="${escapar(marca.logo)}" alt="">`
+      : `<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="var(--cd)"/>
+           <text x="31" y="45" text-anchor="middle" font-family="Nunito, system-ui, sans-serif" font-weight="900" font-size="36" fill="#fff">${inicial}</text>
+           <g class="carregando__vapor" stroke="#fff" stroke-opacity=".7" stroke-width="3.2" stroke-linecap="round"><path d="M46 8.5l.8 4.4"/><path d="M53.5 11.8l-3 3.2"/><path d="M56.5 19.5l-4.3.6"/></g></svg>`;
+    el.querySelector(".carregando__nome").textContent = marca.nome;
+  }
+
+  let carregando = null;
+  function mostrarCarregando() {
+    const estilo = document.createElement("style");
+    estilo.textContent = `
+      .carregando { --cp:#4B2B8F; --cd:#FF8A00; position:fixed; inset:0; z-index:1000; display:grid; place-items:center;
+        background: radial-gradient(120% 80% at 50% 30%, #fff 0%, #FFF7ED 55%, color-mix(in srgb, var(--cd) 10%, #FFF7ED) 100%);
+        transition: opacity .4s ease, visibility .4s ease; font-family: Inter, system-ui, sans-serif; }
+      .carregando.saindo { opacity:0; visibility:hidden; }
+      .carregando__caixa { display:flex; flex-direction:column; align-items:center; gap:14px; transform:translateY(-4%); }
+      .carregando__marca { position:relative; width:84px; height:84px; margin-bottom:10px; }
+      .carregando__anel { position:absolute; inset:-14px; border-radius:50%;
+        background: conic-gradient(from 0deg, transparent 0 55%, color-mix(in srgb, var(--cp) 25%, transparent) 70%, var(--cp) 100%);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+                mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+        animation: carregando-girar 1.1s linear infinite; }
+      .carregando__simbolo { width:84px; height:84px; border-radius:24px; overflow:hidden; display:grid; place-items:center;
+        box-shadow: 0 14px 34px color-mix(in srgb, var(--cd) 38%, transparent), 0 2px 6px rgba(27,21,48,.08);
+        animation: carregando-respirar 1.8s ease-in-out infinite; background:#fff; }
+      .carregando__simbolo svg, .carregando__simbolo img { width:100%; height:100%; display:block; object-fit:cover; }
+      .carregando__vapor path { animation: carregando-vapor 1.8s ease-in-out infinite; }
+      .carregando__vapor path:nth-child(2) { animation-delay:.2s } .carregando__vapor path:nth-child(3) { animation-delay:.4s }
+      .carregando__nome { font: 800 21px/1.1 Nunito, system-ui, sans-serif; color: var(--cp); letter-spacing:-.01em; text-align:center; max-width:80vw; }
+      .carregando__texto { display:flex; align-items:center; gap:2px; font-size:13.5px; font-weight:500; color:#6B6480; }
+      .carregando__texto i { width:4px; height:4px; margin-left:3px; border-radius:50%; background: var(--cd); animation: carregando-ponto 1.2s ease-in-out infinite; }
+      .carregando__texto i:nth-child(2) { animation-delay:.15s } .carregando__texto i:nth-child(3) { animation-delay:.3s }
+      .carregando__rodape { position:absolute; bottom:28px; font-size:11.5px; color:#A39DB3; letter-spacing:.02em; }
+      @keyframes carregando-girar { to { transform: rotate(360deg); } }
+      @keyframes carregando-respirar { 0%,100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+      @keyframes carregando-vapor { 0%,100% { opacity:.25; transform:translateY(1px); } 50% { opacity:1; transform:translateY(-1.5px); } }
+      @keyframes carregando-ponto { 0%,80%,100% { opacity:.25; transform:translateY(0); } 40% { opacity:1; transform:translateY(-3px); } }
+      @media (prefers-reduced-motion: reduce) { .carregando *, .carregando { animation:none !important; transition:none !important; } }`;
+    document.head.appendChild(estilo);
+    carregando = document.createElement("div");
+    carregando.className = "carregando";
+    carregando.setAttribute("role", "status");
+    carregando.setAttribute("aria-live", "polite");
+    carregando.innerHTML = `
+      <div class="carregando__caixa">
+        <div class="carregando__marca"><span class="carregando__anel"></span><div class="carregando__simbolo"></div></div>
+        <div class="carregando__nome"></div>
+        <div class="carregando__texto">${textoDaTela}<i></i><i></i><i></i></div>
+      </div>
+      <span class="carregando__rodape">Pedidos com Fomito</span>`;
+    desenharMarca(carregando, marcaGuardada());
+    document.body.appendChild(carregando);
+  }
+
+  function esconderCarregando() {
+    if (!carregando) return;
+    const el = carregando;
+    carregando = null;
+    el.classList.add("saindo");
+    setTimeout(() => el.remove(), 450);
+  }
+
+  /* Guarda a marca para a próxima visita já abrir com ela */
+  function guardarMarca() {
+    const m = Fomito.estado.config?.marca;
+    if (!m) return;
+    const resumo = { nome: m.nome, corPrincipal: m.corPrincipal, corDestaque: m.corDestaque, logo: m.logo || "" };
+    try { localStorage.setItem("fomito.marca", JSON.stringify(resumo)); } catch { /* sem armazenamento */ }
+    if (carregando) desenharMarca(carregando, resumo);
+  }
+
   function telaDeErro(mensagem) {
+    esconderCarregando();
     document.body.insertAdjacentHTML("beforeend", `
       <div style="position:fixed;inset:0;z-index:999;display:grid;place-items:center;background:#FFF7ED;padding:24px;font-family:system-ui,sans-serif">
         <div style="max-width:360px;text-align:center;display:flex;flex-direction:column;gap:12px;color:#1B1530">
@@ -132,12 +218,16 @@ window.Fomito = window.Fomito || {};
    * Uso no HTML: Fomito.iniciar(["../compartilhado/js/icones.js", ..., "cliente.js"])
    */
   async function iniciar(scripts) {
+    mostrarCarregando();
     try {
       await sincronizar();
+      guardarMarca();
       for (const src of scripts) await carregarScript(src);
     } catch (err) {
       return telaDeErro(err.message);
     }
+    Fomito.aplicarIcones?.();
+    esconderCarregando();
     iniciado = true;
     setInterval(() => sincronizar().catch(() => {}), 3000);
   }

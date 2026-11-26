@@ -74,4 +74,6 @@ Fomito.aplicarIcones = (raiz = document) =>
     el.outerHTML = Fomito.icone(el.dataset.icone, el.className);
   });
 
-document.addEventListener("DOMContentLoaded", () => Fomito.aplicarIcones());
+/* As telas carregam este arquivo depois que a página já abriu: aplica na hora (ou ao terminar de abrir) */
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => Fomito.aplicarIcones());
+else Fomito.aplicarIcones();
