@@ -20,7 +20,7 @@ Fomito.$$ = (seletor, raiz = document) => [...raiz.querySelectorAll(seletor)];
 Fomito.toast = (mensagem, icone = "check") => {
   document.querySelector(".toast")?.remove();
   const el = document.createElement("div");
-  el.className = "toast";
+  el.className = icone === "info" ? "toast toast--aviso" : "toast"; // aviso/erro em laranja, confirmação em verde
   el.innerHTML = `${Fomito.icone(icone, "ic--sm")}${mensagem}`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2600);

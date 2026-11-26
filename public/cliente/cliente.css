@@ -349,7 +349,7 @@ body { background: var(--fundo); }
 .ingrediente { padding: 6px 11px; border-radius: var(--raio-pill); background: var(--superficie-2); border: 1px solid var(--borda); font: inherit; font-size: 13px; color: var(--texto); cursor: pointer; transition: background var(--transicao), border-color var(--transicao), color var(--transicao); }
 .ingrediente:hover { border-color: var(--roxo-medio); }
 .ingrediente.removido { text-decoration: line-through; color: var(--vermelho-escuro); background: #FEF2F2; border-color: #FCA5A5; }
-.ingrediente.removido::before { content: "�5  "; font-size: 11px; }
+.ingrediente.removido::before { content: "✕ "; font-size: 11px; }
 .item__sem { color: var(--vermelho-escuro) !important; }
 /* No celular a galeria passa com o dedo: as setas ficam só no computador */
 @media (hover: none), (max-width: 600px) { .galeria__setas { display: none; } }
