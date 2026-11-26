@@ -118,7 +118,7 @@ document.addEventListener("click", async (e) => {
   const cancelar = e.target.closest("[data-cancelar-pedido]");
   if (cancelar) {
     const num = Number(cancelar.dataset.cancelarPedido);
-    if (!confirm(`Cancelar o pedido #${num}? Ele sai do quadro e fica registrado como cancelado.`)) return;
+    if (!(await Fomito.confirmar(`Cancelar o pedido #${num}?`, "Ele sai do quadro e fica registrado como cancelado, com o seu nome.", "Cancelar pedido"))) return;
     await Fomito.pedidos.cancelar(num);
     pedidosSincronizados();
     renderPedidos();

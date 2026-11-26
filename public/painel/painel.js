@@ -236,7 +236,9 @@ function cardPedido(p) {
   const forma = dados.formasPagamento.find((f) => f.id === p.pag) || { icone: "dinheiro", nome: "Pagamento" };
   const acao = acaoDoPedido(p);
   const pagamento = p.modo === "local"
-    ? `${icone("usuario", "ic--sm")}<span>Pagamento no balcão</span>`
+    ? (p.pag
+      ? `${icone(forma.icone, "ic--sm")}<span>${forma.nome} na retirada${p.pag === "dinheiro" && p.troco ? `<br>Troco para ${moeda(p.troco)}: separar <b>${moeda(p.troco - totalPedido(p))}</b>` : ""}${p.telefone ? `<br>${p.telefone}` : ""}</span>`
+      : `${icone("usuario", "ic--sm")}<span>Pagamento no balcão</span>`)
     : `${icone(forma.icone, "ic--sm")}<span>${forma.nome} na entrega${p.pag === "dinheiro" && p.troco ? `<br>Troco para ${moeda(p.troco)}: levar <b>${moeda(p.troco - totalPedido(p))}</b>` : ""}</span>`;
   return `
     <div class="card pedido ${p.status === "novo" ? "pedido--novo" : ""}" data-pedido="${p.num}" title="Ver detalhes do pedido">
@@ -456,7 +458,7 @@ function renderEquipe() {
     if (tipoBotao) { tipoNovoFuncionario = tipoBotao.dataset.tipoFuncionario; return renderEquipe(); }
     const b = e.target.closest("[data-remover]");
     if (!b) return;
-    if (!confirm(`Remover o acesso de ${b.dataset.remover}? A pessoa sai do sistema na hora.`)) return;
+    if (!(await Fomito.confirmar("Remover acesso?", `O usuário <b>${b.dataset.remover}</b> sai do sistema na hora e não consegue mais entrar.`, "Remover acesso"))) return;
     await sessao.removerUsuario(b.dataset.remover);
     renderEquipe();
     toast("Acesso removido", "lixo");

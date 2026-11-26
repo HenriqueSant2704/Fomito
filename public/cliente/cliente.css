@@ -212,7 +212,10 @@ body { background: var(--fundo); }
 .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* Entrega ou comer no local */
-.modo-escolha { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modo-escolha { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.modo-escolha .modo-card { padding: 12px; }
+.modo-escolha .modo-card b { font-size: 14px; line-height: 1.2; }
+@media (max-width: 360px) { .modo-escolha { grid-template-columns: 1fr; } }
 .modo-card {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
   padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio-lg); background: var(--superficie);

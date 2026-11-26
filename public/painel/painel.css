@@ -397,3 +397,5 @@ button.tag { cursor: pointer; }
 .cor-campo .cor-hex { flex: 1; min-width: 0; height: 30px; border: 0; background: none; font: inherit; font-size: 13.5px; color: var(--texto); text-transform: uppercase; outline: none; }
 .cor-campo:focus-within { border-color: var(--roxo-medio); box-shadow: 0 0 0 3px var(--roxo-claro); }
 .cor-hex--erro { color: var(--vermelho-escuro) !important; }
+.editor-slide__previa { border-radius: var(--raio-lg); overflow: hidden; }
+.slide-card__imagem { cursor: default; }

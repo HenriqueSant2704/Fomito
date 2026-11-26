@@ -123,7 +123,9 @@ async function fecharCaixa({ contado, obs }, por) {
 async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
   const { cardapio } = loja.obter();
   if (!equipe && cardapio.lanchonete.aberta === false) falhar(409, 'A loja não está recebendo pedidos agora.');
-  const modo = equipe && corpo.modo === 'local' ? 'local' : 'entrega';
+  /* "local" = balcão: lançado pelo painel ou "Retirar no balcão" no cardápio */
+  const retirada = corpo.modo === 'retirada';
+  const modo = (equipe && corpo.modo === 'local') || retirada ? 'local' : 'entrega';
   const itens = montarItens(cardapio, (corpo.itens || []).map((i) => (Array.isArray(i) ? { id: i[0], qtd: i[1], extras: i[2], obs: i[3] } : i)));
   const subtotal = somaItens(itens);
   const taxa = modo === 'entrega' ? cardapio.lanchonete.taxaEntrega : 0;
@@ -143,6 +145,15 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
       pag: corpo.pag, troco,
     });
     if (!dados.cliente || !dados.rua || !dados.bairro) falhar(400, 'Preencha o nome, a rua e o bairro.');
+  } else if (retirada) {
+    const tel = soDigitos(corpo.telefone);
+    if (tel.length < 10) falhar(400, 'Informe o celular com DDD.');
+    const formas = cardapio.formasPagamento.filter((f) => f.ativa !== false).map((f) => f.id);
+    if (!formas.includes(corpo.pag)) falhar(400, 'Escolha a forma de pagamento.');
+    const troco = corpo.pag === 'dinheiro' && corpo.troco ? numero(corpo.troco) : null;
+    if (troco !== null && !(troco >= total)) falhar(400, 'O troco precisa ser para um valor maior que o total.');
+    Object.assign(dados, { cliente: texto(corpo.cliente, 80), telefone: formatarTelefone(tel), retirada: true, pag: corpo.pag, troco });
+    if (dados.cliente.length < 2) falhar(400, 'Digite seu nome.');
   } else {
     Object.assign(dados, { cliente: texto(corpo.cliente, 80) || 'Balcão · Retirada', pag: null });
   }

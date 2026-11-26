@@ -261,3 +261,12 @@ a.btn, a.btn:hover { text-decoration: none; }
 body.ocupado { cursor: progress; }
 body.ocupado button, body.ocupado .btn, body.ocupado [data-ok] { pointer-events: none; }
 body.ocupado .btn--primario { opacity: .75; }
+
+/* Janelas do sistema (Fomito.dialogo) */
+.btn--perigo { background: var(--vermelho-escuro, #B91C1C); color: #fff; }
+.btn--perigo:hover { filter: brightness(.94); }
+.dialogo__folha { max-width: 440px; display: flex; flex-direction: column; gap: 14px; }
+.dialogo__texto { font-size: 14px; line-height: 1.5; }
+.dialogo__acoes { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+.dialogo__acoes .btn { min-width: 110px; }
+@media (max-width: 480px) { .dialogo__acoes .btn { flex: 1; } }

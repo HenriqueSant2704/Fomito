@@ -127,6 +127,32 @@ function abaVitrine() {
     </div>`;
 }
 
+/* Editor da imagem da vitrine: prévia ao vivo de como fica no topo do cardápio */
+async function editarSlide(indice, nova = null) {
+  const v = nova || dados.lanchonete.vitrine[indice];
+  if (!v) return;
+  const previa = (titulo, texto) => `
+    <div class="slide-card__imagem editor-slide__previa">${Fomito.imagemFoto(v)}
+      <div class="slide-card__texto"><strong>${titulo || "Título da imagem"}</strong><span>${texto || "Uma frase curta sobre a casa"}</span></div></div>`;
+  const esc = (t) => String(t).replace(/</g, "&lt;");
+  const r = await Fomito.dialogo({
+    titulo: nova ? "Nova imagem da vitrine" : "Editar imagem da vitrine",
+    topo: `<div id="previaSlide">${previa(esc(v.titulo), esc(v.texto))}</div><span class="pequeno fraco">Assim aparece no topo do cardápio, passando a cada 5 segundos.</span>`,
+    campos: [
+      { id: "titulo", rotulo: "Título", valor: v.titulo, placeholder: "Ex.: Combo da casa", obrigatorio: true, max: 40 },
+      { id: "texto", rotulo: "Frase", valor: v.texto, placeholder: "Ex.: Lanche + batata + refri por R$ 39,90", tipo: "textarea", max: 90 },
+    ],
+    confirmar: nova ? "Publicar na vitrine" : "Salvar",
+    aoDigitar: (val, camada) => { camada.querySelector("#previaSlide").innerHTML = previa(esc(val.titulo), esc(val.texto)); },
+  });
+  if (!r) return;
+  Object.assign(v, { titulo: r.titulo, texto: r.texto });
+  if (nova) dados.lanchonete.vitrine.push(v);
+  await Fomito.salvarCardapio();
+  renderCardapio();
+  toast(nova ? "Imagem publicada na vitrine" : "Vitrine atualizada", "check");
+}
+
 /* ---------- 3. CADASTRO / EDIÇÃO DE PRODUTO ---------- */
 function abrirEditor(id) {
   const base = id
@@ -290,10 +316,19 @@ document.addEventListener("click", async (e) => {
   }
   if (alvo("[data-novo-adicional]")) {
     const cat = alvo("[data-novo-adicional]").dataset.novoAdicional;
-    const nome = prompt("Nome do adicional (ex.: Bacon extra)")?.trim();
-    if (!nome) return;
-    const preco = parseFloat(String(prompt(`Preço de "${nome}" (ex.: 5,00)`) || "").replace(",", "."));
-    if (!(preco >= 0)) return toast("Preço inválido", "info");
+    const r = await Fomito.dialogo({
+      titulo: "Novo adicional",
+      texto: `Aparece no produto como opcional, em <b>${nomeCategoria(cat)}</b>.`,
+      campos: [
+        { id: "nome", rotulo: "Nome", placeholder: "Ex.: Bacon extra", obrigatorio: true, max: 50 },
+        { id: "preco", rotulo: "Preço (R$)", placeholder: "Ex.: 5,00", tipo: "moeda", obrigatorio: true, max: 10,
+          validar: (v) => (parseFloat(v.replace(",", ".")) >= 0 ? null : "Digite um preço válido, ex.: 5,00.") },
+      ],
+      confirmar: "Adicionar",
+    });
+    if (!r) return;
+    const nome = r.nome;
+    const preco = Math.round(parseFloat(r.preco.replace(",", ".")) * 100) / 100;
     let id = nome.toLowerCase().normalize("NFD").replace(/[^\w]/g, "") || "adicional";
     while ((dados.adicionais[cat] || []).some((a) => a.id === id)) id += "2";
     (dados.adicionais[cat] ||= []).push({ id, nome, preco });
@@ -308,19 +343,11 @@ document.addEventListener("click", async (e) => {
     renderCardapio();
     return toast("Adicional removido", "lixo");
   }
-  if (alvo("[data-editar-slide]")) {
-    const v = dados.lanchonete.vitrine[Number(alvo("[data-editar-slide]").dataset.editarSlide)];
-    const titulo = prompt("Título da imagem", v.titulo);
-    if (titulo === null) return;
-    const texto = prompt("Frase abaixo do título", v.texto);
-    if (texto === null) return;
-    Object.assign(v, { titulo: titulo.trim(), texto: texto.trim() });
-    await Fomito.salvarCardapio();
-    renderCardapio();
-    return toast("Vitrine atualizada", "check");
-  }
+  if (alvo("[data-editar-slide]")) return editarSlide(Number(alvo("[data-editar-slide]").dataset.editarSlide));
   if (alvo("[data-remover-slide]")) {
-    dados.lanchonete.vitrine.splice(Number(alvo("[data-remover-slide]").dataset.removerSlide), 1);
+    const i = Number(alvo("[data-remover-slide]").dataset.removerSlide);
+    if (!(await Fomito.confirmar("Remover imagem da vitrine?", `“${dados.lanchonete.vitrine[i]?.titulo || "Imagem"}” sai do topo do cardápio.`, "Remover"))) return;
+    dados.lanchonete.vitrine.splice(i, 1);
     await Fomito.salvarCardapio();
     renderCardapio();
     return toast("Imagem removida da vitrine", "lixo");
@@ -332,7 +359,7 @@ document.addEventListener("click", async (e) => {
   if (alvo("[data-salvar-produto]")) return salvarProduto();
   if (alvo("[data-excluir-produto]")) {
     const p = cardapio.produto;
-    if (!confirm(`Remover ${p.nome} do cardápio? Os pedidos antigos continuam com o nome guardado.`)) return;
+    if (!(await Fomito.confirmar(`Remover ${p.nome}?`, "O produto sai do cardápio. Os pedidos antigos continuam mostrando o nome dele.", "Remover produto"))) return;
     dados.produtos.splice(dados.produtos.findIndex((x) => x.id === p.id), 1);
     await Fomito.salvarCardapio();
     cardapio.produto = null;
@@ -398,9 +425,8 @@ document.addEventListener("change", async (e) => {
       const src = await Fomito.lerImagem(arquivo);
       if (t.id === "novaFoto") { cardapio.produto.fotos.push({ src, legenda: "" }); atualizarGaleria(); }
       else {
-        dados.lanchonete.vitrine.push({ src, titulo: "Nova imagem", texto: "Edite o título e a frase" });
-        await Fomito.salvarCardapio();
-        renderCardapio();
+        /* Imagem nova: já abre o editor para dar título e frase antes de publicar */
+        await editarSlide(null, { src, titulo: "", texto: "" });
       }
     }
   }

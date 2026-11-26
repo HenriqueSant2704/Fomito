@@ -32,6 +32,9 @@ const estado = {
   mesaQR: Fomito.estado.mesaQR || null, // mesa lida pelo QR Code (?m=código da mesa; o servidor diz qual é)
   mesa: "",
   nomeLocal: "",
+  /* Retirar no balcão (lembra o nome e o celular da última vez) */
+  retNome: (() => { try { return JSON.parse(localStorage.getItem("fomito.retirada"))?.nome || ""; } catch { return ""; } })(),
+  retTel: (() => { try { return JSON.parse(localStorage.getItem("fomito.retirada"))?.tel || ""; } catch { return ""; } })(),
 };
 if (estado.mesaQR) estado.mesa = String(estado.mesaQR);
 const iniciais = (nome) => nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
@@ -412,6 +415,7 @@ const { clientes } = Fomito;
 
 function renderCheckout() {
   const entrega = estado.modo === "entrega";
+  const retirada = estado.modo === "retirada";
   $("#checkout").innerHTML = `
     <div class="bloco">
       <h3 class="bloco__titulo">Como você quer receber?</h3>
@@ -420,13 +424,17 @@ function renderCheckout() {
           <span class="modo-card__icone">${icone("entrega")}</span>
           <b>Entrega</b><span>${dados.lanchonete.tempoEntrega} · ${Fomito.taxaTexto(dados.lanchonete.taxaEntrega)}</span>
         </button>
-        <button class="modo-card ${!entrega ? "ativo" : ""}" data-modo="local">
+        <button class="modo-card ${retirada ? "ativo" : ""}" data-modo="retirada">
+          <span class="modo-card__icone">${icone("loja")}</span>
+          <b>Retirar no balcão</b><span>Sem taxa de entrega</span>
+        </button>
+        <button class="modo-card ${estado.modo === "local" ? "ativo" : ""}" data-modo="local">
           <span class="modo-card__icone">${icone("local")}</span>
           <b>Comer no local</b><span>Abre a comanda da mesa</span>
         </button>
       </div>
     </div>
-    ${entrega ? blocoCliente() + (estado.cliente ? blocoPagamento() : "") : blocoLocal()}
+    ${entrega ? blocoCliente() + (estado.cliente ? blocoPagamento() : "") : retirada ? blocoRetirada() + blocoPagamento() : blocoLocal()}
     <div class="bloco">
       <h3 class="bloco__titulo">${icone("pedidos")} Resumo</h3>
       ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
@@ -526,10 +534,23 @@ function mostrarErro(texto) {
 }
 
 /* --- Pagamento na entrega --- */
+/* --- Retirar no balcão: só o nome e o celular (para avisar quando ficar pronto) --- */
+function blocoRetirada() {
+  return `
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("loja")} Retirada no balcão</h3>
+      <div class="duas">
+        <div class="campo"><label for="retNome">Seu nome</label><input id="retNome" class="input" autocomplete="name" placeholder="Como te chamamos" value="${estado.retNome.replace(/"/g, "&quot;")}"></div>
+        <div class="campo"><label for="retTel">Celular</label><input id="retTel" class="input" inputmode="tel" autocomplete="tel" placeholder="(11) 90000-0000" value="${clientes.formatarTelefone(estado.retTel)}"></div>
+      </div>
+      <div class="aviso">${icone("info", "ic--sm")}<span>Retire em <b>${dados.lanchonete.endereco || "nosso balcão"}</b>. Avisamos quando o pedido ficar pronto.</span></div>
+    </div>`;
+}
+
 function blocoPagamento() {
   return `
     <div class="bloco">
-      <h3 class="bloco__titulo">${icone("dinheiro")} Pagamento <small>na entrega</small></h3>
+      <h3 class="bloco__titulo">${icone("dinheiro")} Pagamento <small>${estado.modo === "retirada" ? "na retirada" : "na entrega"}</small></h3>
       <div class="pilha" style="gap:8px" id="formasPagamento">
         ${Fomito.formasAtivas().map((f) => `
           <button class="opcao ${estado.pagamento === f.id ? "ativa" : ""}" data-pag="${f.id}">
@@ -597,6 +618,9 @@ $("#checkout").addEventListener("click", async (e) => {
 
 $("#checkout").addEventListener("input", (e) => {
   if (e.target.id === "tel") e.target.value = clientes.formatarTelefone(e.target.value);
+  if (e.target.id === "retTel") { e.target.value = clientes.formatarTelefone(e.target.value); estado.retTel = clientes.soDigitos(e.target.value); }
+  if (e.target.id === "retNome") estado.retNome = e.target.value;
+  if (e.target.id === "retTel" || e.target.id === "retNome") renderRodapeCheckout();
   if (e.target.id === "mesa") estado.mesa = e.target.value;
   if (e.target.id === "nomeLocal") estado.nomeLocal = e.target.value;
   if (e.target.id === "mesa" || e.target.id === "nomeLocal") renderRodapeCheckout();
@@ -676,7 +700,8 @@ function ligarEventosTroco() {
 function podeConfirmar() {
   if (dados.lanchonete.aberta === false) return false;
   if (estado.modo === "local") return !!minhaComanda() || (!!estado.mesaQR && estado.nomeLocal.trim().length > 1);
-  if (!estado.cliente || estado.novoEndereco) return false;
+  if (estado.modo === "retirada") { if (estado.retNome.trim().length < 2 || !clientes.telefoneValido(estado.retTel)) return false; }
+  else if (!estado.cliente || estado.novoEndereco) return false;
   if (!estado.pagamento) return false;
   if (estado.pagamento === "dinheiro") return estado.semTroco || valorTroco() >= total();
   return true;
@@ -687,7 +712,7 @@ function renderRodapeCheckout() {
     ${linhasResumo()}
     ${dados.lanchonete.aberta === false ? `<span class="troco__erro" style="text-align:center">A loja não está recebendo pedidos agora.</span>` : ""}
     <button class="btn btn--primario btn--bloco" id="confirmar" ${podeConfirmar() ? "" : "disabled"}>
-      ${estado.modo === "entrega" ? "Confirmar pedido" : minhaComanda() ? "Adicionar à comanda" : "Abrir comanda e enviar para a cozinha"}
+      ${estado.modo === "entrega" ? "Confirmar pedido" : estado.modo === "retirada" ? "Confirmar pedido para retirar" : minhaComanda() ? "Adicionar à comanda" : "Abrir comanda e enviar para a cozinha"}
     </button>`;
   $("#confirmar").onclick = confirmarPedido;
 }
@@ -801,16 +826,23 @@ let minhaEntrega = recuperar(CHAVE_ENTREGA, null); // número do pedido de entre
 
 async function confirmarPedido() {
   if (estado.modo === "local") return enviarParaComanda();
-  const endereco = estado.cliente.enderecos.find((e) => e.id === estado.enderecoId);
-  const p = await Fomito.pedidos.criar({
-    modo: "entrega", cliente: estado.cliente.nome, telefone: clientes.formatarTelefone(estado.cliente.telefone),
-    rua: endereco.rua, compl: endereco.compl, bairro: endereco.bairro, ref: endereco.ref,
-    itens: estado.carrinho.map((i) => [i.id, i.qtd, i.extras || [], i.obs || ""]),
-    pag: estado.pagamento, troco: estado.pagamento === "dinheiro" && !estado.semTroco ? valorTroco() : null,
-  });
+  const itens = estado.carrinho.map((i) => [i.id, i.qtd, i.extras || [], i.obs || ""]);
+  const pagamento = { pag: estado.pagamento, troco: estado.pagamento === "dinheiro" && !estado.semTroco ? valorTroco() : null };
+  let p;
+  if (estado.modo === "retirada") {
+    p = await Fomito.pedidos.criar({ modo: "retirada", cliente: estado.retNome.trim(), telefone: clientes.formatarTelefone(estado.retTel), itens, ...pagamento });
+    guardar("fomito.retirada", { nome: estado.retNome.trim(), tel: estado.retTel }); // da próxima vez já vem preenchido
+  } else {
+    const endereco = estado.cliente.enderecos.find((e) => e.id === estado.enderecoId);
+    p = await Fomito.pedidos.criar({
+      modo: "entrega", cliente: estado.cliente.nome, telefone: clientes.formatarTelefone(estado.cliente.telefone),
+      rua: endereco.rua, compl: endereco.compl, bairro: endereco.bairro, ref: endereco.ref, itens, ...pagamento,
+    });
+  }
   minhaEntrega = p.num;
   guardar(CHAVE_ENTREGA, minhaEntrega);
-  anteriores.unshift({ tipo: "entrega", numero: p.num, titulo: "Entrega", data: Date.now(), itens: qtdItens(), total: p.total, forma: estado.pagamento });
+  const retirada = estado.modo === "retirada";
+  anteriores.unshift({ tipo: retirada ? "retirada" : "entrega", numero: p.num, titulo: retirada ? "Retirada no balcão" : "Entrega", data: Date.now(), itens: qtdItens(), total: p.total, forma: estado.pagamento });
   guardar(CHAVE_ANTERIORES, anteriores);
   estado.carrinho = [];
   atualizarBarraSacola();
@@ -880,6 +912,7 @@ function telaEntrega(pedido) {
       <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">Pedido cancelado</h3>
       <span class="suave">A loja cancelou este pedido. Se tiver dúvida, fale com a loja${dados.lanchonete.telefone ? ` pelo ${dados.lanchonete.telefone}` : ""}.</span>
     </div>`;
+  if (pedido.modo === "local") return telaRetirada(pedido);
   const passo = etapaDoStatus[pedido.status];
   const atual = etapas[passo];
   const forma = dados.formasPagamento.find((f) => f.id === pedido.pag);
@@ -916,6 +949,42 @@ function telaEntrega(pedido) {
     <div class="aviso">${icone(forma?.icone || "dinheiro", "ic--sm")}<span>${pagamento}</span></div>`;
 }
 
+/* Pedido para retirar no balcão: recebido → em preparo → pronto para retirar → retirado */
+function telaRetirada(pedido) {
+  const passos = [
+    { icone: "recebido", titulo: "Pedido recebido", sub: "Aguardando a lanchonete aceitar" },
+    { icone: "chama", titulo: "Em preparo", sub: "Seu pedido está sendo preparado" },
+    { icone: "sino", titulo: "Pronto para retirar", sub: "Pode vir buscar no balcão" },
+    { icone: "check", titulo: "Retirado", sub: "Bom apetite!" },
+  ];
+  const passo = { novo: 0, preparo: 1, pronto: 2, concluido: 3 }[pedido.status] ?? 0;
+  const feito = pedido.status === "concluido";
+  const forma = dados.formasPagamento.find((f) => f.id === pedido.pag);
+  return `
+    <div class="status">
+      <span class="rotulo">Pedido #${pedido.num} · Retirada no balcão</span>
+      <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">${passos[passo].titulo}</h3>
+      <span class="suave">${passos[passo].sub}</span>
+      <div class="status__progresso" style="grid-template-columns:repeat(${passos.length},1fr)">
+        ${passos.map((_, i) => `<span class="${i < passo || feito ? "feito" : i === passo ? "atual" : ""}"></span>`).join("")}
+      </div>
+    </div>
+    <div class="card linha-tempo">
+      ${passos.map((e, i) => `
+        <div class="etapa ${i < passo || feito ? "feita" : ""} ${i === passo && !feito ? "atual" : ""}">
+          <span class="etapa__ponto">${icone(i < passo || feito ? "check" : e.icone, "ic--sm")}</span>
+          <div><div class="etapa__titulo">${e.titulo}</div><div class="pequeno suave">${e.sub}</div></div>
+        </div>`).join("")}
+    </div>
+    <div class="card resumo">
+      <span class="rotulo">Itens</span>
+      ${pedido.itens.map((item) => `<div class="entre pequeno"><span>${item[1]}× ${item[5] || Fomito.produto(item[0]).nome}</span><span class="num">${moeda(Fomito.pedidos.precoItem(item))}</span></div>`).join("")}
+      <div class="entre resumo__total"><span class="forte">Total</span><span class="preco">${moeda(pedido.total)}</span></div>
+    </div>
+    <div class="aviso">${icone("loja", "ic--sm")}<span>Retirar em <b>${dados.lanchonete.endereco || "nosso balcão"}</b> em nome de <b>${pedido.cliente}</b>.</span></div>
+    ${forma ? `<div class="aviso">${icone(forma.icone, "ic--sm")}<span>Pagamento na retirada: <b>${forma.nome}</b>${pedido.pag === "dinheiro" && pedido.troco ? `, troco para ${moeda(pedido.troco)}` : ""}.</span></div>` : ""}`;
+}
+
 function listaAnteriores(lista) {
   const data = (ts) => new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " + comandas.hora(ts);
   return `
@@ -923,9 +992,9 @@ function listaAnteriores(lista) {
       <span class="rotulo">Pedidos anteriores</span>
       ${lista.map((a) => `
         <div class="card anterior">
-          <span class="anterior__icone">${icone(a.tipo === "comanda" ? "mesa" : "entrega", "ic--sm")}</span>
+          <span class="anterior__icone">${icone(a.tipo === "comanda" ? "mesa" : a.tipo === "retirada" ? "loja" : "entrega", "ic--sm")}</span>
           <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${a.titulo}</span><span class="pequeno suave">#${a.numero} · ${data(a.data)} · ${a.itens} itens</span></div>
-          <div class="pilha" style="gap:2px;align-items:flex-end"><span class="num forte">${moeda(a.total)}</span><span class="tag tag--${a.tipo === "comanda" ? "verde" : "cinza"}">${a.tipo === "comanda" ? "Paga" : "Na entrega"}</span></div>
+          <div class="pilha" style="gap:2px;align-items:flex-end"><span class="num forte">${moeda(a.total)}</span><span class="tag tag--${a.tipo === "comanda" ? "verde" : "cinza"}">${a.tipo === "comanda" ? "Paga" : a.tipo === "retirada" ? "No balcão" : "Na entrega"}</span></div>
         </div>`).join("")}
     </div>`;
 }
