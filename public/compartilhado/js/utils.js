@@ -143,3 +143,36 @@ Fomito.linkMapa = (loja) => {
   if (/^https:\/\//i.test(loja.mapa || "")) return loja.mapa;
   return loja.endereco ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loja.endereco)}` : "";
 };
+
+/* Fileiras que deslizam para o lado: marca as bordas que ainda têm conteúdo,
+   para o CSS esmaecer e o usuário perceber que dá para arrastar */
+(() => {
+  const SEL = ".filtros, .abas, .filtros-forma, .categorias, .miniaturas, .destaques__trilho, .tabela-rolagem";
+  const marcar = (el) => {
+    const max = el.scrollWidth - el.clientWidth;
+    el.classList.toggle("rola-x", max > 2);
+    el.toggleAttribute("data-mais-esq", max > 2 && el.scrollLeft > 2);
+    el.toggleAttribute("data-mais-dir", max > 2 && el.scrollLeft < max - 2);
+    /* Na primeira vez que cada fileira aparece cortada, ela dá uma "espiadinha" para o lado
+       e volta: mostra que dá para arrastar (uma vez por fileira, por visita) */
+    const chave = `${el.closest("[data-secao]")?.dataset.secao || ""}|${el.className.replace(/ rola-x/g, "")}`;
+    if (max > 24 && el.scrollLeft === 0 && !espiadas.has(chave) && el.getBoundingClientRect().top < innerHeight) {
+      espiadas.add(chave);
+      setTimeout(() => {
+        el.scrollTo({ left: Math.min(48, max), behavior: "smooth" });
+        setTimeout(() => el.scrollTo({ left: 0, behavior: "smooth" }), 520);
+      }, 450);
+    }
+  };
+  const espiadas = new Set();
+  let pendente = false;
+  const todas = () => {
+    if (pendente) return;
+    pendente = true;
+    requestAnimationFrame(() => { pendente = false; document.querySelectorAll(SEL).forEach(marcar); });
+  };
+  document.addEventListener("scroll", (e) => { if (e.target.matches?.(SEL)) marcar(e.target); else if (e.target === document) todas(); }, true);
+  window.addEventListener("resize", todas);
+  const iniciar = () => { todas(); new MutationObserver(todas).observe(document.body, { childList: true, subtree: true }); };
+  if (document.body) iniciar(); else document.addEventListener("DOMContentLoaded", iniciar);
+})();
