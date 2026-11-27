@@ -13,7 +13,8 @@
   <!-- ============ BARRA DO CELULAR (menu ☰) ============ -->
   <div class="barra-menu">
     <button class="barra-menu__botao" id="abrirMenu" aria-label="Abrir o menu" aria-expanded="false" aria-controls="menuLateral"><span></span><span></span><span></span></button>
-    <span class="barra-menu__titulo" id="barraSecao">Visão geral</span>
+    <div class="barra-menu__marca"><span id="barraSimbolo"></span><span class="barra-menu__textos"><span class="barra-menu__nome" id="barraNome"></span><span class="barra-menu__pagina" id="barraSecao">Visão geral</span></span></div>
+    <div class="barra-menu__acoes" id="barraAcoes"></div>
   </div>
   <div class="menu-fundo" id="menuFundo" hidden></div>
 
@@ -23,8 +24,8 @@
     <div class="menu__logo" id="logo"></div>
 
     <div class="menu__loja">
-      <span class="menu__loja-avatar" id="menuLojaAvatar">FO</span>
-      <div class="pilha"><span class="forte" id="menuLojaNome">Fomito</span><span class="pequeno">Plano Pro</span></div>
+      <img class="menu__fomito" src="../compartilhado/img/simbolo.svg" alt="">
+      <div class="pilha" style="gap:0"><span class="menu__fomito-nome">Fomito</span><span class="pequeno">Plano Pro</span></div>
     </div>
 
     <nav class="menu__nav" id="menu">

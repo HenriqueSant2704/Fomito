@@ -851,10 +851,21 @@ async function conectarWhatsApp() {
 
 /* Nome e iniciais do restaurante no menu lateral */
 function atualizarMenuLoja() {
-  const nome = Fomito.config.ler().marca.nome;
-  $("#menuLojaNome").textContent = nome;
-  $("#menuLojaAvatar").textContent = iniciais(nome);
+  const marca = Fomito.config.ler().marca;
+  /* Barra do celular: símbolo e nome do restaurante, com a página atual embaixo */
+  $("#barraSimbolo").innerHTML = Fomito.config.simbolo(marca);
+  $("#barraNome").textContent = marca.nome;
 }
+
+/* No celular, o sino e o avatar vão para a barra do topo (no computador ficam no cabeçalho) */
+const telaEstreita = window.matchMedia("(max-width: 1024px)");
+function posicionarAcoesTopo() {
+  const destino = telaEstreita.matches ? $("#barraAcoes") : $(".topo .linha");
+  [$("#btnSom"), $("#avatar")].forEach((el) => el && el.parentElement !== destino && destino.appendChild(el));
+}
+telaEstreita.addEventListener("change", posicionarAcoesTopo);
+posicionarAcoesTopo();
+Fomito.config.carregarFonte?.("Nunito");
 
 /* Botão do sino: liga/desliga o som de novo pedido */
 function atualizarBotaoSom() {

@@ -530,3 +530,35 @@ button.tag { cursor: pointer; }
   .menu-fundo[hidden] { display: none; }
   body.menu-aberto { overflow: hidden; }
 }
+
+/* Selo "Fomito · Plano Pro": sempre com a marca oficial do Fomito (símbolo e fonte) */
+.menu__fomito { width: 34px; height: 34px; flex: none; border-radius: 10px; }
+.menu__fomito-nome { font-family: "Nunito", system-ui, sans-serif; font-weight: 900; font-size: 16px; letter-spacing: -.4px; color: #fff; line-height: 1.1; }
+
+/* ---------- Barra do topo no celular (refeita: clara e elegante) ---------- */
+@media (max-width: 1024px) {
+  .barra-menu {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+    padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top, 0px));
+    background: rgba(255, 255, 255, .86); -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px);
+    color: var(--texto); border-bottom: 1px solid var(--borda); box-shadow: 0 6px 18px -14px rgba(27, 21, 48, .35);
+  }
+  .barra-menu__botao { width: 42px; height: 42px; border-radius: 12px; gap: 4px; background: var(--superficie); border: 1px solid var(--borda); }
+  .barra-menu__botao span { width: 18px; height: 2px; background: var(--texto); }
+  .barra-menu__botao span:nth-child(2) { width: 12px; align-self: center; transform: translateX(-3px); }
+  .barra-menu__marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .barra-menu__marca .logo__simbolo { width: 34px; height: 34px; border-radius: 10px; display: block; }
+  .barra-menu__textos { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+  .barra-menu__nome { font-family: var(--fonte-marca); font-weight: 800; font-size: 15.5px; color: var(--texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .barra-menu__pagina { font-size: 12.5px; font-weight: 600; color: var(--roxo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .barra-menu__acoes { display: flex; align-items: center; gap: 8px; }
+  .barra-menu__acoes .btn-icone { width: 40px; height: 40px; min-height: 40px; border-radius: 12px; }
+  .barra-menu__acoes .avatar { width: 36px; height: 36px; font-size: 12px; }
+
+  /* O título da página já está na barra: o cabeçalho fica só com a data e o status da loja */
+  .topo { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .topo h1 { display: none; }
+  .topo > div:first-child { flex: 1 1 200px; }
+  .topo .status-loja { background: var(--superficie); border: 1px solid var(--borda); border-radius: 999px; padding: 6px 12px 6px 8px; }
+}
+@media (max-width: 1024px) { .menu__logo .logo__nome { font-size: 18px; line-height: 1.15; } }
