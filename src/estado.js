@@ -33,19 +33,56 @@ function quando(ms) {
   return dias <= 0 ? 'Hoje' : dias === 1 ? 'Ontem' : `Há ${dias} dias`;
 }
 
-/** Clientes com quantos pedidos fizeram, quanto gastaram e quando foi o último. */
+/**
+ * Clientes com tudo que a gestão precisa: pedidos, gasto, ticket, frequência,
+ * último pedido, produtos favoritos e o segmento (Fiel, Novo, Em risco, Sumido).
+ * Os dias de "sumido" vêm da configuração da mensagem automática.
+ */
+let cacheClientes = { em: 0, lista: null };
 async function clientesComResumo() {
-  const { rows } = await db.query(`
-    SELECT c.telefone, c.nome, c.enderecos, c.criado_em, c.convenio,
-           count(p.num)::int AS pedidos, coalesce(sum(p.total), 0) AS gasto, max(p.criado_em) AS ultimo
-      FROM clientes c
-      LEFT JOIN pedidos p ON p.telefone = c.telefone AND p.status <> 'cancelado'
-     GROUP BY c.telefone, c.convenio ORDER BY max(p.criado_em) DESC NULLS LAST, c.nome LIMIT 3000`);
-  return rows.map((r) => ({
-    telefone: r.telefone, nome: r.nome, desde: desde(r.criado_em),
-    convenio: r.convenio ? { ativo: !!r.convenio.ativo, empresa: r.convenio.empresa || '', limite: r.convenio.limite || 0, diaFechamento: r.convenio.diaFechamento || 1 } : null, pedidos: r.pedidos, gasto: Number(r.gasto),
-    ultimo: quando(r.ultimo), enderecos: r.enderecos.map(({ dispositivos, ...e }) => (e.numero ? e : { ...e, ...separarNumero(e.rua) })),
-  }));
+  /* Conta todos os pedidos de cada cliente: guarda por 1 minuto para o painel não refazer a cada atualização */
+  if (cacheClientes.lista && Date.now() - cacheClientes.em < 60000) return cacheClientes.lista;
+  cacheClientes = { em: Date.now(), lista: await calcularClientes() };
+  return cacheClientes.lista;
+}
+async function calcularClientes() {
+  const diasSumido = loja.obter().config.clientes?.reativacao?.dias || 30;
+  const DIA = 86400000;
+  const agora = Date.now();
+  const { rows: clientes } = await db.query('SELECT telefone, nome, enderecos, criado_em, convenio, contato FROM clientes ORDER BY nome LIMIT 5000');
+  const { rows: peds } = await db.query(
+    `SELECT telefone, total, criado_em, dados->'itens' AS itens FROM pedidos
+      WHERE telefone IS NOT NULL AND status <> 'cancelado' ORDER BY criado_em`);
+  const porTel = {};
+  for (const p of peds) (porTel[p.telefone] ||= []).push(p);
+  return clientes.map((c) => {
+    const lista = porTel[c.telefone] || [];
+    const gasto = arred(lista.reduce((s, p) => s + Number(p.total), 0));
+    const datas = lista.map((p) => new Date(p.criado_em).getTime());
+    const primeiro = datas[0] || null;
+    const ultimoTs = datas[datas.length - 1] || null;
+    const diasSem = ultimoTs ? Math.floor((agora - ultimoTs) / DIA) : null;
+    const intervalo = datas.length > 1 ? Math.round((ultimoTs - primeiro) / DIA / (datas.length - 1)) : null;
+    const ultimos60 = datas.filter((t) => agora - t <= 60 * DIA).length;
+    /* Produtos que ele mais pede */
+    const contagem = {};
+    for (const p of lista) for (const i of p.itens || []) contagem[i[5] || i[0]] = (contagem[i[5] || i[0]] || 0) + Number(i[1] || 1);
+    const favoritos = Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([nome, qtd]) => ({ nome, qtd }));
+    const segmento = !lista.length ? 'sem'
+      : diasSem >= diasSumido ? 'sumido'
+      : primeiro && agora - primeiro <= 30 * DIA && lista.length <= 2 ? 'novo'
+      : ultimos60 >= 3 ? 'fiel'
+      : diasSem >= Math.round(diasSumido * 0.6) || (intervalo && diasSem > intervalo * 2 && lista.length >= 2) ? 'risco'
+      : 'ativo';
+    return {
+      telefone: c.telefone, nome: c.nome, desde: desde(c.criado_em),
+      convenio: c.convenio ? { ativo: !!c.convenio.ativo, empresa: c.convenio.empresa || '', limite: c.convenio.limite || 0, diaFechamento: c.convenio.diaFechamento || 1 } : null,
+      pedidos: lista.length, gasto, ticket: lista.length ? arred(gasto / lista.length) : 0,
+      ultimo: quando(ultimoTs), ultimoTs, primeiroTs: primeiro, diasSem, intervalo, ultimos60, favoritos, segmento,
+      reativadoEm: c.contato?.reativadoEm || null,
+      enderecos: c.enderecos.map(({ dispositivos, ...e }) => (e.numero ? e : { ...e, ...separarNumero(e.rua) })),
+    };
+  });
 }
 
 /** Números da Visão geral: hoje, ontem, últimos 7 dias, categorias e mais vendidos. */
@@ -189,4 +226,5 @@ async function estado(req, res) {
   res.json(r);
 }
 
-module.exports = { estado };
+const limparCacheClientes = () => { cacheClientes.em = 0; };
+module.exports = { limparCacheClientes, estado };

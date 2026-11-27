@@ -111,3 +111,7 @@ CREATE TABLE IF NOT EXISTS convenio_pagamentos (
   em        timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS convenio_pag_tel ON convenio_pagamentos (telefone);
+
+-- Gestão de clientes: quando a loja mandou a mensagem de "sentimos sua falta" (para não repetir)
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS contato jsonb;
+CREATE INDEX IF NOT EXISTS pedidos_telefone ON pedidos (telefone);

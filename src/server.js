@@ -84,6 +84,7 @@ async function iniciar() {
   });
   // Se a loja já tinha conectado o WhatsApp, reconecta sozinho (a sessão fica no banco)
   require('./whatsapp').iniciar();
+  require('./reativacao').iniciar(); // mensagem automática para clientes sumidos (se ligada)
 }
 
 iniciar().catch((err) => {

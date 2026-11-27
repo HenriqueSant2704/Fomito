@@ -158,6 +158,22 @@ r.post('/clientes', ok(async (req) => {
   return s.salvarCliente(req.body, quemPede(req));
 }));
 
+/* ---------- Gestão de clientes (painel) ---------- */
+/* Histórico de pedidos de um cliente (os 40 últimos) */
+r.get('/clientes/:telefone/historico', balcao, ok(async (req) => {
+  const { rows } = await db.query(
+    'SELECT num, status, total, criado_em, dados FROM pedidos WHERE telefone = $1 ORDER BY criado_em DESC LIMIT 40',
+    [String(req.params.telefone).replace(/\D/g, '')]);
+  return rows.map((p) => ({ num: p.num, status: p.status, total: Number(p.total), em: new Date(p.criado_em).getTime(),
+    modo: p.dados.modo, retirada: !!p.dados.retirada, pag: p.dados.pag || p.dados.pagoCom || null, itens: (p.dados.itens || []).map((i) => `${i[1]}× ${i[5]}`) }));
+}));
+/* Quem vai receber a mensagem de "sentimos sua falta" e o envio manual */
+r.get('/clientes/sumidos', admin, ok(async () => {
+  const lista = await require('./reativacao').candidatos();
+  return { total: lista.length, lista: lista.slice(0, 60) };
+}));
+r.post('/clientes/sumidos/enviar', admin, ok(() => require('./reativacao').rodar({ manual: true })));
+
 /* ---------- Pedidos de entrega e balcão ---------- */
 r.post('/pedidos', ok(async (req) => {
   const equipe = ehEquipeLoja(req);

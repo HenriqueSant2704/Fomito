@@ -55,6 +55,8 @@ window.Fomito = window.Fomito || {};
       modelo: {"topo":null,"fim":null,"mostrar":{"telefoneCliente":true,"enderecoCliente":true,"observacoes":true}},
     },
     som: { ativo: true, volume: 0.6 },
+    /* Gestão de clientes: mensagem automática para quem sumiu (só o administrador vê) */
+    clientes: { reativacao: {"ativo":false,"dias":30,"intervalo":30,"texto":"Oi, {nome}! Faz {dias} dias que você não pede na {loja} e a gente sentiu sua falta. 😊 Que tal matar a saudade hoje? É só pedir pelo nosso cardápio."} },
   };
 
   /* Junta o salvo com o padrão (assim campos novos sempre existem) */

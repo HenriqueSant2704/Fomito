@@ -79,6 +79,12 @@ async function salvarConfig(recebida) {
   config.whatsapp.numero = atual.config.whatsapp.numero;
   config.whatsapp.apiUrl = texto(config.whatsapp.apiUrl, 300).replace(/\/+$/, '');
   config.whatsapp.instancia = texto(config.whatsapp.instancia, 60).replace(/[^\w.-]/g, '');
+  /* Mensagem para clientes sumidos: dias entre 7 e 365; não repete para o mesmo cliente antes do intervalo */
+  const rv = config.clientes.reativacao;
+  rv.ativo = rv.ativo === true;
+  rv.dias = Math.min(365, Math.max(7, parseInt(rv.dias, 10) || 30));
+  rv.intervalo = Math.min(365, Math.max(7, parseInt(rv.intervalo, 10) || 30));
+  rv.texto = texto(rv.texto, 600) || CONFIG_PADRAO.clientes.reativacao.texto;
   const cardapio = { ...atual.cardapio, lanchonete: { ...atual.cardapio.lanchonete, nome: m.nome, slogan: m.slogan } };
   return gravar({ config, cardapio });
 }

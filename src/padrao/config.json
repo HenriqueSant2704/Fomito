@@ -90,5 +90,13 @@
   "som": {
     "ativo": true,
     "volume": 0.6
+  },
+  "clientes": {
+    "reativacao": {
+      "ativo": false,
+      "dias": 30,
+      "intervalo": 30,
+      "texto": "Oi, {nome}! Faz {dias} dias que você não pede na {loja} e a gente sentiu sua falta. 😊 Que tal matar a saudade hoje? É só pedir pelo nosso cardápio."
+    }
   }
 }
