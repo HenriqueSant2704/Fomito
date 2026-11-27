@@ -968,9 +968,27 @@ function verificarFechamento() {
   }
 }
 
+/* Leu o QR e não pediu nada em 10 minutos: o celular esquece a mesa, como se não tivesse lido.
+   Ler o QR de novo recomeça a contagem. Com a comanda aberta, a mesa fica (ajuste 35 cuida do fechamento). */
+const ESPERA_MESA = 10 * 60 * 1000;
+function sairDaMesa() {
+  Fomito.esquecerMesa();
+  estado.mesaQR = null;
+  estado.mesa = "";
+  if (estado.modo === "local") estado.modo = "entrega";
+  renderMinhaComanda();
+}
+function conferirMesaSemPedido() {
+  if (!estado.mesaQR || minhaComanda()) return;
+  const lida = recuperar("fomito.mesaQR", null)?.em || 0;
+  if (Date.now() - lida >= ESPERA_MESA) sairDaMesa();
+}
+setInterval(conferirMesaSemPedido, 20000);
+
 /* --- Cartão da comanda no início (abaixo do cartão da loja) --- */
 function renderMinhaComanda() {
   verificarFechamento();
+  conferirMesaSemPedido();
   const c = minhaComanda();
   const el = $("#minhaComanda");
   if (c) {
@@ -995,7 +1013,7 @@ function renderMinhaComanda() {
       </div>`;
   } else if (estado.mesaQR) {
     el.innerHTML = `
-      <div class="aviso aviso--mesa">${icone("mesa", "ic--sm")}<span>Você está na <b>${comandas.mesaTexto(estado.mesaQR)}</b>. Escolha seus itens: ao finalizar, eles abrem a comanda da mesa.</span></div>`;
+      <div class="aviso aviso--mesa">${icone("mesa", "ic--sm")}<span>Você está na <b>${comandas.mesaTexto(estado.mesaQR)}</b>. Escolha seus itens: ao finalizar, eles abrem a comanda da mesa.<button class="sair-mesa" data-sair-mesa>Não estou na mesa · sair</button></span></div>`;
   } else el.innerHTML = "";
   $("#botaoMeusPedidos").classList.toggle("tem-comanda", !!c);
 }
@@ -1310,6 +1328,7 @@ function abrirDetalhePedido(chave) {
   camada.addEventListener("click", (e) => { if (e.target === camada || e.target.closest("[data-fechar]")) camada.remove(); });
 }
 document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-sair-mesa]")) { sairDaMesa(); return toast("Pronto, você saiu da mesa. Para voltar, leia o QR de novo.", "check"); }
   const b = e.target.closest("[data-ver-pedido]");
   if (b) abrirDetalhePedido(b.dataset.verPedido);
 });
