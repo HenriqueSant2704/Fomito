@@ -24,7 +24,7 @@ A produção do cliente vai para outro Render (outra conta) quando tudo estiver 
 | 17 | Número de mesas em Configurações | Feito, aguardando validação | Painel → Comandas: no quadro "Mesas ocupadas", use o − e + de "Mesas no salão". |
 | 18 | Mesa pelo QR: o cartão da comanda sumia e pedia o nome de novo | Feito, aguardando validação | Leia o QR, peça: o cartão "Sua comanda" aparece e está em Meus pedidos. Peça de novo (pelo cardápio ou "Pedir mais"): vai direto para a mesma comanda, sem pedir nome. A mesa fica lembrada por 6 h mesmo recarregando. |
 | 19 | Comanda paga somando com a nova da mesma mesa | Conferido, aguardando validação | Feche a conta da mesa, peça de novo na mesma mesa: abre uma comanda nova, com total próprio. |
-| 20 | Comandas do painel mandavam para a tela do garçom | Feito, aguardando validação | Painel → Comandas: toque numa mesa (ocupada ou livre): abre ali mesmo com os pedidos, Lançar itens e Fechar conta. |
+| 20 | Comandas do painel mandavam para a tela do garçom | Corrigido, aguardando validação | Painel → menu Comandas: toque no cartão da mesa (ex.: Mesa 01 Ocupada): abre ali a comanda com os pedidos, Lançar itens e Fechar conta. Em Pedidos os cartões das mesas não abrem mais essa janela. |
 | 21 | Taxa de serviço de 10% | Feito, aguardando validação | Fechar conta e telas do cliente sem a taxa; a conta é só o consumo. |
 | 22 | Divisão da conta mudando depois de alguém pagar | Feito, aguardando validação | No fechar conta, depois do 1º pagamento o − e + da divisão travam. No Caixa, o ícone de pessoas na linha da comanda refaz a divisão (ex.: 3 → 4), com motivo e registro. |
 | 23 | Busca sem traço/acento ("cheeseburger") | Feito, aguardando validação | Busque "cheeseburger", "x burger" ou "xburguer": acha o X-Burguer. |

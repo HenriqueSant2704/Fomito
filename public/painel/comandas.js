@@ -24,7 +24,7 @@ function rodadasDaColuna(colunaId) {
 function cardRodada({ c, r, i }) {
   const cmd = Fomito.comandas;
   return `
-    <div class="card pedido pedido--comanda ${r.status === "recebido" ? "pedido--novo" : ""}" data-abrir-mesa="${c.mesa}" title="Ver a comanda da mesa">
+    <div class="card pedido pedido--comanda ${r.status === "recebido" ? "pedido--novo" : ""}">
       <div class="entre"><span class="forte">${cmd.mesaTexto(c.mesa)}</span><span class="pequeno fraco">${i + 1}º pedido · ${cmd.hora(r.hora)}</span></div>
       <div class="entre"><span class="forte">${c.nome || "Comanda"}</span><span class="tag tag--cinza">${r.por === "qr" ? "QR da mesa" : "Garçom"}</span></div>
       <div class="pedido__itens">${r.itens.map((it) => `${it.qtd}× ${it.nome || Fomito.produto(it.id).nome}${it.obs ? `<br><span class="fraco">Obs.: ${it.obs}</span>` : ""}`).join("<br>")}</div>
@@ -80,11 +80,12 @@ document.addEventListener("click", async (e) => {
     if (novo === "pronto") return toast(`${Fomito.comandas.mesaTexto(mesa)} pronta. O garçom foi avisado para servir.`, "sino");
     return toast(`${Fomito.comandas.mesaTexto(mesa)}: ${i + 1}º pedido ${Fomito.comandas.STATUS[novo].nome.toLowerCase()}`, Fomito.comandas.STATUS[novo].icone);
   }
+  /* Comandas: toque na mesa abre a comanda ali mesmo (lançar itens e fechar conta) */
+  const mesa = e.target.closest(".mini-mesa[data-abrir-mesa]");
+  if (mesa) return abrirComandaPainel(Number(mesa.dataset.abrirMesa));
   if (e.target.closest("button, a, input, label")) return;
   const fechada = e.target.closest("[data-ver-comanda]");
   if (fechada) return abrirComandaFechada(Number(fechada.dataset.verComanda));
-  const card = e.target.closest("[data-abrir-mesa]");
-  if (card) abrirComandaPainel(Number(card.dataset.abrirMesa));
 });
 
 /* ---------- 2. SEÇÃO COMANDAS ---------- */
