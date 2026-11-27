@@ -422,3 +422,8 @@ button.anterior:hover { border-color: var(--roxo-medio); }
 /* Resumo de como vai receber (etapa 2) */
 .recebimento { flex-direction: row !important; align-items: center; gap: 12px; }
 .recebimento__icone { width: 40px; height: 40px; border-radius: var(--raio-md); background: var(--laranja-claro); color: var(--laranja-escuro); display: grid; place-items: center; flex: none; }
+/* Etapas: o nome fica embaixo da bolinha, com a linha ligando as duas */
+.etapas-checkout { align-items: flex-start; gap: 0; padding: 6px 8px 4px; }
+.etapa-checkout { flex-direction: column; gap: 6px; width: 96px; flex: none; font-size: 12.5px; text-align: center; }
+.etapa-checkout b { width: 30px; height: 30px; font-size: 13.5px; }
+.etapas-checkout__linha { margin: 14px -28px 0; }
