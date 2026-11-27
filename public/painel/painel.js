@@ -731,7 +731,7 @@ const pedacosEditor = (pedacos, rot) => pedacos.map((x) => (typeof x === "string
 const linhaEditor = (x, rot) => (x.col ? `<span>${pedacosEditor(x.col[0], rot)}</span><span>${pedacosEditor(x.col[1], rot)}</span>` : x.p ? pedacosEditor(x.p, rot) : escHtml(x.t));
 
 function editorCupom(pedido, imp) {
-  const p = alertas.partesCupom(pedido, imp);
+  const p = partesCupomTeste(pedido, imp);
   const area = (zona, linhas, dica) => `<textarea class="cupom__zona" data-zona-cupom="${zona}" rows="${Math.max(1, linhas.length)}" spellcheck="false" placeholder="${dica}" aria-label="${zona === "topo" ? "Topo da notinha" : "Fim da notinha"}">${escHtml(linhas.join("\n"))}</textarea>`;
   const ocultas = Object.entries(p.ocultaveis).filter(([k, tem]) => tem && !p.mostrar[k]);
   return `
@@ -766,7 +766,7 @@ const CHAVE_PEDIDO_TESTE = "fomito.pedidoTeste";
 let pedidoTeste = null;
 const numBR = (v) => parseFloat(String(v ?? "").replace(/\./g, (m, i, s) => (s.includes(",") ? "" : m)).replace(",", ".")) || 0;
 const valorBR = (n) => (Number(n) || 0).toFixed(2).replace(".", ",");
-const escAttr = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+const escAttrTeste = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /** Copia um pedido de verdade (ou o exemplo padrão) para o formulário editável */
 function pedidoTesteDe(p) {
@@ -796,9 +796,12 @@ function guardarPedidoTeste() {
 /** Converte o formulário no formato de pedido que a notinha usa: itens [id, qtd, extras, obs, preço unitário, nome] */
 function pedidoDoTeste() {
   const t = lerPedidoTeste();
-  const itens = t.itens.map((i) => [null, Math.max(1, Math.round(numBR(i.qtd)) || 1),
-    String(i.adicionais || "").split(",").map((a) => a.trim()).filter(Boolean).map((nome) => ({ nome })),
-    String(i.obs || "").trim(), numBR(i.valor), String(i.nome || "").trim() || "Item"]);
+  /* Os adicionais e a observação digitados entram na notinha por partesCupomTeste (abaixo) */
+  const itens = t.itens.map((i) => [null, Math.max(1, Math.round(numBR(i.qtd)) || 1), [], "", numBR(i.valor), String(i.nome || "").trim() || "Item"]);
+  const extrasTeste = t.itens.map((i) => ({
+    adicionais: String(i.adicionais || "").split(",").map((a) => a.trim()).filter(Boolean),
+    obs: String(i.obs || "").trim(),
+  }));
   const entrega = t.modo === "entrega";
   const taxa = entrega ? numBR(t.taxa) : 0;
   const soma = itens.reduce((s, i) => s + i[1] * i[4], 0) + taxa;
@@ -807,8 +810,43 @@ function pedidoDoTeste() {
     cliente: String(t.cliente || "").trim() || "-", telefone: String(t.telefone || "").trim(),
     endereco: entrega ? String(t.endereco || "").trim() : "", pag: t.pag,
     troco: t.pag === "dinheiro" ? numBR(t.troco) : 0, taxa, itens,
-    total: String(t.total || "").trim() ? numBR(t.total) : soma, somaAutomatica: soma,
+    total: String(t.total || "").trim() ? numBR(t.total) : soma, somaAutomatica: soma, extrasTeste,
   };
+}
+/* A notinha monta cada item só com a linha "1x Nome   valor". Aqui, só para o teste, colocamos
+   embaixo de cada item os adicionais ("+ Ovo") e a observação ("OBS: ..."), no mesmo formato
+   dos pedidos de verdade. Nada fora desta tela é alterado. */
+function itensComExtras(pedido, blocoItens, mostrarObs) {
+  return blocoItens.split("\n").map((cabeca, n) => {
+    const x = pedido.extrasTeste[n] || { adicionais: [], obs: "" };
+    return [cabeca, ...x.adicionais.map((a) => `   + ${a}`), ...(x.obs && mostrarObs ? [`   OBS: ${x.obs}`] : [])].join("\n");
+  }).join("\n");
+}
+const ehBlocoItens = (x) => typeof x.t === "string" && /^\d+x /.test(x.t);
+/** Partes da notinha para a prévia editável, já com adicionais e observação */
+function partesCupomTeste(pedido, imp) {
+  const p = alertas.partesCupom(pedido, imp);
+  p.meio = p.meio.map((x) => {
+    if (!ehBlocoItens(x)) return x;
+    const novo = itensComExtras(pedido, x.t, p.mostrar.observacoes);
+    return { ...x, t: novo, texto: novo };
+  });
+  return p;
+}
+/** Texto da notinha de teste (o mesmo da prévia) */
+function textoCupomTeste(pedido, imp) {
+  const p = alertas.partesCupom(pedido, imp);
+  const bloco = p.meio.find(ehBlocoItens);
+  const texto = alertas.textoCupom(pedido, imp);
+  return bloco ? texto.replace(bloco.t, () => itensComExtras(pedido, bloco.t, p.mostrar.observacoes)) : texto;
+}
+/** Manda a notinha de teste para a impressora (mesma área de impressão que o painel já usa) */
+function imprimirCupomTeste() {
+  const texto = textoCupomTeste(pedidoDoTeste(), rascunho.impressao);
+  let area = document.getElementById("areaImpressao");
+  if (!area) { area = document.createElement("pre"); area.id = "areaImpressao"; document.body.appendChild(area); }
+  area.textContent = texto;
+  try { window.print(); } catch { /* alguns ambientes bloqueiam a janela de impressão */ }
 }
 /** O campo Total vazio mostra a soma automática como dica */
 function atualizarTotalAutomatico() {
@@ -822,16 +860,16 @@ function redesenharPedidoTeste() {
 function formPedidoTeste() {
   const t = lerPedidoTeste();
   const entrega = t.modo === "entrega";
-  const campo = (id, rotulo, chave, extra = "") => `<div class="campo"><label for="${id}">${rotulo}</label><input id="${id}" class="input" data-pteste="${chave}" value="${escAttr(t[chave])}" autocomplete="off" ${extra}></div>`;
+  const campo = (id, rotulo, chave, extra = "") => `<div class="campo"><label for="${id}">${rotulo}</label><input id="${id}" class="input" data-pteste="${chave}" value="${escAttrTeste(t[chave])}" autocomplete="off" ${extra}></div>`;
   const formas = dados.formasPagamento.map((f) => `<option value="${f.id}" ${f.id === t.pag ? "selected" : ""}>${escHtml(f.nome)}</option>`).join("");
   const item = (i, n) => `
     <div class="pteste-item">
-      <div class="campo"><label for="pq${n}">Qtd</label><input id="pq${n}" class="input" inputmode="numeric" data-pteste-item="${n}" data-campo="qtd" value="${escAttr(i.qtd)}"></div>
-      <div class="campo"><label for="pn${n}">Produto</label><input id="pn${n}" class="input" data-pteste-item="${n}" data-campo="nome" value="${escAttr(i.nome)}" placeholder="Ex.: X-Burguer" autocomplete="off"></div>
-      <div class="campo"><label for="pv${n}">Valor un. (R$)</label><input id="pv${n}" class="input" inputmode="decimal" data-pteste-item="${n}" data-campo="valor" value="${escAttr(i.valor)}" placeholder="0,00"></div>
+      <div class="campo"><label for="pq${n}">Qtd</label><input id="pq${n}" class="input" inputmode="numeric" data-pteste-item="${n}" data-campo="qtd" value="${escAttrTeste(i.qtd)}"></div>
+      <div class="campo"><label for="pn${n}">Produto</label><input id="pn${n}" class="input" data-pteste-item="${n}" data-campo="nome" value="${escAttrTeste(i.nome)}" placeholder="Ex.: X-Burguer" autocomplete="off"></div>
+      <div class="campo"><label for="pv${n}">Valor un. (R$)</label><input id="pv${n}" class="input" inputmode="decimal" data-pteste-item="${n}" data-campo="valor" value="${escAttrTeste(i.valor)}" placeholder="0,00"></div>
       <button type="button" class="btn-icone pteste-item__remover" data-pteste-remover="${n}" aria-label="Remover este item" title="Remover este item" ${t.itens.length > 1 ? "" : "disabled"}>${icone("lixo", "ic--sm")}</button>
-      <div class="campo pteste-item__largo"><label for="pa${n}">Adicionais <span class="fraco">(separe por vírgula)</span></label><input id="pa${n}" class="input" data-pteste-item="${n}" data-campo="adicionais" value="${escAttr(i.adicionais)}" placeholder="Ex.: Ovo, Bacon" autocomplete="off"></div>
-      <div class="campo pteste-item__largo"><label for="po${n}">Observação</label><input id="po${n}" class="input" data-pteste-item="${n}" data-campo="obs" value="${escAttr(i.obs)}" placeholder="Ex.: Sem tomate" autocomplete="off"></div>
+      <div class="campo pteste-item__largo"><label for="pa${n}">Adicionais <span class="fraco">(separe por vírgula)</span></label><input id="pa${n}" class="input" data-pteste-item="${n}" data-campo="adicionais" value="${escAttrTeste(i.adicionais)}" placeholder="Ex.: Ovo, Bacon" autocomplete="off"></div>
+      <div class="campo pteste-item__largo"><label for="po${n}">Observação</label><input id="po${n}" class="input" data-pteste-item="${n}" data-campo="obs" value="${escAttrTeste(i.obs)}" placeholder="Ex.: Sem tomate" autocomplete="off"></div>
     </div>`;
   return `
     <div class="pilha" style="gap:2px"><h3>Pedido de teste</h3><p class="pequeno suave">Troque os dados de exemplo e veja a prévia mudar na hora. Serve só para o teste: não cria pedido, não entra no caixa e não mexe no cardápio.</p></div>
@@ -840,7 +878,7 @@ function formPedidoTeste() {
       <div class="campo"><label for="pModo">Tipo</label><select id="pModo" class="input" data-pteste="modo"><option value="entrega" ${entrega ? "selected" : ""}>Entrega</option><option value="retirada" ${entrega ? "" : "selected"}>Retirada no balcão</option></select></div>
       ${campo("pCliente", "Cliente", "cliente", 'placeholder="Nome do cliente"')}
       ${campo("pTel", "Telefone", "telefone", 'placeholder="(00) 00000-0000"')}
-      ${entrega ? `<div class="campo" style="grid-column:1/-1"><label for="pEnd">Endereço</label><input id="pEnd" class="input" data-pteste="endereco" value="${escAttr(t.endereco)}" placeholder="Rua, número, bairro" autocomplete="off"></div>` : ""}
+      ${entrega ? `<div class="campo" style="grid-column:1/-1"><label for="pEnd">Endereço</label><input id="pEnd" class="input" data-pteste="endereco" value="${escAttrTeste(t.endereco)}" placeholder="Rua, número, bairro" autocomplete="off"></div>` : ""}
     </div>
     <div class="pilha" style="gap:10px">
       <span class="rotulo-campo">Itens</span>
@@ -848,8 +886,8 @@ function formPedidoTeste() {
       <button type="button" class="btn btn--contorno btn--sm" data-pteste-add style="align-self:flex-start">${icone("mais", "ic--sm")} Adicionar item</button>
     </div>
     <div class="form-grade">
-      ${entrega ? `<div class="campo"><label for="pTaxa">Taxa de entrega (R$)</label><input id="pTaxa" class="input" inputmode="decimal" data-pteste="taxa" value="${escAttr(t.taxa)}" placeholder="0,00"><span class="pequeno fraco">0 ou vazio sai como "Grátis".</span></div>` : ""}
-      <div class="campo"><label for="pTotal">Total (R$)</label><input id="pTotal" class="input" inputmode="decimal" data-pteste="total" value="${escAttr(t.total)}" placeholder="Automático: ${valorBR(pedidoDoTeste().somaAutomatica)}"><span class="pequeno fraco">Vazio: soma os itens e a taxa.</span></div>
+      ${entrega ? `<div class="campo"><label for="pTaxa">Taxa de entrega (R$)</label><input id="pTaxa" class="input" inputmode="decimal" data-pteste="taxa" value="${escAttrTeste(t.taxa)}" placeholder="0,00"><span class="pequeno fraco">0 ou vazio sai como "Grátis".</span></div>` : ""}
+      <div class="campo"><label for="pTotal">Total (R$)</label><input id="pTotal" class="input" inputmode="decimal" data-pteste="total" value="${escAttrTeste(t.total)}" placeholder="Automático: ${valorBR(pedidoDoTeste().somaAutomatica)}"><span class="pequeno fraco">Vazio: soma os itens e a taxa.</span></div>
       <div class="campo"><label for="pPag">Pagamento</label><select id="pPag" class="input" data-pteste="pag">${formas}</select></div>
       ${t.pag === "dinheiro" ? campo("pTroco", "Troco para (R$)", "troco", 'inputmode="decimal" placeholder="Sem troco"') : ""}
     </div>
@@ -945,7 +983,7 @@ function ligarConfig() {
       [rascunho.marca.corPrincipal, rascunho.marca.corDestaque] = [rascunho.marca.corDestaque, rascunho.marca.corPrincipal];
       return renderConfiguracoes();
     }
-    if (e.target.closest("#iTeste, [data-imprimir-teste]")) { alertas.imprimirCupom(pedidoDoTeste(), rascunho.impressao); toast("Cupom de teste enviado para a impressora", "impressora"); }
+    if (e.target.closest("#iTeste, [data-imprimir-teste]")) { imprimirCupomTeste(); toast("Cupom de teste enviado para a impressora", "impressora"); }
     /* Pedido de teste: adicionar, remover item e voltar ao último pedido real */
     if (e.target.closest("[data-pteste-add]")) {
       lerPedidoTeste().itens.push({ qtd: 1, nome: "", adicionais: "", obs: "", valor: "" });
