@@ -24,6 +24,14 @@ app.use((req, res, next) => {
 
 app.get('/saude', (req, res) => res.json({ ok: true }));
 
+/* Tempo real: as telas ficam ouvindo /api/eventos e cada ação que muda algo avisa todas na hora */
+const avisos = require('./avisos');
+app.get('/api/eventos', (req, res) => avisos.assinar(req, res));
+app.use('/api', (req, res, next) => {
+  if (req.method !== 'GET') res.on('finish', () => { if (res.statusCode < 400) avisos.avisarMudanca(); });
+  next();
+});
+
 app.use('/api', lerSessao(db), (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); }, require('./rotas'));
 
 // Fotos enviadas pelo painel (o endereço muda quando a foto muda, então pode guardar em cache)

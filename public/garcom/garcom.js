@@ -487,7 +487,7 @@ $("#avisoNotificacao").addEventListener("click", async (e) => {
 });
 renderAvisoNotificacao();
 
-setInterval(() => {
+const verificarMudancasGarcom = () => {
   const agora = JSON.stringify(comandas.abertas());
   if (agora === versaoComandas) return;
   const antes = JSON.parse(versaoComandas);
@@ -510,4 +510,7 @@ setInterval(() => {
     }
   });
   atualizarTudo();
-}, 3000);
+};
+setInterval(verificarMudancasGarcom, 3000);
+/* O servidor avisa na hora quando algo muda (pedido novo, pronto, conta...): confere sem esperar os 3 s */
+document.addEventListener("fomito:estado", verificarMudancasGarcom);

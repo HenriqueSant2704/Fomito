@@ -219,7 +219,7 @@ const resumoPedidos = (lista) => JSON.stringify(lista.map(({ num, status, motobo
 let versaoPedidosPainel = resumoPedidos(Fomito.pedidos.lista());
 /** Chamado depois que o próprio painel muda um pedido, para não avisar de novo */
 const pedidosSincronizados = () => { versaoPedidosPainel = resumoPedidos(Fomito.pedidos.lista()); };
-setInterval(() => {
+const verificarMudancasPainel = () => {
   const agora = JSON.stringify(Fomito.comandas.abertas());
   const pedidosAgora = Fomito.pedidos.lista();
   const versaoPedidos = resumoPedidos(pedidosAgora);
@@ -247,4 +247,7 @@ setInterval(() => {
   if (aberta === "caixa") renderCaixa();
   if (aberta === "dashboard") renderDashboard();
   atualizarBadge();
-}, 3000);
+};
+setInterval(verificarMudancasPainel, 3000);
+/* O servidor avisa na hora quando algo muda (pedido novo, pronto, conta...): confere sem esperar os 3 s */
+document.addEventListener("fomito:estado", verificarMudancasPainel);

@@ -76,7 +76,26 @@ window.Fomito = window.Fomito || {};
     const q = new URLSearchParams({ v: Fomito.estado.versao ?? "" });
     if (codigoMesa) q.set("m", codigoMesa);
     aplicar(await api("GET", `/estado?${q}`));
+    if (iniciado) document.dispatchEvent(new CustomEvent("fomito:estado")); // as telas conferem o que mudou na hora
   }
+
+  /* Tempo real: o servidor avisa na hora quando algo muda (pedido novo, pronto, conta...).
+     Com o aviso ligado, a busca de 3 em 3 s vira só uma reserva (a cada 20 s). */
+  let avisoLigado = false;
+  let buscando = null;
+  const buscarJa = () => {
+    clearTimeout(buscando);
+    buscando = setTimeout(() => sincronizar().catch(() => {}), 40);
+  };
+  function ouvirServidor() {
+    if (!("EventSource" in window)) return;
+    const fonte = new EventSource("/api/eventos");
+    fonte.addEventListener("mudou", buscarJa);
+    fonte.onopen = () => { if (!avisoLigado) { avisoLigado = true; buscarJa(); } };
+    fonte.onerror = () => { avisoLigado = false; }; // o navegador reconecta sozinho
+  }
+  /* Voltou para a tela (desbloqueou o celular, trocou de aba): busca na hora */
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") buscarJa(); });
 
   /**
    * Faz uma ação no servidor e já atualiza o estado.
@@ -229,7 +248,14 @@ window.Fomito = window.Fomito || {};
     Fomito.aplicarIcones?.();
     esconderCarregando();
     iniciado = true;
-    setInterval(() => sincronizar().catch(() => {}), 3000);
+    ouvirServidor();
+    let ultimaBusca = 0;
+    setInterval(() => {
+      const intervalo = avisoLigado ? 20000 : 3000; // reserva: se o aviso cair, volta a buscar de 3 em 3 s
+      if (Date.now() - ultimaBusca < intervalo) return;
+      ultimaBusca = Date.now();
+      sincronizar().catch(() => {});
+    }, 3000);
   }
 
   Fomito.api = api;

@@ -338,7 +338,7 @@ const versaoAtual = () => JSON.stringify(pedidos.entregas("preparo", "pronto", "
 let versao = versaoAtual();
 let conhecidos = new Set(prontos().map((p) => p.num));
 
-setInterval(() => {
+const verificarMudancasMotoboy = () => {
   const agora = versaoAtual();
   if (agora === versao) return;
   versao = agora;
@@ -353,7 +353,10 @@ setInterval(() => {
     toast(`${titulo} · ${bairros}`, "sino");
   }
   render();
-}, 3000);
+};
+setInterval(verificarMudancasMotoboy, 3000);
+/* O servidor avisa na hora quando algo muda (pedido novo, pronto, conta...): confere sem esperar os 3 s */
+document.addEventListener("fomito:estado", verificarMudancasMotoboy);
 
 /* ---------- 10. INÍCIO ---------- */
 $("#simbolo").innerHTML = Fomito.config.simbolo(Fomito.config.ler().marca);

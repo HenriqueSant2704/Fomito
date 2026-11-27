@@ -1308,11 +1308,14 @@ function atualizarTelas() {
   renderMinhaComanda();
   if (!$('[data-tela="acompanhamento"]').hidden) renderAcompanhamento();
 }
-setInterval(() => {
+const verificarMudancasCliente = () => {
   const versao = JSON.stringify([minha ? comandas.daMesa(minha.mesa) : null,
     Fomito.pedidos.lista().map((p) => [p.num, p.status, p.motoboy]), comandas.fechadas().map((f) => f.numero)]);
   if (versao !== ultimaVersao) { ultimaVersao = versao; atualizarTelas(); }
-}, 3000);
+};
+setInterval(verificarMudancasCliente, 3000);
+/* O servidor avisa na hora quando algo muda (pedido novo, pronto, conta...): confere sem esperar os 3 s */
+document.addEventListener("fomito:estado", verificarMudancasCliente);
 
 /* Voltar (seta do topo) no finalizar: da telinha do endereço ou do pagamento volta um passo, sem sair */
 $('[data-tela="checkout"] .cabecalho [data-ir]').addEventListener("click", (e) => {
