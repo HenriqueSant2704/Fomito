@@ -409,3 +409,16 @@ button.anterior:hover { border-color: var(--roxo-medio); }
 /* Rua e número lado a lado (o número é curto) */
 .rua-numero { display: grid; grid-template-columns: 1fr 96px; gap: 10px; }
 .falta-numero { color: var(--vermelho-escuro); }
+
+/* ---------- Finalizar em etapas ---------- */
+.etapas-checkout { display: flex; align-items: center; gap: 10px; padding: 4px 0 2px; }
+.etapa-checkout { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--texto-fraco); white-space: nowrap; }
+.etapa-checkout b { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; background: var(--superficie-2); border: 1px solid var(--borda); color: var(--texto-suave); }
+.etapa-checkout.atual { color: var(--texto); }
+.etapa-checkout.atual b { background: var(--roxo); border-color: var(--roxo); color: #fff; }
+.etapa-checkout.feita b { background: var(--verde-claro); border-color: transparent; color: var(--verde-escuro); }
+.etapas-checkout__linha { flex: 1; height: 2px; border-radius: 2px; background: var(--borda); }
+.etapas-checkout__linha.feita { background: var(--verde, #22C55E); }
+/* Resumo de como vai receber (etapa 2) */
+.recebimento { flex-direction: row !important; align-items: center; gap: 12px; }
+.recebimento__icone { width: 40px; height: 40px; border-radius: var(--raio-md); background: var(--laranja-claro); color: var(--laranja-escuro); display: grid; place-items: center; flex: none; }

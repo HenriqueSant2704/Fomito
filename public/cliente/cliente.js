@@ -33,6 +33,7 @@ const estado = {
   mesaQR: Fomito.estado.mesaQR || null, // mesa lida pelo QR Code (?m=código da mesa; o servidor diz qual é)
   mesa: "",
   nomeLocal: "",
+  etapaCheckout: 1,         // finalizar em etapas: 1 = como receber, 2 = pagamento
   /* Retirar no balcão (lembra o nome e o celular da última vez) */
   retNome: (() => { try { return JSON.parse(localStorage.getItem("fomito.retirada"))?.nome || ""; } catch { return ""; } })(),
   retTel: (() => { try { return JSON.parse(localStorage.getItem("fomito.retirada"))?.tel || ""; } catch { return ""; } })(),
@@ -84,6 +85,7 @@ function irPara(nomeTela) {
     nova._fimAnimacao = setTimeout(() => nova.classList.remove("tela--frente", "tela--volta"), 600);
   }
   if (nomeTela === "checkout" && (estado.mesaQR || minhaComanda())) estado.modo = "local";
+  if (nomeTela === "checkout") Object.assign(estado, { etapaCheckout: 1, novoEndereco: false, editandoEndereco: null });
   const renderizar = { carrinho: renderCarrinho, checkout: renderCheckout, acompanhamento: renderAcompanhamento };
   renderizar[nomeTela]?.();
   observarRodapes();
@@ -475,10 +477,86 @@ $("#itensCarrinho").addEventListener("click", (e) => {
 */
 const { clientes } = Fomito;
 
+/* Finalizar em etapas:
+   1. Como receber (entrega com o cadastro e o endereço, retirada com nome e celular, ou mesa)
+   2. Pagamento, resumo e confirmar
+   Adicionar ou editar endereço abre uma telinha própria, só com o formulário. */
+function indicadorEtapas() {
+  const passo = estado.etapaCheckout;
+  return `
+    <div class="etapas-checkout" aria-label="Etapa ${passo} de 2">
+      <span class="etapa-checkout ${passo === 1 ? "atual" : "feita"}"><b>${passo > 1 ? icone("check", "ic--sm") : "1"}</b>Como receber</span>
+      <span class="etapas-checkout__linha ${passo > 1 ? "feita" : ""}"></span>
+      <span class="etapa-checkout ${passo === 2 ? "atual" : ""}"><b>2</b>Pagamento</span>
+    </div>`;
+}
+
+/* Resumo de como vai receber, no topo da etapa 2 (com "Alterar") */
+function blocoRecebimento() {
+  if (estado.modo === "retirada") return `
+    <div class="bloco recebimento">
+      <span class="recebimento__icone">${icone("loja")}</span>
+      <div class="pilha" style="gap:1px;flex:1;min-width:0"><span class="rotulo">Retirar no balcão</span><span class="forte">${estado.retNome}</span><span class="pequeno suave">${clientes.formatarTelefone(estado.retTel)}</span></div>
+      <button class="link" data-voltar-etapa>Alterar</button>
+    </div>`;
+  const c = estado.cliente;
+  const e = c.enderecos.find((x) => x.id === estado.enderecoId);
+  return `
+    <div class="bloco recebimento">
+      <span class="recebimento__icone">${icone("entrega")}</span>
+      <div class="pilha" style="gap:1px;flex:1;min-width:0"><span class="rotulo">Entregar em · ${e.apelido}</span><span class="forte">${clientes.textoEndereco(e)}</span><span class="pequeno suave">${c.nome} · ${clientes.formatarTelefone(c.telefone)}</span></div>
+      <button class="link" data-voltar-etapa>Alterar</button>
+    </div>`;
+}
+
+/* Telinha própria para adicionar ou editar um endereço */
+function telaEndereco() {
+  const editando = estado.editandoEndereco != null ? estado.cliente.enderecos.find((x) => x.id === estado.editandoEndereco) : null;
+  return `
+    <div class="bloco">
+      <h3 class="bloco__titulo">${icone("pin")} ${editando ? "Editar endereço" : "Novo endereço"}</h3>
+      <p class="pequeno suave">${editando ? "Corrija o que precisar e salve." : "Ele fica salvo no seu cadastro para os próximos pedidos."}</p>
+      ${formEndereco(editando ? editando.apelido : "Casa", editando || {})}
+      <p class="form-erro" id="erroCadastro" hidden></p>
+      <div class="duas">
+        <button class="btn btn--contorno" id="${editando ? "cancelarEdicao" : "cancelarEndereco"}">Cancelar</button>
+        <button class="btn btn--primario" id="${editando ? "salvarEdicao" : "salvarEndereco"}">${editando ? "Salvar alterações" : "Salvar endereço"}</button>
+      </div>
+    </div>`;
+}
+
+/* A etapa 1 está completa? (antes de ir para o pagamento) */
+function recebimentoOk() {
+  if (estado.modo === "retirada") return estado.retNome.trim().length >= 2 && clientes.telefoneValido(estado.retTel);
+  if (estado.modo === "entrega") return !!estado.cliente && !estado.novoEndereco && estado.editandoEndereco == null && !!estado.cliente.enderecos.find((e) => e.id === estado.enderecoId)?.numero;
+  return false;
+}
+
 function renderCheckout() {
   const entrega = estado.modo === "entrega";
   const retirada = estado.modo === "retirada";
+  const subtela = entrega && estado.cliente && (estado.novoEndereco || estado.editandoEndereco != null);
+  if (estado.modo === "local" || !recebimentoOk()) estado.etapaCheckout = 1;
+  $("#rodapeCheckout").hidden = !!subtela;
+  if (subtela) {
+    $("#checkout").innerHTML = telaEndereco();
+    return;
+  }
+  if (estado.etapaCheckout === 2) {
+    $("#checkout").innerHTML = `
+      ${indicadorEtapas()}
+      ${blocoRecebimento()}
+      ${blocoPagamento()}
+      <div class="bloco">
+        <h3 class="bloco__titulo">${icone("pedidos")} Resumo</h3>
+        ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
+      </div>`;
+    renderRodapeCheckout();
+    ligarEventosTroco();
+    return;
+  }
   $("#checkout").innerHTML = `
+    ${estado.modo !== "local" ? indicadorEtapas() : ""}
     <div class="bloco">
       <h3 class="bloco__titulo">Como você quer receber?</h3>
       <div class="modo-escolha">
@@ -496,13 +574,13 @@ function renderCheckout() {
         </button>
       </div>
     </div>
-    ${entrega ? blocoCliente() + (estado.cliente ? blocoPagamento() : "") : retirada ? blocoRetirada() + blocoPagamento() : blocoLocal()}
-    <div class="bloco">
-      <h3 class="bloco__titulo">${icone("pedidos")} Resumo</h3>
-      ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
-    </div>`;
+    ${entrega ? blocoCliente() : retirada ? blocoRetirada() : blocoLocal()}
+    ${estado.modo === "local" ? `
+      <div class="bloco">
+        <h3 class="bloco__titulo">${icone("pedidos")} Resumo</h3>
+        ${estado.carrinho.map((i) => `<div class="entre pequeno"><span>${i.qtd}× ${Fomito.produto(i.id).nome}</span><span class="num">${moeda(precoUnitario(i) * i.qtd)}</span></div>`).join("")}
+      </div>` : ""}`;
   renderRodapeCheckout();
-  ligarEventosTroco();
 }
 
 /* --- Comer no local: veja a seção 7 (comanda da mesa) --- */
@@ -652,7 +730,8 @@ async function buscarTelefone() {
 
 $("#checkout").addEventListener("click", async (e) => {
   const modo = e.target.closest("[data-modo]");
-  if (modo) { estado.modo = modo.dataset.modo; return renderCheckout(); }
+  if (modo) { estado.modo = modo.dataset.modo; estado.etapaCheckout = 1; return renderCheckout(); }
+  if (e.target.closest("[data-voltar-etapa]")) { estado.etapaCheckout = 1; renderCheckout(); return window.scrollTo(0, 0); }
 
   if (e.target.closest("#buscarTel")) return buscarTelefone();
   if (e.target.closest("#trocarTel")) {
@@ -810,6 +889,14 @@ function podeConfirmar() {
 }
 
 function renderRodapeCheckout() {
+  /* Etapa 1 (entrega ou retirada): o botão leva para o pagamento */
+  if (estado.modo !== "local" && estado.etapaCheckout === 1) {
+    $("#rodapeCheckout").innerHTML = `
+      ${linhasResumo()}
+      <button class="btn btn--primario btn--bloco" id="irPagamento" ${recebimentoOk() ? "" : "disabled"}>Continuar para o pagamento ${icone("seta", "ic--sm")}</button>`;
+    $("#irPagamento").onclick = () => { estado.etapaCheckout = 2; renderCheckout(); window.scrollTo(0, 0); };
+    return;
+  }
   $("#rodapeCheckout").innerHTML = `
     ${linhasResumo()}
     ${dados.lanchonete.aberta === false ? `<span class="troco__erro" style="text-align:center">A loja não está recebendo pedidos agora.</span>` : ""}
@@ -1226,6 +1313,16 @@ setInterval(() => {
     Fomito.pedidos.lista().map((p) => [p.num, p.status, p.motoboy]), comandas.fechadas().map((f) => f.numero)]);
   if (versao !== ultimaVersao) { ultimaVersao = versao; atualizarTelas(); }
 }, 3000);
+
+/* Voltar (seta do topo) no finalizar: da telinha do endereço ou do pagamento volta um passo, sem sair */
+$('[data-tela="checkout"] .cabecalho [data-ir]').addEventListener("click", (e) => {
+  if (estado.novoEndereco || estado.editandoEndereco != null) Object.assign(estado, { novoEndereco: false, editandoEndereco: null });
+  else if (estado.etapaCheckout === 2) estado.etapaCheckout = 1;
+  else return; // etapa 1: volta para a sacola
+  e.stopPropagation();
+  renderCheckout();
+  window.scrollTo(0, 0);
+});
 
 /* ---------- 8. INÍCIO ---------- */
 function renderLoja() {
