@@ -485,7 +485,7 @@ function renderEquipe() {
   /* O atendente só vê quem tem acesso: não cria nem remove */
   if (!ehAdmin) {
     $("#formFuncionario").remove();
-    $('[data-secao="equipe"].secao [data-remover], [data-secao="equipe"].secao [data-editar-membro]').forEach((b) => b.remove());
+    $$('[data-secao="equipe"].secao [data-remover], [data-secao="equipe"].secao [data-editar-membro]').forEach((b) => b.remove());
     return;
   }
   $("#formFuncionario").addEventListener("submit", async (e) => {

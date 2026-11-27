@@ -84,6 +84,7 @@ window.Fomito = window.Fomito || {};
     pedido: "PEDIDO", entrega: "ENTREGA", retirada: "RETIRADA BALCAO", cliente: "Cliente", tel: "Tel", end: "End",
     taxa: "Taxa de entrega", total: "TOTAL", pagamento: "Pagamento", naEntrega: "(na entrega)", naRetirada: "(na retirada)",
     pagBalcao: "Pagamento no balcão", trocoPara: "Troco para", levarTroco: "LEVAR DE TROCO",
+    naoCobrar: "NAO COBRAR - fica no convenio",
   };
   const rotulosDe = (m) => {
     const r = { ...ROTULOS };
@@ -111,7 +112,7 @@ window.Fomito = window.Fomito || {};
     const loja = Fomito.dados.lanchonete;
     const agora = new Date();
     const data = agora.toLocaleDateString("pt-BR") + " " + agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    const forma = Fomito.Fomito.formaPag(pedido.pag);
+    const forma = Fomito.formaPag(pedido.pag);
     /* Cada item guarda o nome e o preço da hora do pedido: [id, qtd, extras, obs, preço unitário, nome] */
     const itens = pedido.itens.map(([id, qtd, extras = [], obs = "", preco, nome]) => {
       const p = Fomito.produto(id);
@@ -133,7 +134,10 @@ window.Fomito = window.Fomito || {};
       ...(pedido.modo === "entrega" ? [{ col: [[{ r: "taxa" }], [(pedido.taxa ?? loja.taxaEntrega) > 0 ? valor(pedido.taxa ?? loja.taxaEntrega) : "Grátis"]] }] : []),
       { col: [[{ r: "total" }], ["R$ " + valor(total)]] },
       { t: linha },
-      { p: pedido.modo === "entrega" ? [{ r: "pagamento" }, `: ${forma?.nome || "-"} `, { r: "naEntrega" }] : forma ? [{ r: "pagamento" }, `: ${forma.nome} `, { r: "naRetirada" }] : [{ r: "pagBalcao" }] },
+      /* Convênio: o cliente paga no fechamento, então a notinha avisa para não cobrar na entrega/retirada */
+      ...(pedido.pag === "convenio"
+        ? [{ p: [{ r: "pagamento" }, `: ${forma.nome}${pedido.convenio?.empresa ? ` ${pedido.convenio.empresa}` : ""}`] }, { p: [{ r: "naoCobrar" }] }]
+        : [{ p: pedido.modo === "entrega" ? [{ r: "pagamento" }, `: ${forma?.nome || "-"} `, { r: "naEntrega" }] : forma ? [{ r: "pagamento" }, `: ${forma.nome} `, { r: "naRetirada" }] : [{ r: "pagBalcao" }] }]),
       ...(pedido.pag === "dinheiro" && pedido.troco ? [{ col: [[{ r: "trocoPara" }], [valor(pedido.troco)]] }, { col: [[{ r: "levarTroco" }], [valor(pedido.troco - total)]] }] : []),
     ].filter((x) => !x.ocultar || m.mostrar[x.ocultar]).map((x) => ({ ...x, texto: textoLinha(x, m.rotulos) }));
     return { topo: m.topo, meio, fim: m.fim, rotulos: m.rotulos, mostrar: m.mostrar, ocultaveis: { telefoneCliente: !!pedido.telefone, enderecoCliente: !!pedido.endereco } };
@@ -207,7 +211,7 @@ window.Fomito = window.Fomito || {};
     const { whatsapp, marca } = Fomito.config.ler();
     const modelo = whatsapp.modelos[status];
     if (!modelo?.ativo || !pedido.telefone) return null;
-    const forma = Fomito.Fomito.formaPag(pedido.pag);
+    const forma = Fomito.formaPag(pedido.pag);
     const texto = Fomito.config.montarMensagem(modelo.texto, {
       nome: pedido.cliente.split(" ")[0],
       pedido: pedido.num,
