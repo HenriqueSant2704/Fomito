@@ -57,8 +57,8 @@ window.Fomito = window.Fomito || {};
   /** Painel: aceitar → em preparo → pronto (e, no balcão, cliente retirou) */
   const avancar = async (num) => completar(await Fomito.acao("POST", `/pedidos/${num}/avancar`));
 
-  /** Painel: cancela o pedido (fica registrado quem cancelou) */
-  const cancelar = (num) => Fomito.acao("POST", `/pedidos/${num}/cancelar`);
+  /** Painel: cancela o pedido com o motivo (vai para o cliente no WhatsApp; fica registrado quem cancelou) */
+  const cancelar = (num, motivo) => Fomito.acao("POST", `/pedidos/${num}/cancelar`, { motivo });
 
   /** O motoboy sai com um ou mais pedidos prontos */
   const sairParaEntrega = async (nums) => (await Fomito.acao("POST", "/pedidos/sair", { nums })).map(completar);

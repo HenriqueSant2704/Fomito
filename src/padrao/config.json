@@ -50,6 +50,11 @@
         "titulo": "Retirado",
         "texto": "Pedido #{pedido} retirado. Obrigado pela preferência, {nome}! Bom apetite. 😋"
       },
+      "cancelado": {
+        "ativo": true,
+        "titulo": "Pedido cancelado",
+        "texto": "Oi, {nome}, tudo bem? Seu pedido #{pedido} na {loja} foi cancelado. Motivo: {motivo}. Pedimos desculpas! Qualquer dúvida, é só responder aqui."
+      },
       "mesa_recebido": {
         "ativo": true,
         "titulo": "Mesa: pedido recebido",

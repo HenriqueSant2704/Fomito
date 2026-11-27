@@ -57,9 +57,9 @@ Fomito.totalItens = (itens) =>
 
 /* ---------- Janelas no estilo do sistema (no lugar de prompt, alert e confirm) ----------
    Fomito.dialogo({ titulo, texto, topo, campos: [{ id, rotulo, valor, tipo, placeholder, obrigatorio, ajuda }],
-                    confirmar, cancelar, perigo, aoDigitar(valores, camada) })
+                    confirmar, cancelar, perigo, aoDigitar(valores, camada) }, aoAbrir(camada))
    → Promise com os valores { id: valor } (ou true sem campos), ou null se cancelou. */
-Fomito.dialogo = ({ titulo, texto = "", topo = "", campos = [], confirmar = "Confirmar", cancelar = "Cancelar", perigo = false, aoDigitar } = {}) =>
+Fomito.dialogo = ({ titulo, texto = "", topo = "", campos = [], confirmar = "Confirmar", cancelar = "Cancelar", perigo = false, aoDigitar } = {}, aoAbrir) =>
   new Promise((resolver) => {
     const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
     const camada = document.createElement("div");
@@ -86,6 +86,7 @@ Fomito.dialogo = ({ titulo, texto = "", topo = "", campos = [], confirmar = "Con
         </div>
       </form>`;
     document.body.appendChild(camada);
+    aoAbrir?.(camada); // para quem quer pôr algo a mais na janela (ex.: prévia da mensagem)
     const form = camada.querySelector("form");
     const valores = () => Object.fromEntries(campos.map((c) => [c.id, form.querySelector(`[data-campo-dialogo="${c.id}"]`).value.trim()]));
     const fechar = (resultado) => { document.removeEventListener("keydown", tecla, true); camada.remove(); resolver(resultado); };

@@ -276,7 +276,7 @@ async function abrirCliente(telefone) {
             <div class="extrato-linha">
               <div class="pilha" style="gap:1px;min-width:0"><span class="forte">#${p.num} · ${p.modo === "entrega" ? "Entrega" : p.retirada ? "Retirada" : "Balcão"}</span><span class="pequeno fraco">${new Date(p.em).toLocaleDateString("pt-BR")} · ${escCli(p.itens.slice(0, 3).join(", "))}${p.itens.length > 3 ? "..." : ""}</span></div>
               <span class="pilha" style="gap:2px;align-items:flex-end"><span class="num forte">${moeda(p.total)}</span>${p.status === "cancelado" ? `<span class="tag tag--vermelho">Cancelado</span>` : ""}</span>
-            </div>`).join("") || `<p class="pequeno fraco">Nenhum pedido ainda.</p>`}
+            </div>${p.status === "cancelado" && p.motivo ? `<span class="pequeno" style="color:var(--vermelho-escuro);margin:-4px 0 6px">Motivo: ${escCli(p.motivo)}</span>` : ""}`).join("") || `<p class="pequeno fraco">Nenhum pedido ainda.</p>`}
         </div>
       </div>
 

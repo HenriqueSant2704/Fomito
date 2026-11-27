@@ -1175,12 +1175,20 @@ function telaComanda(c) {
     </div>`;
 }
 
+/* O motivo que a loja escreveu ao cancelar (o mesmo que foi no WhatsApp) */
+function motivoDoCancelamento(p) {
+  if (!p.motivoCancelamento) return "";
+  const esc = String(p.motivoCancelamento).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return `<div class="motivo-cancelado">${icone("info", "ic--sm")}<span><b>Motivo:</b> ${esc}</span></div>`;
+}
+
 function telaEntrega(pedido) {
   if (pedido.status === "cancelado") return `
     <div class="status">
-      <span class="rotulo">Pedido #${pedido.num} · Entrega</span>
+      <span class="rotulo">Pedido #${pedido.num} · ${pedido.modo === "local" ? "Retirada" : "Entrega"}</span>
       <h3 class="status__titulo" style="font-family:var(--fonte-marca);font-weight:800">Pedido cancelado</h3>
-      <span class="suave">A loja cancelou este pedido. Se tiver dúvida, fale com a loja${dados.lanchonete.telefone ? ` pelo ${dados.lanchonete.telefone}` : ""}.</span>
+      ${motivoDoCancelamento(pedido)}
+      <span class="suave">Nada foi cobrado. Se tiver dúvida, fale com a loja${dados.lanchonete.telefone ? ` pelo ${dados.lanchonete.telefone}` : ""}.</span>
     </div>`;
   if (pedido.modo === "local") return telaRetirada(pedido);
   const passo = etapaDoStatus[pedido.status];
@@ -1273,7 +1281,7 @@ function listaAnteriores(lista) {
         return `
         <button class="card anterior" data-ver-pedido="${a.chave}">
           <span class="anterior__icone">${icone(ICONE_TIPO[a.tipo], "ic--sm")}</span>
-          <div class="pilha" style="gap:0;flex:1;min-width:0;text-align:left"><span class="forte">${titulo}</span><span class="pequeno suave">#${numero} · ${dataHora(a.data)} · ${itens} ${itens === 1 ? "item" : "itens"}</span></div>
+          <div class="pilha" style="gap:0;flex:1;min-width:0;text-align:left"><span class="forte">${titulo}</span><span class="pequeno suave">#${numero} · ${dataHora(a.data)} · ${itens} ${itens === 1 ? "item" : "itens"}</span>${cancelado && a.p.motivoCancelamento ? `<span class="pequeno anterior__motivo">Motivo: ${String(a.p.motivoCancelamento).replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span>` : ""}</div>
           <div class="pilha" style="gap:2px;align-items:flex-end"><span class="num forte">${moeda(total)}</span><span class="tag tag--${tag[0]}">${tag[1]}</span></div>
           <span class="anterior__seta">${icone("seta", "ic--sm")}</span>
         </button>`;
@@ -1308,6 +1316,7 @@ function abrirDetalhePedido(chave) {
         <span class="tag tag--${p.status === "cancelado" ? "vermelho" : "verde"}">${p.status === "cancelado" ? "Cancelado" : retirada ? "Retirado" : "Entregue"}</span>
         <span class="pequeno suave">${dataHora(p.criadoEm)}</span>
       </div>
+      ${p.status === "cancelado" ? `<div class="detalhe-bloco"><span class="rotulo">Por que foi cancelado</span>${motivoDoCancelamento(p) || `<span class="pequeno suave">A loja cancelou este pedido.</span>`}</div>` : ""}
       <div class="detalhe-bloco"><span class="rotulo">Itens</span>
         <div class="lista-rolagem">${p.itens.map((it) => linhaItem(it[1], it[5] || Fomito.produto(it[0]).nome, Fomito.pedidos.precoItem(it), it[3], nomesExtras(it[0], it[2]))).join("")}</div>
         <div class="detalhe-totais">

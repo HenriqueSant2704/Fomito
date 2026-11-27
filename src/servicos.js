@@ -306,11 +306,16 @@ function avisarMesa(comanda, rodada, tipo, total) {
   whatsapp.avisar({ cliente: rodada.nome || comanda.nome, telefone: rodada.telefone, mesa: mesaTexto(comanda.mesa), total }, tipo);
 }
 
-async function cancelarPedido(num, por) {
-  return db.tx((c) => alterarPedido(c, num, (p) => {
+/** Painel: cancela o pedido com o motivo, que vai para o cliente no WhatsApp e fica no pedido. */
+async function cancelarPedido(num, por, motivo) {
+  const porque = texto(motivo, 200);
+  if (!porque) falhar(400, 'Escreva o motivo do cancelamento.');
+  const pedido = await db.tx((c) => alterarPedido(c, num, (p) => {
     if (['concluido', 'cancelado'].includes(p.status)) falhar(409, 'Esse pedido já foi finalizado.');
-    return { status: 'cancelado', canceladoEm: Date.now(), canceladoPor: por, statusAntes: p.status };
+    return { status: 'cancelado', canceladoEm: Date.now(), canceladoPor: por, motivoCancelamento: porque, statusAntes: p.status };
   }));
+  whatsapp.avisar(pedido, 'cancelado');
+  return pedido;
 }
 
 /** O motoboy sai com um ou mais pedidos prontos. */

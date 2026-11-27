@@ -212,7 +212,8 @@ async function estado(req, res) {
   }
 
   // Administrador: tudo. Atendente: o mesmo, menos a Visão geral (faturamento).
-  const { rows: pedidos } = await db.query(`SELECT * FROM pedidos WHERE ${PEDIDOS_DO_DIA} ORDER BY criado_em DESC LIMIT 400`, [hoje]);
+  /* Os cancelados de hoje também vêm, para o painel mostrar o motivo (ficam em Concluídos, com a tag vermelha) */
+  const { rows: pedidos } = await db.query(`SELECT * FROM pedidos WHERE (${PEDIDOS_DO_DIA}) OR (status = 'cancelado' AND atualizado_em >= $1) ORDER BY criado_em DESC LIMIT 400`, [hoje]);
   r.pedidos = pedidos.map(pedidoDaLinha);
   r.comandas = await comandasDoDia();
   const { rows: aberto } = await db.query('SELECT dados FROM caixas WHERE aberto');

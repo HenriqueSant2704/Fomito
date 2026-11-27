@@ -165,7 +165,7 @@ r.get('/clientes/:telefone/historico', balcao, ok(async (req) => {
     'SELECT num, status, total, criado_em, dados FROM pedidos WHERE telefone = $1 ORDER BY criado_em DESC LIMIT 40',
     [String(req.params.telefone).replace(/\D/g, '')]);
   return rows.map((p) => ({ num: p.num, status: p.status, total: Number(p.total), em: new Date(p.criado_em).getTime(),
-    modo: p.dados.modo, retirada: !!p.dados.retirada, pag: p.dados.pag || p.dados.pagoCom || null, itens: (p.dados.itens || []).map((i) => `${i[1]}× ${i[5]}`) }));
+    modo: p.dados.modo, retirada: !!p.dados.retirada, pag: p.dados.pag || p.dados.pagoCom || null, itens: (p.dados.itens || []).map((i) => `${i[1]}× ${i[5]}`), motivo: p.dados.motivoCancelamento || null }));
 }));
 /* Quem vai receber a mensagem de "sentimos sua falta" e o envio manual */
 r.get('/clientes/sumidos', admin, ok(async () => {
@@ -185,7 +185,7 @@ r.post('/pedidos', ok(async (req) => {
   return s.criarPedido(req.body, { equipe, dispositivo: equipe ? null : dispositivoDe(req) });
 }));
 r.post('/pedidos/:num/avancar', balcao, ok((req) => s.avancarPedido(req.params.num)));
-r.post('/pedidos/:num/cancelar', balcao, ok((req) => s.cancelarPedido(req.params.num, nome(req))));
+r.post('/pedidos/:num/cancelar', balcao, ok((req) => s.cancelarPedido(req.params.num, nome(req), req.body?.motivo)));
 r.post('/pedidos/sair', motoboy, ok((req) => s.sairParaEntrega(req.body.nums, nome(req))));
 r.post('/pedidos/:num/entregar', motoboy, ok((req) => s.concluirEntrega(req.params.num, req.body, nome(req))));
 

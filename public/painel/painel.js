@@ -42,7 +42,7 @@ const colunas = [
   { id: "novo",      titulo: "Novos",            cor: "var(--laranja)",        status: ["novo"],          acao: "Aceitar",       proximo: "preparo" },
   { id: "preparo",   titulo: "Em preparo",       cor: "var(--amarelo-escuro)", status: ["preparo"],       acao: "Marcar pronto", proximo: "pronto" },
   { id: "pronto",    titulo: "Pronto / em rota", cor: "var(--roxo)",           status: ["pronto", "rota"], acao: null },
-  { id: "concluido", titulo: "Concluídos",       cor: "var(--verde-escuro)",   status: ["concluido"],     acao: null },
+  { id: "concluido", titulo: "Concluídos",       cor: "var(--verde-escuro)",   status: ["concluido", "cancelado"], acao: null },
 ];
 const colunaDoStatus = (status) => colunas.find((c) => c.status.includes(status));
 
@@ -246,6 +246,13 @@ function situacaoEntrega(p) {
   return texto ? `<div class="pedido__situacao pedido__situacao--${p.status}">${texto}</div>` : "";
 }
 
+/* Pedido cancelado: o motivo que foi para o cliente, quem cancelou e a hora */
+function motivoCancelado(p) {
+  if (p.status !== "cancelado") return "";
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return `<div class="pedido__situacao pedido__situacao--cancelado">${icone("fechar", "ic--sm")}<span>Cancelado${p.canceladoPor ? ` por <b>${esc(p.canceladoPor)}</b>` : ""}${p.canceladoEm ? ` às ${Fomito.pedidos.hora(p.canceladoEm)}` : ""}${p.motivoCancelamento ? `<br>Motivo: ${esc(p.motivoCancelamento)}` : ""}</span></div>`;
+}
+
 function cardPedido(p) {
   const forma = Fomito.formaPag(p.pag) || { icone: "dinheiro", nome: "Pagamento" };
   const acao = acaoDoPedido(p);
@@ -255,16 +262,17 @@ function cardPedido(p) {
       : `${icone("usuario", "ic--sm")}<span>Pagamento no balcão</span>`)
     : `${icone(forma.icone, "ic--sm")}<span>${forma.nome} na entrega${p.pag === "dinheiro" && p.troco ? `<br>Troco para ${moeda(p.troco)}: levar <b>${moeda(p.troco - totalPedido(p))}</b>` : ""}</span>`;
   return `
-    <div class="card pedido ${p.status === "novo" ? "pedido--novo" : ""}" data-pedido="${p.num}" title="Ver detalhes do pedido">
+    <div class="card pedido ${p.status === "novo" ? "pedido--novo" : ""} ${p.status === "cancelado" ? "pedido--cancelado" : ""}" data-pedido="${p.num}" title="Ver detalhes do pedido">
       <div class="entre"><span class="forte num">#${p.num}</span><span class="pequeno fraco">há ${p.min} min</span></div>
       <div class="entre"><span class="forte">${p.cliente}</span><span class="tag ${p.modo === "entrega" ? "tag--roxo" : "tag--cinza"}">${p.modo === "entrega" ? p.bairro || "Entrega" : "Balcão"}</span></div>
       <div class="pedido__itens">${p.itens.map((item) => { const [, q, extras = [], obs] = item; return `${q}× ${nomeItem(item)}${extras.length ? ` <span class="fraco">+ ${extras.length} adicional</span>` : ""}${obs ? `<br><span class="fraco">Obs.: ${obs}</span>` : ""}`; }).join("<br>")}</div>
-      ${p.status === "concluido" ? "" : `<div class="pedido__pag">${pagamento}</div>`}
-      ${situacaoEntrega(p)}
-      ${p.whats && p.status !== "concluido" ? `<div class="pedido__whats">${icone("whatsapp", "ic--sm")}<span>WhatsApp enviado: ${p.whats}</span></div>` : ""}
+      ${["concluido", "cancelado"].includes(p.status) ? "" : `<div class="pedido__pag">${pagamento}</div>`}
+      ${situacaoEntrega(p)}${motivoCancelado(p)}
+      ${p.whats && !["concluido", "cancelado"].includes(p.status) ? `<div class="pedido__whats">${icone("whatsapp", "ic--sm")}<span>WhatsApp enviado: ${p.whats}</span></div>` : ""}
       <div class="entre"><span class="preco">${moeda(totalPedido(p))}</span>
         <span class="linha" style="gap:6px">
-          ${p.status !== "novo" ? `<button class="btn-icone" data-cupom="${p.num}" aria-label="Imprimir cupom do pedido ${p.num}" title="Imprimir cupom">${icone("impressora", "ic--sm")}</button>` : ""}
+          ${p.status === "cancelado" ? `<span class="tag tag--vermelho">Cancelado</span>` : ""}
+          ${!["novo", "cancelado"].includes(p.status) ? `<button class="btn-icone" data-cupom="${p.num}" aria-label="Imprimir cupom do pedido ${p.num}" title="Imprimir cupom">${icone("impressora", "ic--sm")}</button>` : ""}
           ${acao ? `<button class="btn ${p.status === "novo" ? "btn--primario" : "btn--contorno"} btn--sm" data-avancar="${p.num}">${acao.texto}</button>` : ""}
         </span>
       </div>
@@ -286,7 +294,7 @@ function renderPedidos() {
         if (c.id === "concluido") {
           const fechadas = Fomito.comandas.fechadas();
           const cards = [
-            ...lista.map((p) => [p.entregueEm || p.criadoEm, cardPedido(p)]),
+            ...lista.map((p) => [p.entregueEm || p.canceladoEm || p.criadoEm, cardPedido(p)]),
             ...fechadas.map((f) => [f.fechadaEm, cardComandaFechada(f)]),
           ].sort((a, b) => b[0] - a[0]).map(([, html]) => html);
           return `
@@ -656,7 +664,7 @@ function previaApp(m) {
 /* --- Aba: WhatsApp (conexão pelo QR Code e mensagens automáticas) --- */
 function configWhatsApp() {
   const w = rascunho.whatsapp;
-  const exemplo = { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00", mesa: "Mesa 05", endereco: dados.lanchonete.endereco || "nosso balcão" };
+  const exemplo = { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00", mesa: "Mesa 05", endereco: dados.lanchonete.endereco || "nosso balcão", motivo: "Produto esgotado: X-Burguer" };
   return `
     <div class="duas-colunas">
       <div class="pilha" style="gap:16px">
@@ -676,7 +684,7 @@ function configWhatsApp() {
       </div>
 
       <div class="card painel-card">
-        <div class="pilha" style="gap:2px"><h3>Mensagens automáticas</h3><p class="pequeno suave">Use {nome}, {pedido}, {loja}, {total}, {previsao}, {pagamento}, {mesa} e {endereco}.</p></div>
+        <div class="pilha" style="gap:2px"><h3>Mensagens automáticas</h3><p class="pequeno suave">Use {nome}, {pedido}, {loja}, {total}, {previsao}, {pagamento}, {mesa}, {endereco} e {motivo} (no cancelado).</p></div>
         ${Object.entries(w.modelos).map(([id, m]) => `
           <div class="modelo">
             <div class="entre"><span class="forte">${m.titulo}</span><label class="interruptor"><input type="checkbox" data-modelo-ativo="${id}" id="ativo-${id}" ${m.ativo ? "checked" : ""}><span></span></label></div>

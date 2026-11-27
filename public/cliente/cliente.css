@@ -429,3 +429,8 @@ button.anterior:hover { border-color: var(--roxo-medio); }
 .etapas-checkout__linha { margin: 14px -28px 0; }
 /* "Sair da mesa": discreto, embaixo do aviso da mesa */
 .sair-mesa { display: block; margin-top: 6px; padding: 0; background: none; border: 0; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--texto-suave); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* Pedido cancelado: o motivo que a loja escreveu (ajuste 47) */
+.motivo-cancelado { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: var(--raio-sm, 10px); background: var(--vermelho-claro); color: var(--vermelho-escuro); font-size: 14px; line-height: 1.4; text-align: left; }
+.motivo-cancelado .ic { flex: none; margin-top: 2px; }
+.anterior__motivo { color: var(--vermelho-escuro); line-height: 1.35; }

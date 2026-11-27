@@ -43,6 +43,7 @@ window.Fomito = window.Fomito || {};
         preparo_balcao: {ativo: true,titulo: "Em preparo (retirada)",texto: "{nome}, seu pedido #{pedido} já está sendo preparado! 🔥 Avisamos aqui assim que ficar pronto para retirar."},
         pronto_balcao: {ativo: true,titulo: "Pronto para retirar",texto: "{nome}, seu pedido #{pedido} está pronto! 🎉 Pode vir retirar no balcão da {loja} ({endereco}). Total: {total}."},
         retirado: {ativo: true,titulo: "Retirado",texto: "Pedido #{pedido} retirado. Obrigado pela preferência, {nome}! Bom apetite. 😋"},
+        cancelado: {ativo: true,titulo: "Pedido cancelado",texto: "Oi, {nome}, tudo bem? Seu pedido #{pedido} na {loja} foi cancelado. Motivo: {motivo}. Pedimos desculpas! Qualquer dúvida, é só responder aqui."},
         mesa_recebido: {ativo: true,titulo: "Mesa: pedido recebido",texto: "Olá, {nome}! Recebemos seu pedido na {mesa} da {loja}. Já vai para a cozinha. 🍔"},
         mesa_preparo: {ativo: true,titulo: "Mesa: em preparo",texto: "{nome}, seu pedido da {mesa} já está sendo preparado! 🔥"},
         mesa_pronto: {ativo: true,titulo: "Mesa: pronto",texto: "{nome}, seu pedido está pronto e já está indo para a {mesa}! 😋"},

@@ -197,6 +197,7 @@ async function avisar(pedido, tipo) {
       previsao: cardapio.lanchonete.tempoEntrega,
       mesa: pedido.mesa || '',
       endereco: cardapio.lanchonete.endereco || 'nosso balcão',
+      motivo: String(pedido.motivoCancelamento || '').replace(/[.!\s]+$/, ''), // o ponto final já está no texto
       pagamento: forma ? forma.nome + (pedido.pag === 'dinheiro' && pedido.troco ? `, troco para ${moeda(pedido.troco)}` : '') : '-',
     });
     await enviar(pedido.telefone, texto);
