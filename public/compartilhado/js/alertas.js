@@ -70,7 +70,7 @@ window.Fomito = window.Fomito || {};
     /* Quem personalizou no modelo anterior (cabeçalho, mensagem, rodapé) não perde o que escreveu */
     const topo = m.topo ?? [marca.nome.toUpperCase(), ...String(m.cabecalho || "").split("\n").filter((l) => l.trim()), ...(m.mostrar?.endereco === false ? [] : [loja.endereco || ""]), ...(m.mostrar?.telefoneLoja && loja.telefone ? [`Tel.: ${loja.telefone}`] : [])].filter((l) => l !== "");
     const fim = m.fim ?? [...String(m.mensagem || "").split("\n").filter((l) => l.trim()), impressao.rodape || "", ...(m.mostrar?.fomito === false ? [] : ["Pedidos com Fomito"])].filter((l) => l !== "");
-    return { topo: linhasDe(topo), fim: linhasDe(fim), mostrar: { telefoneCliente: true, enderecoCliente: true, observacoes: true, ...(m.mostrar || {}) } };
+    return { topo: linhasDe(topo), fim: linhasDe(fim), rotulos: rotulosDe(m), mostrar: { telefoneCliente: true, enderecoCliente: true, observacoes: true, ...(m.mostrar || {}) } };
   }
   const linhasItem = (qtd, nome, total, extras, obs, m) => [
     colunas(`${qtd}x ${nome}`.slice(0, 32), valor(total)),
@@ -78,10 +78,25 @@ window.Fomito = window.Fomito || {};
     ...(obs && m.mostrar.observacoes ? [`   OBS: ${obs}`] : []),
   ].join("\n");
   /** Texto final: topo centralizado, meio automático, fim centralizado */
+  /* Rótulos do meio da notinha: o dono pode trocar as PALAVRAS (ex.: "TOTAL" → "Subtotal").
+     Os valores, itens e dados do pedido nunca são editáveis. */
+  const ROTULOS = {
+    pedido: "PEDIDO", entrega: "ENTREGA", retirada: "RETIRADA BALCAO", cliente: "Cliente", tel: "Tel", end: "End",
+    taxa: "Taxa de entrega", total: "TOTAL", pagamento: "Pagamento", naEntrega: "(na entrega)", naRetirada: "(na retirada)",
+    pagBalcao: "Pagamento no balcão", trocoPara: "Troco para", levarTroco: "LEVAR DE TROCO",
+  };
+  const rotulosDe = (m) => {
+    const r = { ...ROTULOS };
+    for (const [k, v] of Object.entries(m.rotulos || {})) if (k in ROTULOS && typeof v === "string") r[k] = v.replace(/\s+/g, " ").slice(0, 24);
+    return r;
+  };
+  /* Uma linha do meio é feita de pedaços: texto fixo do pedido ou { r: rótulo editável } */
+  const resolver = (pedacos, rot) => pedacos.map((p) => (typeof p === "string" ? p : rot[p.r])).join("");
+  const textoLinha = (x, rot) => (x.col ? colunas(resolver(x.col[0], rot), resolver(x.col[1], rot)) : x.p ? resolver(x.p, rot) : x.t);
   const juntar = ({ topo, meio, fim }) => [
     ...topo.map((l) => (l.trim() ? centro(l.trim()) : "")),
     ...(topo.length ? [linha] : []),
-    ...meio.map((x) => x.t),
+    ...meio.map((x) => x.texto ?? x.t),
     ...(fim.length ? [linha, ...fim.map((l) => (l.trim() ? centro(l.trim()) : ""))] : []),
   ].join("\n");
 
@@ -106,22 +121,22 @@ window.Fomito = window.Fomito || {};
     }).join("\n");
     const total = pedido.total;
     const meio = [
-      { t: colunas(`PEDIDO #${pedido.num}`, pedido.modo === "entrega" ? "ENTREGA" : "RETIRADA BALCAO") },
+      { col: [[{ r: "pedido" }, ` #${pedido.num}`], [{ r: pedido.modo === "entrega" ? "entrega" : "retirada" }]] },
       { t: data },
       { t: linha },
-      { t: `Cliente: ${pedido.cliente}` },
-      ...(pedido.telefone ? [{ t: `Tel: ${pedido.telefone}`, ocultar: "telefoneCliente" }] : []),
-      ...(pedido.endereco ? [{ t: `End: ${pedido.endereco}`, ocultar: "enderecoCliente" }] : []),
+      { p: [{ r: "cliente" }, `: ${pedido.cliente}`] },
+      ...(pedido.telefone ? [{ p: [{ r: "tel" }, `: ${pedido.telefone}`], ocultar: "telefoneCliente" }] : []),
+      ...(pedido.endereco ? [{ p: [{ r: "end" }, `: ${pedido.endereco}`], ocultar: "enderecoCliente" }] : []),
       { t: linha },
       { t: itens },
       { t: linha },
-      ...(pedido.modo === "entrega" ? [{ t: colunas("Taxa de entrega", (pedido.taxa ?? loja.taxaEntrega) > 0 ? valor(pedido.taxa ?? loja.taxaEntrega) : "Grátis") }] : []),
-      { t: colunas("TOTAL", "R$ " + valor(total)) },
+      ...(pedido.modo === "entrega" ? [{ col: [[{ r: "taxa" }], [(pedido.taxa ?? loja.taxaEntrega) > 0 ? valor(pedido.taxa ?? loja.taxaEntrega) : "Grátis"]] }] : []),
+      { col: [[{ r: "total" }], ["R$ " + valor(total)]] },
       { t: linha },
-      { t: pedido.modo === "entrega" ? `Pagamento: ${forma?.nome || "-"} (na entrega)` : forma ? `Pagamento: ${forma.nome} (na retirada)` : "Pagamento no balcão" },
-      ...(pedido.pag === "dinheiro" && pedido.troco ? [{ t: colunas("Troco para", valor(pedido.troco)) }, { t: colunas("LEVAR DE TROCO", valor(pedido.troco - total)) }] : []),
-    ].filter((x) => !x.ocultar || m.mostrar[x.ocultar]);
-    return { topo: m.topo, meio, fim: m.fim, mostrar: m.mostrar, ocultaveis: { telefoneCliente: !!pedido.telefone, enderecoCliente: !!pedido.endereco } };
+      { p: pedido.modo === "entrega" ? [{ r: "pagamento" }, `: ${forma?.nome || "-"} `, { r: "naEntrega" }] : forma ? [{ r: "pagamento" }, `: ${forma.nome} `, { r: "naRetirada" }] : [{ r: "pagBalcao" }] },
+      ...(pedido.pag === "dinheiro" && pedido.troco ? [{ col: [[{ r: "trocoPara" }], [valor(pedido.troco)]] }, { col: [[{ r: "levarTroco" }], [valor(pedido.troco - total)]] }] : []),
+    ].filter((x) => !x.ocultar || m.mostrar[x.ocultar]).map((x) => ({ ...x, texto: textoLinha(x, m.rotulos) }));
+    return { topo: m.topo, meio, fim: m.fim, rotulos: m.rotulos, mostrar: m.mostrar, ocultaveis: { telefoneCliente: !!pedido.telefone, enderecoCliente: !!pedido.endereco } };
   }
 
   /** Gera o texto do cupom (42 colunas = largura de uma POS-80). "impressaoTeste": prévia nas Configurações. */
@@ -149,7 +164,7 @@ window.Fomito = window.Fomito || {};
       centro("*** COMANDA DA MESA ***"),
       colunas(mesa, `${indice + 1}o PEDIDO`),
       data,
-      ...(comanda.nome ? [`Cliente: ${comanda.nome}`] : []),
+      ...(comanda.nome ? [`${m.rotulos.cliente}: ${comanda.nome}`] : []),
       `Pedido por: ${r.por === "qr" ? "cliente (QR Code da mesa)" : `garçom${r.quem ? ` ${r.quem}` : ""}`}`,
       linha,
       itens,
@@ -242,5 +257,5 @@ window.Fomito = window.Fomito || {};
     return tocou;
   }
 
-  Fomito.alertas = { tocarAlerta, textoCupom, partesCupom, imprimirCupom, textoCupomComanda, imprimirComanda, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, avisosLigados, podeNotificar, avisar };
+  Fomito.alertas = { tocarAlerta, textoCupom, partesCupom, ROTULOS, imprimirCupom, textoCupomComanda, imprimirComanda, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, avisosLigados, podeNotificar, avisar };
 })();

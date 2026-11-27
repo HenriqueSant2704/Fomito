@@ -712,7 +712,7 @@ function configImpressao() {
       </div>
       <div class="card painel-card">
         <div class="painel-card__topo"><h3>Prévia do cupom</h3><span class="tag tag--cinza">80mm</span></div>
-        <p class="pequeno suave">Toque no topo ou no fim da notinha para apagar ou escrever. O meio (pedido, itens e valores) é sempre o do pedido.</p>
+        <p class="pequeno suave">Toque no topo, no fim ou nas palavras sublinhadas (como TOTAL e Pagamento) para trocar o texto. Os valores, itens e dados do pedido não mudam.</p>
         <div class="cupom" id="previaCupom">${editorCupom(exemplo, imp)}</div>
         <button type="button" class="link pequeno" data-restaurar-cupom style="align-self:flex-start">Voltar ao modelo padrão</button>
       </div>
@@ -722,6 +722,12 @@ function configImpressao() {
 /* Notinha editável na própria prévia: o topo e o fim são texto livre (uma linha por linha do papel);
    o meio vem do pedido e fica travado. Telefone e endereço do cliente podem ser escondidos. */
 const escHtml = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+/* Pedaços de uma linha do meio: as palavras (rótulos) são editáveis, os dados do pedido não */
+const pedacosEditor = (pedacos, rot) => pedacos.map((x) => (typeof x === "string"
+  ? `<span class="cupom__dado">${escHtml(x)}</span>`
+  : `<span class="cupom__rotulo" contenteditable="plaintext-only" spellcheck="false" data-rotulo-cupom="${x.r}" title="Toque para trocar esta palavra">${escHtml(rot[x.r])}</span>`)).join("");
+const linhaEditor = (x, rot) => (x.col ? `<span>${pedacosEditor(x.col[0], rot)}</span><span>${pedacosEditor(x.col[1], rot)}</span>` : x.p ? pedacosEditor(x.p, rot) : escHtml(x.t));
+
 function editorCupom(pedido, imp) {
   const p = alertas.partesCupom(pedido, imp);
   const area = (zona, linhas, dica) => `<textarea class="cupom__zona" data-zona-cupom="${zona}" rows="${Math.max(1, linhas.length)}" spellcheck="false" placeholder="${dica}" aria-label="${zona === "topo" ? "Topo da notinha" : "Fim da notinha"}">${escHtml(linhas.join("\n"))}</textarea>`;
@@ -730,8 +736,8 @@ function editorCupom(pedido, imp) {
     <div class="cupom__papel">
       ${area("topo", p.topo, "Toque para escrever o topo (nome, CNPJ, Instagram...)")}
       <div class="cupom__linha">${"-".repeat(42)}</div>
-      <div class="cupom__fixo" title="Vem do pedido: não dá para editar">
-        ${p.meio.map((x) => `<div class="cupom__fixo-linha">${escHtml(x.t)}${x.ocultar ? `<button type="button" class="cupom__ocultar" data-ocultar-cupom="${x.ocultar}" aria-label="Esconder esta linha" title="Esconder esta linha">×</button>` : ""}</div>`).join("")}
+      <div class="cupom__fixo">
+        ${p.meio.map((x) => `<div class="cupom__fixo-linha ${x.col ? "cupom__fixo-linha--col" : ""}">${linhaEditor(x, p.rotulos)}${x.ocultar ? `<button type="button" class="cupom__ocultar" data-ocultar-cupom="${x.ocultar}" aria-label="Esconder esta linha" title="Esconder esta linha">×</button>` : ""}</div>`).join("")}
         ${ocultas.map(([k]) => `<button type="button" class="cupom__mostrar" data-mostrar-linha-cupom="${k}">+ mostrar ${k === "telefoneCliente" ? "telefone" : "endereço"} do cliente</button>`).join("")}
       </div>
       <div class="cupom__linha">${"-".repeat(42)}</div>
@@ -746,7 +752,7 @@ function atualizarPreviaCupom() {
 function garantirModeloEditavel() {
   const imp = rascunho.impressao;
   const p = alertas.partesCupom({ ...comTotal(pedidoExemplo()) }, imp);
-  imp.modelo = { ...(imp.modelo || {}), topo: p.topo, fim: p.fim, mostrar: { ...p.mostrar } };
+  imp.modelo = { ...(imp.modelo || {}), topo: p.topo, fim: p.fim, rotulos: { ...p.rotulos }, mostrar: { ...p.mostrar } };
   return imp.modelo;
 }
 
@@ -842,7 +848,7 @@ function ligarConfig() {
     const mostrar = e.target.closest("[data-mostrar-linha-cupom]");
     if (mostrar) { garantirModeloEditavel().mostrar[mostrar.dataset.mostrarLinhaCupom] = true; return atualizarPreviaCupom(); }
     if (e.target.closest("[data-restaurar-cupom]")) {
-      rascunho.impressao.modelo = { topo: null, fim: null, mostrar: { telefoneCliente: true, enderecoCliente: true, observacoes: true } };
+      rascunho.impressao.modelo = { topo: null, fim: null, rotulos: {}, mostrar: { telefoneCliente: true, enderecoCliente: true, observacoes: true } };
       rascunho.impressao.rodape = "Obrigado pela preferência!";
       atualizarPreviaCupom();
       return toast("Modelo padrão de volta. Salve para gravar.", "info");
@@ -902,6 +908,11 @@ function ligarConfig() {
       rascunhoLoja[t.dataset.loja] = t.value;
       const previa = $("#previaFuncionamento");
       if (previa) previa.innerHTML = `No cardápio aparece: <b>${Fomito.textoFuncionamento(rascunhoLoja) || "-"}</b>`;
+    }
+    if (t.dataset.rotuloCupom) {
+      const texto = t.textContent.replace(/\s+/g, " ").slice(0, 24);
+      garantirModeloEditavel().rotulos[t.dataset.rotuloCupom] = texto.trim() ? texto : alertas.ROTULOS[t.dataset.rotuloCupom];
+      return;
     }
     if (t.dataset.zonaCupom) {
       const m = garantirModeloEditavel();
@@ -1023,3 +1034,8 @@ document.addEventListener("fomito:loja", () => { atualizarStatusLoja(); atualiza
 /* Menu: o atendente só vê as seções dele */
 $$(".menu__item[data-secao]").forEach((b) => { b.hidden = !podeVer(b.dataset.secao); });
 abrirSecao(new URLSearchParams(location.search).get("secao") || (ehAdmin ? "dashboard" : "pedidos"));
+
+/* Palavra da notinha: Enter só termina a edição (a palavra fica numa linha) */
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.dataset?.rotuloCupom) { e.preventDefault(); e.target.blur(); }
+});

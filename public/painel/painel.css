@@ -624,3 +624,9 @@ button.tag { cursor: pointer; }
   .barra-salvar > .linha { width: 100%; flex-wrap: wrap; }
   .barra-salvar > .linha .btn { flex: 1 1 140px; white-space: normal; text-align: center; height: auto; padding: 10px 14px; line-height: 1.25; }
 }
+/* Palavras editáveis do meio da notinha (os dados ao lado continuam travados) */
+.cupom__fixo-linha--col { display: flex; justify-content: space-between; gap: 8px; }
+.cupom__rotulo { color: var(--roxo); border-bottom: 1px dashed var(--roxo-medio); border-radius: 2px; outline: none; cursor: text; padding: 0 1px; }
+.cupom__rotulo:hover { background: #F6F3FD; }
+.cupom__rotulo:focus { background: #EFEAFB; border-bottom-style: solid; }
+.cupom__dado { color: #333; }
