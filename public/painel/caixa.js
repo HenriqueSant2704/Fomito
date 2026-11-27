@@ -622,7 +622,8 @@ function janelaFechar() {
     </div>
     <div class="conferencia">
       <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
-      <div class="entre"><span>+ Notas recebidas − troco</span><span class="num">${moeda(r.porForma.dinheiro)}</span></div>
+      <div class="entre"><span>+ Vendas em dinheiro no balcão e mesas</span><span class="num">${moeda(r.porForma.dinheiro - (r.dinheiroEntregas || 0))}</span></div>
+      ${r.convenioDinheiro ? `<div class="entre"><span>+ Convênios recebidos em dinheiro</span><span class="num">${moeda(r.convenioDinheiro)}</span></div>` : ""}
       <div class="entre"><span>+ Colocado − tirado</span><span class="num">${moeda(r.suprimentos - r.sangrias)}</span></div>
       <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
     </div>
