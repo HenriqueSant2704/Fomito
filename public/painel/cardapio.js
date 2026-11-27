@@ -93,23 +93,8 @@ function abaCategorias() {
 
 function abaAdicionais() {
   return `
-    <p class="suave pequeno">Adicionais são os extras que o cliente marca no detalhe do produto (ex.: bacon extra). Cada categoria tem a sua lista, e os avulsos valem só para os produtos que você escolher.</p>
+    <p class="suave pequeno">Adicionais são os extras que o cliente marca no detalhe do produto (ex.: bacon extra). Cada categoria tem a sua lista. No cadastro do produto dá para desmarcar os que ele não oferece.</p>
     <div class="grade-adicionais">
-      <div class="card painel-card card-avulsos">
-        <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3 class="linha" style="gap:8px">${icone("mais", "ic--sm")}Avulsos</h3><span class="pequeno suave">Sem categoria: escolha em quais produtos aparecem.</span></div><button class="btn btn--contorno btn--sm" data-novo-avulso>${icone("mais", "ic--sm")} Avulso</button></div>
-        ${(dados.avulsos || []).map((a) => {
-          const usam = dados.produtos.filter((p) => (p.avulsos || []).includes(a.id));
-          return `
-          <div class="avulso">
-            <div class="entre"><span class="forte">${a.nome}</span><span class="linha" style="gap:8px"><span class="num suave">+ ${moeda(a.preco)}</span><button class="btn-icone btn-icone--sm" data-remover-avulso="${a.id}" aria-label="Remover ${a.nome}">${icone("lixo", "ic--sm")}</button></span></div>
-            <span class="pequeno ${usam.length ? "suave" : "fraco"}">${usam.length ? `Em: ${usam.map((p) => p.nome).join(", ")}` : "Ainda não está em nenhum produto"}</span>
-            <div class="linha" style="gap:8px;flex-wrap:wrap">
-              <button class="btn btn--contorno btn--sm" data-produtos-avulso="${a.id}">${icone("cardapio", "ic--sm")} Escolher produtos</button>
-              <button class="btn btn--contorno btn--sm" data-categoria-avulso="${a.id}">${icone("grade", "ic--sm")} Colocar numa categoria</button>
-            </div>
-          </div>`;
-        }).join("") || `<p class="pequeno fraco">Nenhum avulso ainda. Crie aqui ou direto no cadastro do produto.</p>`}
-      </div>
       ${dados.categorias.map((c) => `
         <div class="card painel-card">
           <div class="painel-card__topo"><h3 class="linha" style="gap:8px">${icone(c.icone || "cardapio", "ic--sm")}${c.nome}</h3><button class="btn btn--contorno btn--sm" data-novo-adicional="${c.id}">${icone("mais", "ic--sm")} Adicional</button></div>
@@ -173,7 +158,7 @@ function abrirEditor(id) {
   const base = id
     ? Fomito.produto(id)
     : { id: null, cat: cardapio.filtro === "todas" ? dados.categorias[0]?.id : cardapio.filtro, nome: "", preco: 0, desc: "", ingredientes: [], fotos: [], destaque: false };
-  cardapio.produto = { entrega: true, local: true, avulsos: [], adicionaisFora: [], ...structuredClone(base) };
+  cardapio.produto = { entrega: true, local: true, adicionaisFora: [], ...structuredClone(base) };
   renderCardapio();
   window.scrollTo(0, 0);
 }
@@ -242,39 +227,16 @@ function editorProduto() {
     </div>`;
 }
 
-/* Adicionais do produto: os da categoria (dá para desmarcar neste produto) e os avulsos,
-   que valem só para os produtos escolhidos (ex.: marmitas com extras diferentes) */
+/* Adicionais do produto: os da categoria; desmarque os que este produto não oferece
+   (ex.: categoria Marmitas com todos os extras, e cada marmita mostra só os seus) */
 function cartaoAdicionaisProduto() {
   const p = cardapio.produto;
   const daCategoria = dados.adicionais[p.cat] || [];
-  const avulsos = dados.avulsos || [];
-  const ligados = avulsos.filter((a) => p.avulsos.includes(a.id));
-  const outros = avulsos.filter((a) => !p.avulsos.includes(a.id));
   return `
-    <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Adicionais</h3><span class="pequeno suave">Extras que o cliente pode incluir neste produto.</span></div><button class="link pequeno" data-ir-adicionais>Gerenciar adicionais</button></div>
-    <div class="adic-grupo">
-      <span class="rotulo">Da categoria ${nomeCategoria(p.cat)}</span>
-      ${daCategoria.map((a) => `<label class="config-pag check-linha"><span class="linha" style="gap:10px"><input type="checkbox" data-adicional-cat="${a.id}" ${p.adicionaisFora.includes(a.id) ? "" : "checked"}> ${a.nome}</span><span class="num suave">+ ${moeda(a.preco)}</span></label>`).join("")
-        || `<p class="pequeno fraco">A categoria não tem adicionais.</p>`}
-    </div>
-    <div class="adic-grupo">
-      <span class="rotulo">Só deste produto</span>
-      ${ligados.map((a) => `<div class="config-pag"><span class="linha" style="gap:10px"><span class="tag tag--roxo">Avulso</span>${a.nome}</span><span class="linha" style="gap:10px"><span class="num suave">+ ${moeda(a.preco)}</span><button class="btn-icone btn-icone--sm" data-desligar-avulso="${a.id}" aria-label="Tirar ${a.nome} deste produto" title="Tirar deste produto">${icone("fechar", "ic--sm")}</button></span></div>`).join("")}
-      ${outros.length ? `<div class="adic-usar"><span class="pequeno suave">Usar um avulso já criado:</span>${outros.map((a) => `<button class="chip-forma" data-ligar-avulso="${a.id}">${icone("mais", "ic--sm")}${a.nome} · ${moeda(a.preco)}</button>`).join("")}</div>` : ""}
-      <div class="adic-novo">
-        <input id="avNome" class="input" maxlength="50" placeholder="Novo adicional (ex.: Ovo frito)">
-        <div class="campo-moeda"><span>R$</span><input id="avPreco" class="input" inputmode="decimal" placeholder="0,00"></div>
-        <button class="btn btn--secundario" data-criar-avulso>${icone("mais", "ic--sm")} Criar</button>
-      </div>
-      <span class="pequeno fraco">O adicional criado aqui vale só para este produto e fica salvo na aba Adicionais, onde dá para usar em outros produtos ou numa categoria.</span>
-    </div>`;
+    <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Adicionais</h3><span class="pequeno suave">Desmarque os que este produto não oferece. Só os marcados aparecem para o cliente.</span></div><button class="link pequeno" data-ir-adicionais>Gerenciar adicionais</button></div>
+    ${daCategoria.map((a) => `<label class="config-pag check-linha"><span class="linha" style="gap:10px"><input type="checkbox" data-adicional-cat="${a.id}" ${p.adicionaisFora.includes(a.id) ? "" : "checked"}> ${a.nome}</span><span class="num suave">+ ${moeda(a.preco)}</span></label>`).join("")
+      || `<p class="pequeno fraco">A categoria ${nomeCategoria(p.cat)} não tem adicionais.</p>`}`;
 }
-const atualizarCartaoAdicionais = () => { const c = $("#cartaoAdicionais"); if (c) c.innerHTML = cartaoAdicionaisProduto(); };
-const idAvulso = (nome) => {
-  let id = `av-${nome.toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "") || "adicional"}`;
-  while ((dados.avulsos || []).some((a) => a.id === id)) id += "2";
-  return id;
-};
 
 function galeriaEditor() {
   const p = cardapio.produto;
@@ -379,69 +341,6 @@ document.addEventListener("click", async (e) => {
     await Fomito.salvarCardapio();
     renderCardapio();
     return toast(`${nome} adicionado`, "check");
-  }
-  if (alvo("[data-novo-avulso]")) {
-    const r = await Fomito.dialogo({
-      titulo: "Novo adicional avulso",
-      texto: "Não pertence a uma categoria. Depois escolha em quais produtos ele aparece.",
-      campos: [
-        { id: "nome", rotulo: "Nome", placeholder: "Ex.: Ovo frito", obrigatorio: true, max: 50 },
-        { id: "preco", rotulo: "Preço (R$)", placeholder: "Ex.: 3,00", tipo: "moeda", obrigatorio: true, max: 10,
-          validar: (v) => (parseFloat(v.replace(",", ".")) >= 0 ? null : "Digite um preço válido, ex.: 3,00.") },
-      ],
-      confirmar: "Criar avulso",
-    });
-    if (!r) return;
-    (dados.avulsos ||= []).push({ id: idAvulso(r.nome), nome: r.nome, preco: Math.round(parseFloat(r.preco.replace(",", ".")) * 100) / 100 });
-    await Fomito.salvarCardapio();
-    renderCardapio();
-    return toast(`${r.nome} criado. Escolha os produtos.`, "check");
-  }
-  if (alvo("[data-remover-avulso]")) {
-    const id = alvo("[data-remover-avulso]").dataset.removerAvulso;
-    const a = dados.avulsos.find((x) => x.id === id);
-    if (!(await Fomito.confirmar(`Remover ${a.nome}?`, "Sai de todos os produtos que usam este avulso. Pedidos antigos não mudam.", "Remover"))) return;
-    dados.avulsos = dados.avulsos.filter((x) => x.id !== id);
-    dados.produtos.forEach((p) => { if (p.avulsos) p.avulsos = p.avulsos.filter((x) => x !== id); });
-    await Fomito.salvarCardapio();
-    renderCardapio();
-    return toast("Avulso removido", "lixo");
-  }
-  if (alvo("[data-produtos-avulso]")) return escolherProdutosAvulso(alvo("[data-produtos-avulso]").dataset.produtosAvulso);
-  if (alvo("[data-categoria-avulso]")) {
-    const id = alvo("[data-categoria-avulso]").dataset.categoriaAvulso;
-    const a = dados.avulsos.find((x) => x.id === id);
-    const r = await Fomito.dialogo({
-      titulo: `Colocar ${a.nome} numa categoria`,
-      texto: "Passa a aparecer em todos os produtos da categoria. Continua aqui nos avulsos também.",
-      campos: [{ id: "cat", rotulo: "Categoria", tipo: "select", valor: dados.categorias[0]?.id, opcoes: dados.categorias.map((c) => [c.id, c.nome]) }],
-      confirmar: "Colocar na categoria",
-    });
-    if (!r) return;
-    const lista = (dados.adicionais[r.cat] ||= []);
-    if (lista.some((x) => x.nome.toLowerCase() === a.nome.toLowerCase())) return toast(`${nomeCategoria(r.cat)} já tem ${a.nome}`, "info");
-    let novoId = a.id.replace(/^av-/, "");
-    while (lista.some((x) => x.id === novoId)) novoId += "2";
-    lista.push({ id: novoId, nome: a.nome, preco: a.preco });
-    await Fomito.salvarCardapio();
-    renderCardapio();
-    return toast(`${a.nome} agora está em ${nomeCategoria(r.cat)}`, "check");
-  }
-  if (alvo("[data-criar-avulso]")) {
-    const nome = $("#avNome").value.trim();
-    const preco = Math.round((parseFloat($("#avPreco").value.replace(/\./g, "").replace(",", ".")) || 0) * 100) / 100;
-    if (nome.length < 2) { $("#avNome").focus(); return toast("Digite o nome do adicional", "info"); }
-    const novo = { id: idAvulso(nome), nome, preco };
-    (dados.avulsos ||= []).push(novo);
-    cardapio.produto.avulsos.push(novo.id);
-    atualizarCartaoAdicionais();
-    return toast(`${nome} criado só para este produto. Salve o produto para gravar.`, "check");
-  }
-  if (alvo("[data-ligar-avulso]")) { cardapio.produto.avulsos.push(alvo("[data-ligar-avulso]").dataset.ligarAvulso); return atualizarCartaoAdicionais(); }
-  if (alvo("[data-desligar-avulso]")) {
-    const id = alvo("[data-desligar-avulso]").dataset.desligarAvulso;
-    cardapio.produto.avulsos = cardapio.produto.avulsos.filter((x) => x !== id);
-    return atualizarCartaoAdicionais();
   }
   if (alvo("[data-remover-adicional]")) {
     const [cat, id] = alvo("[data-remover-adicional]").dataset.removerAdicional.split(",");
@@ -554,35 +453,3 @@ document.addEventListener("keydown", (e) => {
   $("#novoIngrediente").focus();
 });
 
-/* Em quais produtos um adicional avulso aparece */
-function escolherProdutosAvulso(id) {
-  const a = dados.avulsos.find((x) => x.id === id);
-  const camada = document.createElement("div");
-  camada.className = "sobreposicao sobreposicao--centro";
-  camada.innerHTML = `
-    <div class="folha" style="max-width:440px;display:flex;flex-direction:column;gap:14px">
-      <div class="folha__topo"><div class="pilha" style="gap:2px"><h2>${a.nome}</h2><span class="pequeno suave">+ ${moeda(a.preco)} · escolha os produtos</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
-      <div class="lista-rolagem pilha" style="gap:0">
-        ${dados.categorias.map((c) => {
-          const prods = dados.produtos.filter((p) => p.cat === c.id);
-          return prods.length ? `<span class="rotulo" style="padding-top:8px">${c.nome}</span>${prods.map((p) => `<label class="config-pag check-linha"><span class="linha" style="gap:10px"><input type="checkbox" value="${p.id}" ${(p.avulsos || []).includes(id) ? "checked" : ""}> ${p.nome}</span></label>`).join("")}` : "";
-        }).join("")}
-      </div>
-      <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Salvar</button>
-    </div>`;
-  document.body.appendChild(camada);
-  camada.addEventListener("click", async (e) => {
-    if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
-    if (!e.target.closest("[data-ok]")) return;
-    const marcados = [...camada.querySelectorAll("input:checked")].map((i) => Number(i.value));
-    dados.produtos.forEach((p) => {
-      const tem = (p.avulsos || []).includes(id);
-      if (marcados.includes(p.id) && !tem) p.avulsos = [...(p.avulsos || []), id];
-      if (!marcados.includes(p.id) && tem) p.avulsos = p.avulsos.filter((x) => x !== id);
-    });
-    await Fomito.salvarCardapio();
-    camada.remove();
-    renderCardapio();
-    toast(`${a.nome}: ${marcados.length} produto${marcados.length === 1 ? "" : "s"}`, "check");
-  });
-}

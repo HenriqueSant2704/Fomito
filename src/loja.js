@@ -24,6 +24,12 @@ async function carregar() {
     [CONFIG_PADRAO, CARDAPIO_PADRAO]);
   const { rows } = await db.query('SELECT config, cardapio, versao FROM loja WHERE id = 1');
   atual = { config: mesclar(CONFIG_PADRAO, rows[0].config), cardapio: mesclar(CARDAPIO_PADRAO, rows[0].cardapio), versao: rows[0].versao };
+  /* Adicionais avulsos (ajuste 34) foram desfeitos: some com o que tinha ficado salvo */
+  if (atual.cardapio.avulsos || atual.cardapio.produtos.some((p) => p.avulsos)) {
+    delete atual.cardapio.avulsos;
+    atual.cardapio.produtos.forEach((p) => delete p.avulsos);
+    await db.query("UPDATE loja SET cardapio = $1 WHERE id = 1", [atual.cardapio]);
+  }
   await garantirMesas(atual.cardapio.lanchonete.mesas);
   return atual;
 }
@@ -128,11 +134,7 @@ async function salvarCardapio(recebido) {
     aberta: l.aberta !== false,
     vitrine: Array.isArray(l.vitrine) ? l.vitrine.slice(0, 12) : [],
   };
-  /* Adicionais avulsos: não pertencem a uma categoria; cada produto escolhe os seus */
-  const avulsos = (Array.isArray(c.avulsos) ? c.avulsos : []).slice(0, 200)
-    .map((a) => ({ id: texto(a.id, 40), nome: texto(a.nome, 60), preco: Math.max(0, numero(a.preco) || 0) }))
-    .filter((a, i, l) => a.id && a.nome && l.findIndex((x) => x.id === a.id) === i);
-  const produtos = c.produtos.map((p) => ({
+  const produtos = c.produtos.map(({ avulsos: _avulsos, ...p }) => ({ // "avulsos" saiu (ajuste 34 desfeito)
     ...p,
     id: Number(p.id),
     nome: texto(p.nome, 80),
@@ -142,13 +144,13 @@ async function salvarCardapio(recebido) {
     destaque: !!p.destaque,
     ingredientes: (p.ingredientes || []).map((i) => texto(i, 60)).slice(0, 30),
     fotos: (p.fotos || []).slice(0, 10),
-    /* Adicionais só deste produto (avulsos) e os da categoria que ele não oferece */
-    avulsos: (Array.isArray(p.avulsos) ? p.avulsos : []).map((x) => texto(x, 40)).filter((x) => avulsos.some((a) => a.id === x)),
+    /* Adicionais da categoria que este produto não oferece */
     adicionaisFora: (Array.isArray(p.adicionaisFora) ? p.adicionaisFora : []).map((x) => texto(x, 40)).slice(0, 60),
   }));
   if (new Set(produtos.map((p) => p.id)).size !== produtos.length || produtos.some((p) => !Number.isInteger(p.id))) falhar(400, 'Produtos com código repetido.');
   const formasPagamento = (c.formasPagamento || atual.cardapio.formasPagamento).map((f) => ({ ...f, ativa: f.ativa !== false }));
-  const cardapio = { ...atual.cardapio, ...c, lanchonete, produtos, formasPagamento, avulsos };
+  const { avulsos: _semAvulsos, ...resto } = { ...atual.cardapio, ...c };
+  const cardapio = { ...resto, lanchonete, produtos, formasPagamento };
   await garantirMesas(lanchonete.mesas);
   return gravar({ cardapio });
 }

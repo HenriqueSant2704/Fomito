@@ -2,14 +2,12 @@
 const { falhar, arred, numero, texto } = require('./util');
 
 /**
- * Adicionais que o cliente pode escolher num produto: os da categoria (menos os que o dono
- * desmarcou neste produto) e os avulsos ligados só a ele. Igual ao Fomito.adicionaisDo do navegador.
+ * Adicionais que o cliente pode escolher num produto: os da categoria, menos os que o dono
+ * desmarcou neste produto. Igual ao Fomito.adicionaisDo do navegador.
  */
 function adicionaisDo(cardapio, p) {
   const fora = p.adicionaisFora || [];
-  const daCategoria = (cardapio.adicionais[p.cat] || []).filter((a) => !fora.includes(a.id));
-  const avulsos = (cardapio.avulsos || []).filter((a) => (p.avulsos || []).includes(a.id) && !daCategoria.some((x) => x.id === a.id));
-  return [...daCategoria, ...avulsos];
+  return (cardapio.adicionais[p.cat] || []).filter((a) => !fora.includes(a.id));
 }
 
 /**

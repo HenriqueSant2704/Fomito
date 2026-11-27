@@ -24,20 +24,12 @@ Fomito.salvarCardapio = () => Fomito.acao("PUT", "/cardapio", Fomito.dados)
   .catch((err) => { Fomito.estado.versao = null; Fomito.sincronizar().catch(() => {}); throw err; }); // se falhar, volta ao que está salvo
 
 /* ---------- Adicionais de um produto ----------
-   • os da categoria dele (menos os que o dono desmarcou neste produto: "adicionaisFora")
-   • os avulsos que o dono ligou só a este produto ("avulsos": ids da lista dados.avulsos)
+   Os da categoria dele, menos os que o dono desmarcou neste produto ("adicionaisFora").
    adicionaisDo → o que o cliente pode escolher agora
    todosAdicionaisDo → para mostrar nomes e preços de itens já pedidos */
 Fomito.adicionaisDo = (prod) => {
   if (!prod) return [];
-  const d = Fomito.dados;
   const fora = prod.adicionaisFora || [];
-  const daCategoria = (d.adicionais[prod.cat] || []).filter((a) => !fora.includes(a.id));
-  const avulsos = (d.avulsos || []).filter((a) => (prod.avulsos || []).includes(a.id) && !daCategoria.some((x) => x.id === a.id));
-  return [...daCategoria, ...avulsos];
+  return (Fomito.dados.adicionais[prod.cat] || []).filter((a) => !fora.includes(a.id));
 };
-Fomito.todosAdicionaisDo = (prod) => {
-  if (!prod) return [];
-  const daCategoria = Fomito.dados.adicionais[prod.cat] || [];
-  return [...daCategoria, ...(Fomito.dados.avulsos || []).filter((a) => !daCategoria.some((x) => x.id === a.id))];
-};
+Fomito.todosAdicionaisDo = (prod) => (prod ? Fomito.dados.adicionais[prod.cat] || [] : []);
