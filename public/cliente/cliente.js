@@ -958,6 +958,14 @@ function verificarFechamento() {
   }
   minha = null;
   guardar(CHAVE_MINHA, null);
+  /* A comanda acabou: o celular esquece a mesa, como se não tivesse lido o QR.
+     Um pedido novo volta a ser entrega ou retirada (para a mesa, é só ler o QR de novo). */
+  if (estado.mesaQR) {
+    Fomito.esquecerMesa();
+    estado.mesaQR = null;
+    estado.mesa = "";
+    if (estado.modo === "local") estado.modo = "entrega";
+  }
 }
 
 /* --- Cartão da comanda no início (abaixo do cartão da loja) --- */

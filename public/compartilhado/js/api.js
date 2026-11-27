@@ -24,8 +24,9 @@ window.Fomito = window.Fomito || {};
   } catch { dispositivo = crypto.randomUUID ? crypto.randomUUID() : `d${Date.now()}${String(Math.random()).slice(2, 10)}`; }
 
   /* Código da mesa vindo do QR Code (?m=abc123) */
-  /* Fica lembrado por 6 horas: se o cliente recarregar ou abrir sem o ?m=, continua na mesma mesa */
-  const codigoMesa = (() => {
+  /* Fica lembrado por 6 horas: se o cliente recarregar ou abrir sem o ?m=, continua na mesma mesa.
+     Quando a comanda dele é fechada, o celular esquece a mesa na hora (Fomito.esquecerMesa). */
+  let codigoMesa = (() => {
     const daUrl = new URLSearchParams(location.search).get("m") || "";
     try {
       if (daUrl) { localStorage.setItem("fomito.mesaQR", JSON.stringify({ codigo: daUrl, em: Date.now() })); return daUrl; }
@@ -40,6 +41,15 @@ window.Fomito = window.Fomito || {};
     clientes: [], usuarios: [], mesas: [], relatorio: null,
   };
   Fomito.codigoMesa = codigoMesa;
+  Fomito.esquecerMesa = () => {
+    codigoMesa = "";
+    Fomito.codigoMesa = "";
+    Fomito.estado.mesaQR = null;
+    try { localStorage.removeItem("fomito.mesaQR"); } catch { /* sem armazenamento */ }
+    /* Tira o ?m= do endereço: recarregar a página não volta para a mesa */
+    const url = new URL(location.href);
+    if (url.searchParams.has("m")) { url.searchParams.delete("m"); history.replaceState(null, "", url); }
+  };
 
   /** Chamada à API. Erro do servidor vira um Error com a mensagem para mostrar na tela. */
   async function api(metodo, url, corpo) {
