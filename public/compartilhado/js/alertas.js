@@ -115,7 +115,8 @@ window.Fomito = window.Fomito || {};
     /* Cada item guarda o nome e o preço da hora do pedido: [id, qtd, extras, obs, preço unitário, nome] */
     const itens = pedido.itens.map(([id, qtd, extras = [], obs = "", preco, nome]) => {
       const p = Fomito.produto(id);
-      const nomesExtras = Fomito.todosAdicionaisDo(p).filter((a) => extras.includes(a.id));
+      /* No pedido de teste (Configurações › Impressora) os adicionais vêm digitados: [{ nome }] */
+      const nomesExtras = typeof extras[0] === "object" ? extras : Fomito.todosAdicionaisDo(p).filter((a) => extras.includes(a.id));
       const unit = preco ?? p.preco + nomesExtras.reduce((s, a) => s + a.preco, 0);
       return linhasItem(qtd, nome || p.nome, unit * qtd, nomesExtras, obs, m);
     }).join("\n");

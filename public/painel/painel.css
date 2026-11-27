@@ -630,3 +630,12 @@ button.tag { cursor: pointer; }
 .cupom__rotulo:hover { background: #F6F3FD; }
 .cupom__rotulo:focus { background: #EFEAFB; border-bottom-style: solid; }
 .cupom__dado { color: #333; }
+
+/* Configurações › Impressora: pedido de teste editável da notinha */
+.pteste-item { display: grid; grid-template-columns: 64px minmax(0, 1fr) 120px 44px; gap: 8px 10px; align-items: end; padding: 12px; border: 1px solid var(--borda); border-radius: var(--raio-md); background: var(--superficie-2); }
+.pteste-item__largo { grid-column: 1 / -1; }
+.pteste-item__remover:disabled { opacity: .35; cursor: not-allowed; }
+@media (max-width: 560px) {
+  .pteste-item { grid-template-columns: 64px minmax(0, 1fr) 44px; }
+  .pteste-item > .campo:nth-child(3) { grid-column: 1 / 3; }
+}

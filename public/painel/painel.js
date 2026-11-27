@@ -689,7 +689,7 @@ function configWhatsApp() {
 /* --- Aba: Impressora e som --- */
 function configImpressao() {
   const { impressao: imp, som } = rascunho;
-  const exemplo = { ...comTotal(pedidoExemplo()) };
+  const exemplo = pedidoDoTeste();
   return `
     <div class="duas-colunas">
       <div class="pilha" style="gap:16px">
@@ -703,6 +703,8 @@ function configImpressao() {
           <button class="btn btn--contorno" id="iTeste">${icone("impressora", "ic--sm")} Imprimir cupom de teste</button>
         </div>
 
+        <div class="card painel-card" id="pedidoTesteCard">${formPedidoTeste()}</div>
+
         <div class="card painel-card">
           <div class="pilha" style="gap:2px"><h3>Som de novo pedido</h3><p class="pequeno suave">Toca um alerta no computador do caixa sempre que chega pedido.</p></div>
           <div class="config-pag"><span>Tocar som quando chegar pedido</span><label class="interruptor"><input type="checkbox" id="sAtivo" ${som.ativo ? "checked" : ""}><span></span></label></div>
@@ -712,7 +714,7 @@ function configImpressao() {
       </div>
       <div class="card painel-card">
         <div class="painel-card__topo"><h3>Prévia do cupom</h3><span class="tag tag--cinza">80mm</span></div>
-        <p class="pequeno suave">Toque no topo, no fim ou nas palavras sublinhadas (como TOTAL e Pagamento) para trocar o texto. Os valores, itens e dados do pedido não mudam.</p>
+        <p class="pequeno suave">Toque no topo, no fim ou nas palavras sublinhadas (como TOTAL e Pagamento) para trocar o texto. Os itens, valores, cliente e pagamento deste exemplo você troca no card "Pedido de teste".</p>
         <div class="cupom" id="previaCupom">${editorCupom(exemplo, imp)}</div>
         <button type="button" class="link pequeno" data-restaurar-cupom style="align-self:flex-start">Voltar ao modelo padrão</button>
       </div>
@@ -746,14 +748,115 @@ function editorCupom(pedido, imp) {
 }
 function atualizarPreviaCupom() {
   const el = $("#previaCupom");
-  if (el) el.innerHTML = editorCupom({ ...comTotal(pedidoExemplo()) }, rascunho.impressao);
+  if (el) el.innerHTML = editorCupom(pedidoDoTeste(), rascunho.impressao);
 }
 /* Começa a editar: guarda o topo e o fim atuais no rascunho (a partir daí o texto é do dono) */
 function garantirModeloEditavel() {
   const imp = rascunho.impressao;
-  const p = alertas.partesCupom({ ...comTotal(pedidoExemplo()) }, imp);
+  const p = alertas.partesCupom(pedidoDoTeste(), imp);
   imp.modelo = { ...(imp.modelo || {}), topo: p.topo, fim: p.fim, rotulos: { ...p.rotulos }, mostrar: { ...p.mostrar } };
   return imp.modelo;
+}
+
+/* --- Pedido de teste da notinha ---
+   Os dados de exemplo (itens, adicionais, observação, valores, taxa, total, cliente e pagamento)
+   que aparecem na prévia e saem no "Imprimir cupom de teste". Ficam guardados só neste navegador:
+   não criam pedido, não entram no caixa e não mudam o cardápio. */
+const CHAVE_PEDIDO_TESTE = "fomito.pedidoTeste";
+let pedidoTeste = null;
+const numBR = (v) => parseFloat(String(v ?? "").replace(/\./g, (m, i, s) => (s.includes(",") ? "" : m)).replace(",", ".")) || 0;
+const valorBR = (n) => (Number(n) || 0).toFixed(2).replace(".", ",");
+const escAttr = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+/** Copia um pedido de verdade (ou o exemplo padrão) para o formulário editável */
+function pedidoTesteDe(p) {
+  const taxa = p.taxa ?? dados.lanchonete.taxaEntrega ?? 0;
+  return {
+    num: String(p.num ?? 1001), modo: p.modo === "entrega" ? "entrega" : "retirada",
+    cliente: p.cliente || "", telefone: p.telefone || "", endereco: p.endereco || "",
+    pag: p.pag || "dinheiro", troco: p.troco ? valorBR(p.troco) : "",
+    taxa: valorBR(taxa), total: "",
+    itens: (p.itens || []).map((it) => {
+      const [id, qtd = 1, extras = [], obs = "", preco, nome] = it;
+      const prod = Fomito.produto(id);
+      const adicionais = Fomito.todosAdicionaisDo(prod).filter((a) => extras.includes(a.id)).map((a) => a.nome).join(", ");
+      return { qtd: String(qtd), nome: nome || prod?.nome || "", adicionais, obs, valor: valorBR(preco ?? precoItem(it) / qtd) };
+    }),
+  };
+}
+function lerPedidoTeste() {
+  if (pedidoTeste) return pedidoTeste;
+  try { pedidoTeste = JSON.parse(localStorage.getItem(CHAVE_PEDIDO_TESTE)); } catch { pedidoTeste = null; }
+  if (!Array.isArray(pedidoTeste?.itens) || !pedidoTeste.itens.length) pedidoTeste = pedidoTesteDe(pedidoExemplo());
+  return pedidoTeste;
+}
+function guardarPedidoTeste() {
+  try { localStorage.setItem(CHAVE_PEDIDO_TESTE, JSON.stringify(pedidoTeste)); } catch { /* sem armazenamento: vale só até recarregar */ }
+}
+/** Converte o formulário no formato de pedido que a notinha usa: itens [id, qtd, extras, obs, preço unitário, nome] */
+function pedidoDoTeste() {
+  const t = lerPedidoTeste();
+  const itens = t.itens.map((i) => [null, Math.max(1, Math.round(numBR(i.qtd)) || 1),
+    String(i.adicionais || "").split(",").map((a) => a.trim()).filter(Boolean).map((nome) => ({ nome })),
+    String(i.obs || "").trim(), numBR(i.valor), String(i.nome || "").trim() || "Item"]);
+  const entrega = t.modo === "entrega";
+  const taxa = entrega ? numBR(t.taxa) : 0;
+  const soma = itens.reduce((s, i) => s + i[1] * i[4], 0) + taxa;
+  return {
+    num: String(t.num || "").trim() || "1001", modo: t.modo, criadoEm: Date.now(),
+    cliente: String(t.cliente || "").trim() || "-", telefone: String(t.telefone || "").trim(),
+    endereco: entrega ? String(t.endereco || "").trim() : "", pag: t.pag,
+    troco: t.pag === "dinheiro" ? numBR(t.troco) : 0, taxa, itens,
+    total: String(t.total || "").trim() ? numBR(t.total) : soma, somaAutomatica: soma,
+  };
+}
+/** O campo Total vazio mostra a soma automática como dica */
+function atualizarTotalAutomatico() {
+  const el = $("#pTotal");
+  if (el) el.placeholder = `Automático: ${valorBR(pedidoDoTeste().somaAutomatica)}`;
+}
+function redesenharPedidoTeste() {
+  const el = $("#pedidoTesteCard");
+  if (el) el.innerHTML = formPedidoTeste();
+}
+function formPedidoTeste() {
+  const t = lerPedidoTeste();
+  const entrega = t.modo === "entrega";
+  const campo = (id, rotulo, chave, extra = "") => `<div class="campo"><label for="${id}">${rotulo}</label><input id="${id}" class="input" data-pteste="${chave}" value="${escAttr(t[chave])}" autocomplete="off" ${extra}></div>`;
+  const formas = dados.formasPagamento.map((f) => `<option value="${f.id}" ${f.id === t.pag ? "selected" : ""}>${escHtml(f.nome)}</option>`).join("");
+  const item = (i, n) => `
+    <div class="pteste-item">
+      <div class="campo"><label for="pq${n}">Qtd</label><input id="pq${n}" class="input" inputmode="numeric" data-pteste-item="${n}" data-campo="qtd" value="${escAttr(i.qtd)}"></div>
+      <div class="campo"><label for="pn${n}">Produto</label><input id="pn${n}" class="input" data-pteste-item="${n}" data-campo="nome" value="${escAttr(i.nome)}" placeholder="Ex.: X-Burguer" autocomplete="off"></div>
+      <div class="campo"><label for="pv${n}">Valor un. (R$)</label><input id="pv${n}" class="input" inputmode="decimal" data-pteste-item="${n}" data-campo="valor" value="${escAttr(i.valor)}" placeholder="0,00"></div>
+      <button type="button" class="btn-icone pteste-item__remover" data-pteste-remover="${n}" aria-label="Remover este item" title="Remover este item" ${t.itens.length > 1 ? "" : "disabled"}>${icone("lixo", "ic--sm")}</button>
+      <div class="campo pteste-item__largo"><label for="pa${n}">Adicionais <span class="fraco">(separe por vírgula)</span></label><input id="pa${n}" class="input" data-pteste-item="${n}" data-campo="adicionais" value="${escAttr(i.adicionais)}" placeholder="Ex.: Ovo, Bacon" autocomplete="off"></div>
+      <div class="campo pteste-item__largo"><label for="po${n}">Observação</label><input id="po${n}" class="input" data-pteste-item="${n}" data-campo="obs" value="${escAttr(i.obs)}" placeholder="Ex.: Sem tomate" autocomplete="off"></div>
+    </div>`;
+  return `
+    <div class="pilha" style="gap:2px"><h3>Pedido de teste</h3><p class="pequeno suave">Troque os dados de exemplo e veja a prévia mudar na hora. Serve só para o teste: não cria pedido, não entra no caixa e não mexe no cardápio.</p></div>
+    <div class="form-grade">
+      ${campo("pNum", "Número do pedido", "num", 'inputmode="numeric"')}
+      <div class="campo"><label for="pModo">Tipo</label><select id="pModo" class="input" data-pteste="modo"><option value="entrega" ${entrega ? "selected" : ""}>Entrega</option><option value="retirada" ${entrega ? "" : "selected"}>Retirada no balcão</option></select></div>
+      ${campo("pCliente", "Cliente", "cliente", 'placeholder="Nome do cliente"')}
+      ${campo("pTel", "Telefone", "telefone", 'placeholder="(00) 00000-0000"')}
+      ${entrega ? `<div class="campo" style="grid-column:1/-1"><label for="pEnd">Endereço</label><input id="pEnd" class="input" data-pteste="endereco" value="${escAttr(t.endereco)}" placeholder="Rua, número, bairro" autocomplete="off"></div>` : ""}
+    </div>
+    <div class="pilha" style="gap:10px">
+      <span class="rotulo-campo">Itens</span>
+      ${t.itens.map(item).join("")}
+      <button type="button" class="btn btn--contorno btn--sm" data-pteste-add style="align-self:flex-start">${icone("mais", "ic--sm")} Adicionar item</button>
+    </div>
+    <div class="form-grade">
+      ${entrega ? `<div class="campo"><label for="pTaxa">Taxa de entrega (R$)</label><input id="pTaxa" class="input" inputmode="decimal" data-pteste="taxa" value="${escAttr(t.taxa)}" placeholder="0,00"><span class="pequeno fraco">0 ou vazio sai como "Grátis".</span></div>` : ""}
+      <div class="campo"><label for="pTotal">Total (R$)</label><input id="pTotal" class="input" inputmode="decimal" data-pteste="total" value="${escAttr(t.total)}" placeholder="Automático: ${valorBR(pedidoDoTeste().somaAutomatica)}"><span class="pequeno fraco">Vazio: soma os itens e a taxa.</span></div>
+      <div class="campo"><label for="pPag">Pagamento</label><select id="pPag" class="input" data-pteste="pag">${formas}</select></div>
+      ${t.pag === "dinheiro" ? campo("pTroco", "Troco para (R$)", "troco", 'inputmode="decimal" placeholder="Sem troco"') : ""}
+    </div>
+    <div class="linha" style="gap:10px;flex-wrap:wrap;justify-content:space-between">
+      <button type="button" class="btn btn--contorno" data-imprimir-teste>${icone("impressora", "ic--sm")} Imprimir este teste</button>
+      <button type="button" class="link pequeno" data-pteste-reset>Usar o último pedido real</button>
+    </div>`;
 }
 
 /* --- Aba: Loja e entrega --- */
@@ -842,7 +945,24 @@ function ligarConfig() {
       [rascunho.marca.corPrincipal, rascunho.marca.corDestaque] = [rascunho.marca.corDestaque, rascunho.marca.corPrincipal];
       return renderConfiguracoes();
     }
-    if (e.target.closest("#iTeste")) { alertas.imprimirCupom(comTotal(pedidoExemplo()), rascunho.impressao); toast("Cupom de teste enviado para a impressora", "impressora"); }
+    if (e.target.closest("#iTeste, [data-imprimir-teste]")) { alertas.imprimirCupom(pedidoDoTeste(), rascunho.impressao); toast("Cupom de teste enviado para a impressora", "impressora"); }
+    /* Pedido de teste: adicionar, remover item e voltar ao último pedido real */
+    if (e.target.closest("[data-pteste-add]")) {
+      lerPedidoTeste().itens.push({ qtd: 1, nome: "", adicionais: "", obs: "", valor: "" });
+      guardarPedidoTeste(); redesenharPedidoTeste(); atualizarPreviaCupom();
+      return $$("[data-pteste-item][data-campo='nome']").at(-1)?.focus();
+    }
+    const remover = e.target.closest("[data-pteste-remover]");
+    if (remover) {
+      const t = lerPedidoTeste();
+      if (t.itens.length > 1) t.itens.splice(Number(remover.dataset.ptesteRemover), 1);
+      guardarPedidoTeste(); redesenharPedidoTeste(); return atualizarPreviaCupom();
+    }
+    if (e.target.closest("[data-pteste-reset]")) {
+      pedidoTeste = pedidoTesteDe(pedidoExemplo());
+      guardarPedidoTeste(); redesenharPedidoTeste(); atualizarPreviaCupom();
+      return toast("Pedido de teste voltou ao último pedido de entrega", "info");
+    }
     const ocultar = e.target.closest("[data-ocultar-cupom]");
     if (ocultar) { garantirModeloEditavel().mostrar[ocultar.dataset.ocultarCupom] = false; return atualizarPreviaCupom(); }
     const mostrar = e.target.closest("[data-mostrar-linha-cupom]");
@@ -908,6 +1028,20 @@ function ligarConfig() {
       rascunhoLoja[t.dataset.loja] = t.value;
       const previa = $("#previaFuncionamento");
       if (previa) previa.innerHTML = `No cardápio aparece: <b>${Fomito.textoFuncionamento(rascunhoLoja) || "-"}</b>`;
+    }
+    if (t.dataset.pteste) {
+      const ped = lerPedidoTeste();
+      ped[t.dataset.pteste] = t.value;
+      guardarPedidoTeste();
+      if (t.tagName === "SELECT") redesenharPedidoTeste(); // tipo e pagamento mostram/escondem campos
+      else atualizarTotalAutomatico();
+      return atualizarPreviaCupom();
+    }
+    if (t.dataset.ptesteItem != null) {
+      lerPedidoTeste().itens[Number(t.dataset.ptesteItem)][t.dataset.campo] = t.value;
+      guardarPedidoTeste();
+      atualizarTotalAutomatico();
+      return atualizarPreviaCupom();
     }
     if (t.dataset.rotuloCupom) {
       const texto = t.textContent.replace(/\s+/g, " ").slice(0, 24);
