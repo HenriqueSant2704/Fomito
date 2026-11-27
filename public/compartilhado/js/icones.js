@@ -63,6 +63,55 @@ Fomito.icones = {
   lanches:    '<path d="M4 11a8 5.5 0 0 1 16 0z"/><path d="M3 14h18"/><path d="M4.5 17h15a1.5 1.5 0 0 1-1.5 2.5H6A1.5 1.5 0 0 1 4.5 17z"/>',
   porcoes:    '<path d="M6 10h12l-1.8 10.5H7.8z"/><path d="M8.5 10 7.5 4M11 10V3.5M13.5 10l.8-5.5M16 10l1.2-4"/>',
   bebidas:    '<path d="M6.5 8h11l-1.4 12.5H7.9z"/><path d="M5.5 8h13M12 8l1.5-4.5H17"/>',
+  marmita:    '<rect x="3" y="9.5" width="18" height="9.5" rx="2"/><path d="M2 9.5h20"/><path d="M7 9.5V7a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 17 7v2.5"/><path d="M12 9.5V19"/>',
+  pizza:      '<path d="M12 21 3.6 6.8a13.5 13.5 0 0 1 16.8 0z"/><path d="M5 9.2a11 11 0 0 1 14 0"/><circle cx="10" cy="11.8" r="1"/><circle cx="13.8" cy="14.2" r="1"/><circle cx="13.2" cy="10.6" r=".6"/>',
+  sobremesa:  '<path d="M3.5 20h17v-7.5L12 8l-8.5 4.5z"/><path d="M3.5 15.5h17"/><path d="M12 8V5"/><path d="M12 5c-.9-.6-.9-1.6 0-2.2.9.6.9 1.6 0 2.2z"/>',
+  sorvete:    '<path d="M7.5 11a4.5 4.5 0 0 1 9 0"/><path d="M6.5 11h11L12 21z"/><path d="M9.5 14.5h5"/>',
+  acai:       '<path d="M3 11h18a9 7.5 0 0 1-18 0z"/><path d="M7.5 11c.3-1.8 2-3 4.5-3s4.2 1.2 4.5 3"/><path d="M14.5 6.5 18 3"/><circle cx="10" cy="9.8" r=".6"/><circle cx="13.5" cy="9.5" r=".6"/>',
+  cafe:       '<path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5c-.8 1 .8 2 0 3M12 3.5c-.8 1 .8 2 0 3"/>',
+  combo:      '<path d="M2.5 13.5a5.5 3.6 0 0 1 11 0z"/><path d="M2.5 15.8h11"/><path d="M3 18h10a1.2 1.2 0 0 1-1.2 1.5H4.2A1.2 1.2 0 0 1 3 18z"/><path d="M15.5 9h5l-1 11h-3z"/><path d="M18 9l.8-4.5H21"/>',
+  salgados:   '<path d="M12 3c3.2 3.8 6 7.3 6 10.8a6 6 0 0 1-12 0C6 10.3 8.8 6.8 12 3z"/><path d="M9 15.5c1.8 1 4.2 1 6 0"/>',
+  saudavel:   '<path d="M3 12h18a9 7 0 0 1-18 0z"/><path d="M8.5 12c-.9-2.6.6-4.9 3-6 .2 2.2-.3 4.2-1.8 6"/><path d="M13 12c.2-2.4 2-4.3 4.5-4.5-.1 1.9-1 3.4-2.6 4.5"/>',
+  frango:     '<path d="M14.5 3.5a5.5 5.5 0 1 1-4.1 9.2l-3.7 3.7"/><path d="M14.5 3.5a5.5 5.5 0 0 0-4.1 9.2"/><circle cx="5.4" cy="18.6" r="1.9"/>',
+  carnes:     '<path d="M14 4c4 0 7 2.6 7 6.5 0 3-1.8 5-4.5 5.6-2.2.5-3.2 1.4-4.4 3-1.4 1.9-4.8 2-6.6.4S3.2 14.6 4.5 12.6C6.2 9.8 8 4 14 4z"/><circle cx="15" cy="10" r="2"/>',
+  peixe:      '<path d="M2.5 12c3-4 7-5.6 11-4.6 2 .5 3.6 2.1 4.6 4.6-1 2.5-2.6 4.1-4.6 4.6-4 1-8-.6-11-4.6z"/><path d="M18.1 12 21.5 8.8v6.4z"/><circle cx="13.5" cy="11" r=".7"/>',
+  drinks:     '<path d="M4 4h16l-8 9z"/><path d="M12 13v7.5M8 20.5h8"/><path d="M15.5 4 18 1.5"/>',
+  cerveja:    '<path d="M5 8h10v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M15 10.5h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/><path d="M5 8a2.5 2.5 0 0 1 2.6-3 3.2 3.2 0 0 1 4.8 0A2.5 2.5 0 0 1 15 8"/><path d="M8.5 11.5v6M11.5 11.5v6"/>',
+  hotdog:     '<rect x="2.5" y="9" width="19" height="6.5" rx="3.25"/><path d="M5 12.3c1-.9 2-.9 3 0s2 .9 3 0 2-.9 3 0 2 .9 3 0 1.5-.6 2-.2"/>',
+  doces:      '<circle cx="12" cy="12" r="4"/><path d="M8.6 10.2 4 7.5v9l4.6-2.7M15.4 10.2 20 7.5v9l-4.6-2.7"/>',
+  pao:        '<path d="M4 10.5C4 7.5 7.6 5 12 5s8 2.5 8 5.5c0 1-.6 1.8-1.5 2.1V19H5.5v-6.4C4.6 12.3 4 11.5 4 10.5z"/><path d="M9 9.5l1.5 2M13 9l1.5 2"/>',
+};
+
+/* Ícones que dá para escolher numa categoria (a galeria do painel) */
+Fomito.ICONES_CATEGORIA = ["lanches", "porcoes", "bebidas", "marmita", "pizza", "hotdog", "salgados", "combo", "sobremesa", "sorvete", "acai", "doces", "cafe", "saudavel", "frango", "carnes", "peixe", "pao", "cerveja", "drinks", "cardapio", "estrela", "chama", "loja"];
+
+/** Sugere o ícone pelo nome da categoria ("Marmitas" → marmita, "Açaí" → acai...) */
+Fomito.sugerirIconeCategoria = (nome) => {
+  const t = String(nome || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const regras = [
+    [/marmit|quentinh|prato feito|\bpf\b|executiv|refeic|almoco|self/, "marmita"],
+    [/pizz|esfih|calzone/, "pizza"],
+    [/hot ?dog|cachorro/, "hotdog"],
+    [/combo|promo|kit/, "combo"],
+    [/acai|cupuacu|bowl/, "acai"],
+    [/sorvet|picol|gelato|milk ?shake|shake/, "sorvete"],
+    [/sobremes|bolo|torta|pudim|confeit/, "sobremesa"],
+    [/doce|brigadeir|chocolat|bombom/, "doces"],
+    [/cafe|cappuc|expresso|padaria|chocolate quente/, "cafe"],
+    [/pao|paes|torrad|bauru|sanduich|wrap/, "pao"],
+    [/salgad|coxinh|pastel|pasteis|empad|kibe|quibe|esfirr/, "salgados"],
+    [/salad|fit|saudav|natural|vegan|veget/, "saudavel"],
+    [/frango|galinh|asinh|nugget|chicken/, "frango"],
+    [/carne|churras|espet|grelh|picanha|costel|bife/, "carnes"],
+    [/peix|frutos do mar|camar|sushi|japon|poke/, "peixe"],
+    [/cervej|chopp|chope/, "cerveja"],
+    [/drink|coquet|caipi|bar\b|dose/, "drinks"],
+    [/bebid|refri|suco|agua|refrigerante/, "bebidas"],
+    [/porc|petisc|batata|frita|tira.?gost/, "porcoes"],
+    [/lanch|burg|hamburg|x-|smash|artesana/, "lanches"],
+    [/destaq|especia|novidad|chef/, "estrela"],
+  ];
+  return (regras.find(([re]) => re.test(t)) || [null, "cardapio"])[1];
 };
 
 Fomito.icone = (nome, classe = "") =>

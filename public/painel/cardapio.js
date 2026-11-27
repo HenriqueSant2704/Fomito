@@ -76,15 +76,24 @@ function abaCategorias() {
             <div class="item-ordem">
               <span class="item-ordem__icone">${icone(c.icone || "cardapio", "ic--sm")}</span>
               <div class="pilha" style="gap:0;flex:1"><span class="forte">${c.nome}</span><span class="pequeno suave">${dados.produtos.filter((p) => p.cat === c.id).length} produtos</span></div>
-              <button class="btn-icone" data-mover-categoria="${i},-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">${icone("cima", "ic--sm")}</button>
-              <button class="btn-icone" data-mover-categoria="${i},1" ${i === dados.categorias.length - 1 ? "disabled" : ""} aria-label="Descer">${icone("baixo", "ic--sm")}</button>
-              <label class="interruptor" title="Mostrar no cardápio"><input type="checkbox" checked><span></span></label>
+              <span class="item-ordem__acoes">
+                <button class="btn-icone btn-icone--sm" data-mover-categoria="${i},-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">${icone("cima", "ic--sm")}</button>
+                <button class="btn-icone btn-icone--sm" data-mover-categoria="${i},1" ${i === dados.categorias.length - 1 ? "disabled" : ""} aria-label="Descer">${icone("baixo", "ic--sm")}</button>
+                <button class="btn-icone btn-icone--sm" data-editar-categoria="${c.id}" aria-label="Editar ${c.nome}" title="Editar nome e ícone">${icone("editar", "ic--sm")}</button>
+                <button class="btn-icone btn-icone--sm btn-icone--perigo" data-excluir-categoria="${c.id}" aria-label="Excluir ${c.nome}" title="Excluir">${icone("lixo", "ic--sm")}</button>
+              </span>
             </div>`).join("")}
         </div>
       </div>
       <div class="card painel-card">
         <h3>Nova categoria</h3>
-        <div class="campo"><label for="novaCategoria">Nome</label><input id="novaCategoria" class="input" placeholder="Ex.: Sobremesas, Combos, Açaí"></div>
+        <div class="campo"><label for="novaCategoria">Nome</label>
+          <div class="nova-categoria">
+            <button class="nova-categoria__icone" id="iconeNovaCategoria" data-escolher-icone-nova title="Trocar o ícone" aria-label="Trocar o ícone">${icone(cardapio.iconeNova || "cardapio")}</button>
+            <input id="novaCategoria" class="input" placeholder="Ex.: Marmitas, Pizzas, Açaí" value="${cardapio.nomeNova || ""}">
+          </div>
+          <span class="pequeno fraco">O ícone é sugerido pelo nome. Toque nele para escolher outro.</span>
+        </div>
         <button class="btn btn--primario" data-criar-categoria>${icone("mais", "ic--sm")} Criar categoria</button>
         <p class="pequeno suave">Depois é só cadastrar os produtos nela. Categoria sem produto não aparece para o cliente.</p>
       </div>
@@ -310,12 +319,21 @@ document.addEventListener("click", async (e) => {
     await Fomito.salvarCardapio();
     return renderCardapio();
   }
+  if (alvo("[data-escolher-icone-nova]")) {
+    const escolhido = await escolherIcone("Ícone da nova categoria", cardapio.iconeNova || Fomito.sugerirIconeCategoria($("#novaCategoria").value));
+    if (!escolhido) return;
+    cardapio.iconeNova = escolhido; cardapio.iconeNovaEscolhido = true; cardapio.nomeNova = $("#novaCategoria").value;
+    return renderCardapio();
+  }
+  if (alvo("[data-editar-categoria]")) return editarCategoria(alvo("[data-editar-categoria]").dataset.editarCategoria);
+  if (alvo("[data-excluir-categoria]")) return excluirCategoria(alvo("[data-excluir-categoria]").dataset.excluirCategoria);
   if (alvo("[data-criar-categoria]")) {
     const nome = $("#novaCategoria").value.trim();
     if (!nome) return toast("Digite o nome da categoria", "info");
     let id = nome.toLowerCase().normalize("NFD").replace(/[^\w]/g, "") || "categoria";
     while (dados.categorias.some((c) => c.id === id)) id += "2";
-    dados.categorias.push({ id, nome, icone: "cardapio" });
+    dados.categorias.push({ id, nome, icone: cardapio.iconeNova || Fomito.sugerirIconeCategoria(nome) });
+    cardapio.nomeNova = ""; cardapio.iconeNova = null; cardapio.iconeNovaEscolhido = false;
     await Fomito.salvarCardapio();
     renderCardapio();
     return toast(`Categoria ${nome} criada`, "check");
@@ -388,6 +406,14 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("input", (e) => {
   if (!secaoCardapio().contains(e.target)) return;
   const t = e.target;
+  if (t.id === "novaCategoria") {
+    cardapio.nomeNova = t.value;
+    if (!cardapio.iconeNovaEscolhido) {
+      cardapio.iconeNova = Fomito.sugerirIconeCategoria(t.value);
+      $("#iconeNovaCategoria").innerHTML = icone(cardapio.iconeNova);
+    }
+    return;
+  }
   if (t.id === "buscaCardapio") {
     cardapio.busca = t.value;
     renderCardapio();
@@ -453,3 +479,98 @@ document.addEventListener("keydown", (e) => {
   $("#novoIngrediente").focus();
 });
 
+
+/* ---------- Categorias: galeria de ícones, editar e excluir ---------- */
+function janelaCategoria(conteudo) {
+  const camada = document.createElement("div");
+  camada.className = "sobreposicao sobreposicao--centro";
+  camada.innerHTML = `<div class="folha" style="max-width:460px;display:flex;flex-direction:column;gap:14px">${conteudo}</div>`;
+  document.body.appendChild(camada);
+  return camada;
+}
+const gradeIcones = (atual, sugerido) => `
+  <div class="grade-icones" role="radiogroup" aria-label="Ícones">
+    ${Fomito.ICONES_CATEGORIA.map((n) => `<button type="button" class="grade-icones__item ${n === atual ? "ativo" : ""}" data-icone-opcao="${n}" role="radio" aria-checked="${n === atual}" title="${n}">${icone(n)}${n === sugerido ? '<span class="grade-icones__sugerido">sugerido</span>' : ""}</button>`).join("")}
+  </div>`;
+
+/** Galeria de ícones; devolve o nome escolhido (ou null) */
+function escolherIcone(titulo, atual) {
+  return new Promise((ok) => {
+    let escolhido = atual;
+    const camada = janelaCategoria(`
+      <div class="folha__topo"><h2>${titulo}</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+      ${gradeIcones(atual, null)}
+      <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Usar este ícone</button>`);
+    const fim = (v) => { camada.remove(); ok(v); };
+    camada.addEventListener("click", (e) => {
+      if (e.target === camada || e.target.closest("[data-fechar]")) return fim(null);
+      const op = e.target.closest("[data-icone-opcao]");
+      if (op) { escolhido = op.dataset.iconeOpcao; camada.querySelectorAll("[data-icone-opcao]").forEach((b) => { b.classList.toggle("ativo", b === op); b.setAttribute("aria-checked", b === op); }); return; }
+      if (e.target.closest("[data-ok]")) fim(escolhido);
+    });
+  });
+}
+
+function editarCategoria(id) {
+  const c = dados.categorias.find((x) => x.id === id);
+  let escolhido = c.icone || "cardapio";
+  let mexeuNoIcone = false;
+  const camada = janelaCategoria(`
+    <div class="folha__topo"><h2>Editar categoria</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+    <div class="campo"><label for="nomeCategoria">Nome</label><input id="nomeCategoria" class="input" maxlength="40" value="${c.nome.replace(/"/g, "&quot;")}"></div>
+    <div class="pilha" style="gap:6px"><span class="rotulo">Ícone</span><div id="gradeEditar">${gradeIcones(escolhido, Fomito.sugerirIconeCategoria(c.nome))}</div></div>
+    <p class="form-erro" id="erroCategoria" hidden></p>
+    <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Salvar categoria</button>`);
+  camada.querySelector("#nomeCategoria").addEventListener("input", (e) => {
+    /* Trocou o nome e não escolheu ícone na mão: acompanha a sugestão */
+    const sugerido = Fomito.sugerirIconeCategoria(e.target.value);
+    if (!mexeuNoIcone) escolhido = sugerido;
+    camada.querySelector("#gradeEditar").innerHTML = gradeIcones(escolhido, sugerido);
+  });
+  camada.addEventListener("click", async (e) => {
+    if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
+    const op = e.target.closest("[data-icone-opcao]");
+    if (op) {
+      escolhido = op.dataset.iconeOpcao; mexeuNoIcone = true;
+      camada.querySelectorAll("[data-icone-opcao]").forEach((b) => { b.classList.toggle("ativo", b === op); b.setAttribute("aria-checked", b === op); });
+      return;
+    }
+    if (!e.target.closest("[data-ok]")) return;
+    const nome = camada.querySelector("#nomeCategoria").value.trim();
+    const erro = camada.querySelector("#erroCategoria");
+    if (nome.length < 2) { erro.textContent = "Digite o nome da categoria."; erro.hidden = false; return; }
+    if (dados.categorias.some((x) => x.id !== id && x.nome.toLowerCase() === nome.toLowerCase())) { erro.textContent = "Já existe uma categoria com esse nome."; erro.hidden = false; return; }
+    Object.assign(c, { nome, icone: escolhido });
+    await Fomito.salvarCardapio();
+    camada.remove();
+    renderCardapio();
+    toast(`Categoria ${nome} salva`, "check");
+  });
+}
+
+/* Excluir: nunca apaga produto escondido. Se a categoria tem produtos, eles vão para outra. */
+async function excluirCategoria(id) {
+  const c = dados.categorias.find((x) => x.id === id);
+  const produtos = dados.produtos.filter((p) => p.cat === id);
+  const outras = dados.categorias.filter((x) => x.id !== id);
+  if (!produtos.length) {
+    if (!(await Fomito.confirmar(`Excluir ${c.nome}?`, `A categoria não tem produtos.${(dados.adicionais[id] || []).length ? " Os adicionais dela também saem." : ""}`, "Excluir categoria"))) return;
+  } else {
+    if (!outras.length) return toast("Crie outra categoria antes: os produtos precisam ir para algum lugar.", "info");
+    const r = await Fomito.dialogo({
+      titulo: `Excluir ${c.nome}?`,
+      texto: `Ela tem <b>${produtos.length} produto${produtos.length > 1 ? "s" : ""}</b> (${produtos.slice(0, 3).map((p) => p.nome).join(", ")}${produtos.length > 3 ? "..." : ""}). Escolha para onde ${produtos.length > 1 ? "eles vão" : "ele vai"}. Nenhum produto é apagado.${(dados.adicionais[id] || []).length ? " Os adicionais desta categoria saem; confira os da categoria nova." : ""}`,
+      campos: [{ id: "destino", rotulo: "Mover os produtos para", tipo: "select", valor: outras[0].id, opcoes: outras.map((x) => [x.id, x.nome]) }],
+      confirmar: "Mover e excluir",
+      perigo: true,
+    });
+    if (!r) return;
+    produtos.forEach((p) => { p.cat = r.destino; p.adicionaisFora = []; });
+  }
+  dados.categorias = dados.categorias.filter((x) => x.id !== id);
+  delete dados.adicionais[id];
+  if (cardapio.filtro === id) cardapio.filtro = "todas";
+  await Fomito.salvarCardapio();
+  renderCardapio();
+  toast(`Categoria ${c.nome} excluída${produtos.length ? `; ${produtos.length} produto${produtos.length > 1 ? "s" : ""} movido${produtos.length > 1 ? "s" : ""}` : ""}`, "lixo");
+}
