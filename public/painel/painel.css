@@ -617,3 +617,10 @@ button.tag { cursor: pointer; }
 @media (max-width: 760px) {
   .cupom__papel .cupom__zona { zoom: .71875; }
 }
+
+/* Barra de salvar no celular: os botões quebram em linhas em vez de alargar a página */
+@media (max-width: 760px) {
+  .barra-salvar { flex-wrap: wrap; }
+  .barra-salvar > .linha { width: 100%; flex-wrap: wrap; }
+  .barra-salvar > .linha .btn { flex: 1 1 140px; white-space: normal; text-align: center; height: auto; padding: 10px 14px; line-height: 1.25; }
+}

@@ -559,6 +559,16 @@ function editarMembro(login) {
 let abaConfig = "marca";
 let rascunho = null; // cópia das configurações enquanto o dono edita
 
+/* "Restaurar" volta ao padrão SÓ a parte da aba aberta (antes voltava tudo, até as cores) */
+const RESTAURAR = {
+  marca: { nome: "cores e fontes", texto: "As cores e as fontes da marca voltam ao padrão. O nome, a frase e a logo continuam.",
+    aplicar: (p) => { const { corPrincipal, corDestaque, fonteTitulo, fonteTexto } = p.marca; Object.assign(rascunho.marca, { corPrincipal, corDestaque, fonteTitulo, fonteTexto }); } },
+  whatsapp: { nome: "mensagens", texto: "Os textos das mensagens automáticas voltam ao padrão. A conexão do WhatsApp continua.",
+    aplicar: (p) => { rascunho.whatsapp.modelos = p.whatsapp.modelos; } },
+  impressao: { nome: "impressora e som", texto: "A notinha, a impressora e o som voltam ao padrão.",
+    aplicar: (p) => { rascunho.impressao = p.impressao; rascunho.som = p.som; } },
+};
+
 function renderConfiguracoes() {
   rascunho ||= Fomito.config.ler();
   const abas = [["marca", "paleta", "Sua marca"], ["whatsapp", "whatsapp", "WhatsApp"], ["impressao", "impressora", "Impressora e som"], ["loja", "loja", "Loja e entrega"]];
@@ -568,7 +578,7 @@ function renderConfiguracoes() {
     <div class="barra-salvar">
       <span class="pequeno suave">As mudanças valem para o cardápio, o Portal, o painel e as comandas.</span>
       <span class="linha" style="gap:8px">
-        <button class="btn btn--contorno" id="cfgRestaurar">Restaurar padrão</button>
+        ${RESTAURAR[abaConfig] ? `<button class="btn btn--contorno" id="cfgRestaurar">Restaurar ${RESTAURAR[abaConfig].nome}</button>` : ""}
         <button class="btn btn--primario" id="cfgSalvar">Salvar alterações</button>
       </span>
     </div>`;
@@ -839,11 +849,11 @@ function ligarConfig() {
     }
     if (e.target.closest("#sTeste")) alertas.tocarAlerta(rascunho.som.volume);
     if (e.target.closest("#cfgRestaurar")) {
-      const atual = Fomito.config.ler();
-      rascunho = Fomito.config.padrao();
-      rascunho.whatsapp = { ...rascunho.whatsapp, apiUrl: atual.whatsapp.apiUrl, apiKey: atual.whatsapp.apiKey, instancia: atual.whatsapp.instancia };
+      const r = RESTAURAR[abaConfig];
+      if (!r || !(await Fomito.confirmar(`Restaurar ${r.nome}?`, `${r.texto} As outras abas não mudam.`, "Restaurar"))) return;
+      r.aplicar(Fomito.config.padrao());
       renderConfiguracoes();
-      toast("Valores padrão carregados. Salve para aplicar.", "info");
+      return toast("Padrão carregado só nesta aba. Salve para aplicar.", "info");
     }
     if (e.target.closest("#cfgSalvar")) {
       await Fomito.config.salvar(rascunho);
