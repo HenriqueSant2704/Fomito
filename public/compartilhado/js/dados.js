@@ -33,3 +33,7 @@ Fomito.adicionaisDo = (prod) => {
   return (Fomito.dados.adicionais[prod.cat] || []).filter((a) => !fora.includes(a.id));
 };
 Fomito.todosAdicionaisDo = (prod) => (prod ? Fomito.dados.adicionais[prod.cat] || [] : []);
+
+/* Forma de pagamento pelo id. "convenio" não fica na lista da loja: só aparece para cliente conveniado. */
+Fomito.FORMA_CONVENIO = { id: "convenio", nome: "Convênio", icone: "conta", sub: "Fica na sua conta do convênio, você paga no fechamento" };
+Fomito.formaPag = (id) => (id === "convenio" ? Fomito.FORMA_CONVENIO : (Fomito.dados.formasPagamento || []).find((f) => f.id === id));

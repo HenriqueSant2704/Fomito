@@ -22,7 +22,7 @@ const usuarioLogado = sessao.exigir("admin", "atendente");
 const ehAdmin = usuarioLogado.perfil === "admin";
 /* O atendente cuida dos pedidos, das comandas, do caixa e dos clientes.
    Não vê a Visão geral (faturamento), o Cardápio e as Configurações, e só olha a Equipe. */
-const SECOES_ATENDENTE = ["pedidos", "comandas", "caixa", "clientes", "equipe"];
+const SECOES_ATENDENTE = ["pedidos", "comandas", "caixa", "clientes", "convenios", "equipe"];
 const podeVer = (secao) => ehAdmin || SECOES_ATENDENTE.includes(secao);
 const iniciais = (nome) => nome.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
@@ -67,6 +67,7 @@ const titulos = {
   comandas: ["Comandas", "Mesas abertas pelo QR Code ou pelo garçom, contas fechadas e os QR Codes das mesas."],
   cardapio: ["Cardápio", "Produtos, fotos, categorias, adicionais e a vitrine do topo."],
   clientes: ["Clientes", "Cadastros feitos pelo telefone no finalizar pedido, com os endereços salvos."],
+  convenios: ["Convênios", "Clientes que compram agora e pagam no fechamento: quanto cada um deve, extrato e recebimento."],
   equipe: ["Equipe", "Crie o acesso de atendentes, garçons e motoboys. Cada um entra pelo Portal e vai direto para a sua tela."],
   configuracoes: ["Configurações", "Sua marca, WhatsApp, impressora e o funcionamento da loja."],
 };
@@ -246,7 +247,7 @@ function situacaoEntrega(p) {
 }
 
 function cardPedido(p) {
-  const forma = dados.formasPagamento.find((f) => f.id === p.pag) || { icone: "dinheiro", nome: "Pagamento" };
+  const forma = Fomito.formaPag(p.pag) || { icone: "dinheiro", nome: "Pagamento" };
   const acao = acaoDoPedido(p);
   const pagamento = p.modo === "local"
     ? (p.pag
@@ -1268,6 +1269,7 @@ const renderizadores = {
   caixa: renderCaixa,
   cardapio: renderCardapio,
   clientes: renderClientes,
+  convenios: renderConvenios,
   equipe: renderEquipe,
   configuracoes: renderConfiguracoes,
 };

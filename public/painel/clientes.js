@@ -81,6 +81,13 @@ function abrirCliente(telefone) {
       </div>
 
       <div class="ficha-bloco">
+        <span class="rotulo">Convênio</span>
+        ${c.convenio?.ativo
+          ? `<div class="entre"><span class="linha" style="gap:8px">${icone("conta", "ic--sm")}<span>Ativo${c.convenio.empresa ? ` · ${c.convenio.empresa}` : ""}${c.convenio.limite ? ` · limite ${moeda(c.convenio.limite)}` : ""}</span></span>${ehAdmin ? `<button class="btn btn--contorno btn--sm" data-ativar-convenio="${c.telefone}">Editar</button>` : ""}</div>`
+          : `<div class="entre"><span class="pequeno suave">Compra agora e paga no fechamento do mês.</span>${ehAdmin ? `<button class="btn btn--secundario btn--sm" data-ativar-convenio="${c.telefone}">${icone("mais", "ic--sm")} Ativar convênio</button>` : ""}</div>`}
+      </div>
+
+      <div class="ficha-bloco">
         <span class="rotulo">Endereços salvos (${c.enderecos.length})</span>
         ${c.enderecos.map((e) => `
           <div class="endereco-ficha">

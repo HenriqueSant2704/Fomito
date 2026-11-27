@@ -97,3 +97,17 @@ CREATE TABLE IF NOT EXISTS wa_auth (
   key   text PRIMARY KEY,
   value text NOT NULL
 );
+
+-- Convênio (compra para pagar depois): o cliente conveniado compra e a loja cobra no fechamento.
+-- O que ele deve sai dos pedidos e comandas pagos com "convenio"; os pagamentos recebidos ficam aqui.
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS convenio jsonb;
+CREATE TABLE IF NOT EXISTS convenio_pagamentos (
+  id        serial PRIMARY KEY,
+  telefone  text NOT NULL,
+  valor     numeric(10,2) NOT NULL,
+  forma     text NOT NULL,
+  por       text,
+  obs       text,
+  em        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS convenio_pag_tel ON convenio_pagamentos (telefone);

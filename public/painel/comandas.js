@@ -41,7 +41,7 @@ function cardRodada({ c, r, i }) {
 /* Comanda com a conta fechada: entra em "Concluídos" no quadro de Pedidos, marcada como Mesa */
 function cardComandaFechada(f) {
   const cmd = Fomito.comandas;
-  const formas = Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome]));
+  const formas = { ...Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome])), convenio: "Convênio" };
   const forma = f.forma === "misto" ? "mais de uma forma" : (formas[f.forma] || "").toLowerCase();
   /* Junta os itens de todas as rodadas: "2× X-Bacon" */
   const itens = {};
@@ -97,7 +97,7 @@ function renderComandas() {
   const conta = abertas.filter((c) => c.pediuConta).length;
   const texto = { livre: "Livre", ocupada: "Ocupada", conta: "Conta" };
   const cor = { livre: "cinza", ocupada: "roxo", conta: "laranja" };
-  const formas = Object.fromEntries(dados.formasPagamento.map((f) => [f.id, f.nome]));
+  const formas = { ...Object.fromEntries(dados.formasPagamento.map((f) => [f.id, f.nome])), convenio: "Convênio" };
 
   $('[data-secao="comandas"].secao').innerHTML = `
     <div class="kpis">
@@ -199,7 +199,7 @@ function abrirComandaFechada(numero) {
   const cmd = Fomito.comandas;
   const f = cmd.fechadas().find((x) => x.numero === numero);
   if (!f) return toast("Comanda não encontrada.", "alerta");
-  const nomeForma = Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome]));
+  const nomeForma = { ...Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome])), convenio: "Convênio" };
   const nomeItem = (it) => it.nome || Fomito.produto(it.id)?.nome || "Item";
   const valorItem = (it) => (it.preco != null ? it.preco * it.qtd : cmd.precoItem(it));
   const extrasItem = (it) => {

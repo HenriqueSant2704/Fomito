@@ -35,7 +35,7 @@ const minhasEmRota = () => pedidos.entregas("rota").filter((p) => p.motoboy === 
 const hoje = (ts) => ts && new Date(ts).toDateString() === new Date().toDateString();
 const minhasEntregues = () => pedidos.entregas("concluido").filter((p) => p.motoboy === eu && hoje(p.entregueEm)).sort((a, b) => b.entregueEm - a.entregueEm);
 
-const forma = (id) => dados.formasPagamento.find((f) => f.id === id);
+const forma = (id) => Fomito.formaPag(id);
 const minutosDesde = (ts) => Math.max(0, Math.round((Date.now() - ts) / 60000));
 const arred = (n) => Math.round(n * 100) / 100;
 const numero = (texto) => parseFloat(String(texto).replace(/\./g, "").replace(",", ".")) || 0;
@@ -267,7 +267,7 @@ function abrirRecebimento(num) {
   const caixaAberto = () => !Fomito.caixa || !!Fomito.caixa.aberto();
   function problema() {
     if (!caixaAberto()) return "O caixa da loja está fechado. Peça ao responsável para abrir o caixa no painel.";
-    if (r.forma !== "dinheiro") return null;
+    if (r.forma !== "dinheiro") return null; // convênio e cartão/Pix: nada a calcular
     if (!r.recebido) return "Informe quanto o cliente entregou em dinheiro para calcular o troco.";
     if (numero(r.recebido) < p.total) return `Faltam ${moeda(p.total - numero(r.recebido))} para cobrir o pedido.`;
     return null;
@@ -284,7 +284,7 @@ function abrirRecebimento(num) {
     const erro = problema();
     return `
       ${erro && (r.recebido !== "" || !caixaAberto()) ? `<p class="form-erro">${erro}</p>` : ""}
-      <button class="btn btn--sucesso btn--bloco" data-confirmar ${erro ? "disabled" : ""} style="height:50px">${icone("check", "ic--sm")} Recebi e entreguei</button>`;
+      <button class="btn btn--sucesso btn--bloco" data-confirmar ${erro ? "disabled" : ""} style="height:50px">${icone("check", "ic--sm")} ${p.pag === "convenio" ? "Entreguei" : "Recebi e entreguei"}</button>`;
   }
   const notas = () => [...new Set([p.troco, Math.ceil(p.total / 10) * 10, Math.ceil(p.total / 50) * 50, Math.ceil(p.total / 100) * 100])].filter((n) => n && n > p.total).slice(0, 3);
 
@@ -293,14 +293,14 @@ function abrirRecebimento(num) {
       <div class="folha receber">
         <div class="folha__topo"><div class="pilha" style="gap:2px"><h2>Finalizar entrega #${p.num}</h2><span class="pequeno suave">${p.cliente} · ${p.bairro}</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
         <div class="receber__total"><span class="rotulo">Valor do pedido</span><span class="preco">${moeda(p.total)}</span><span class="pequeno suave">Combinado: ${forma(p.pag).nome}${p.pag === "dinheiro" && p.troco ? `, troco para ${moeda(p.troco)}` : ""}</span></div>
-        <div class="campo"><span class="rotulo-campo">Como o cliente pagou?</span>
+        ${p.pag === "convenio" ? `<div class="aviso aviso--convenio">${icone("conta", "ic--sm")}<span><b>Convênio:</b> não cobre nada. O valor vai para a conta do cliente na loja.</span></div>` : `<div class="campo"><span class="rotulo-campo">Como o cliente pagou?</span>
           <div class="formas">
             ${dados.formasPagamento.map((f) => `
               <button class="opcao ${r.forma === f.id ? "ativa" : ""}" data-forma="${f.id}">
                 <span class="opcao__icone">${icone(f.icone, "ic--sm")}</span><span class="opcao__titulo pequeno">${f.nome}</span>
               </button>`).join("")}
           </div>
-        </div>
+        </div>`}
         ${r.forma === "dinheiro" ? `
           <div class="campo"><label for="recebido">Valor recebido em dinheiro <span class="obrigatorio">*</span></label>
             <input class="input num ${r.recebido ? "" : "input--pendente"}" id="recebido" inputmode="decimal" placeholder="Quanto o cliente entregou" value="${r.recebido}">

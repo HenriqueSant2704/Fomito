@@ -159,6 +159,7 @@ async function corrigirMovimento(id, novo, { motivo }, por) {
     if (!caixa) falhar(409, 'Só dá para corrigir com o caixa aberto.');
     const m = caixa.dados.movimentos.find((x) => x.id === id);
     if (!m) falhar(404, 'Esse movimento não está no caixa aberto.');
+    if (m.forma === 'convenio' || novo.forma === 'convenio' || m.tipo === 'convenio') falhar(400, 'Pagamento de convênio não se corrige aqui: use a página Convênios.');
     const antes = Object.fromEntries(CAMPOS.map((k) => [k, m[k] ?? null]));
     const depois = { ...antes };
     if (novo.valor !== undefined) depois.valor = numero(novo.valor);
@@ -219,10 +220,18 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
   const total = arred(subtotal + taxa);
 
   const dados = { modo, criadoEm: Date.now(), itens: itens.map((i) => [i.id, i.qtd, i.extras, i.obs, i.preco, i.nome]), taxa };
+  /* Convênio: só para o cliente conveniado. Pelo cardápio ele confirma com o CPF; a equipe não precisa. */
+  const convenio = corpo.pag === 'convenio' && (modo === 'entrega' || retirada || equipe);
+  if (corpo.pag === 'convenio') {
+    if (!convenio) falhar(400, 'Convênio só vale para entrega, retirada ou pedido lançado pela loja.');
+    const conv = await conferirConvenio(db, corpo.telefone, total, equipe ? null : corpo.cpf);
+    dados.convenio = { empresa: conv.empresa || '' };
+  }
+  const formasValidas = (lista) => (convenio ? [...lista, 'convenio'] : lista);
   if (modo === 'entrega') {
     const tel = soDigitos(corpo.telefone);
     if (tel.length < 10) falhar(400, 'Informe o celular com DDD.');
-    const formas = cardapio.formasPagamento.filter((f) => f.ativa !== false).map((f) => f.id);
+    const formas = formasValidas(cardapio.formasPagamento.filter((f) => f.ativa !== false).map((f) => f.id));
     if (!formas.includes(corpo.pag)) falhar(400, 'Escolha a forma de pagamento.');
     const troco = corpo.pag === 'dinheiro' && corpo.troco ? numero(corpo.troco) : null;
     if (troco !== null && !(troco >= total)) falhar(400, 'O troco precisa ser para um valor maior que o total.');
@@ -237,12 +246,17 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
   } else if (retirada) {
     const tel = soDigitos(corpo.telefone);
     if (tel.length < 10) falhar(400, 'Informe o celular com DDD.');
-    const formas = cardapio.formasPagamento.filter((f) => f.ativa !== false).map((f) => f.id);
+    const formas = formasValidas(cardapio.formasPagamento.filter((f) => f.ativa !== false).map((f) => f.id));
     if (!formas.includes(corpo.pag)) falhar(400, 'Escolha a forma de pagamento.');
     const troco = corpo.pag === 'dinheiro' && corpo.troco ? numero(corpo.troco) : null;
     if (troco !== null && !(troco >= total)) falhar(400, 'O troco precisa ser para um valor maior que o total.');
     Object.assign(dados, { cliente: texto(corpo.cliente, 80), telefone: formatarTelefone(tel), retirada: true, pag: corpo.pag, troco });
     if (dados.cliente.length < 2) falhar(400, 'Digite seu nome.');
+  } else if (convenio) {
+    /* Balcão lançado pela loja para um cliente conveniado */
+    const tel = soDigitos(corpo.telefone);
+    const { rows: [cli] } = await db.query('SELECT nome FROM clientes WHERE telefone = $1', [tel]);
+    Object.assign(dados, { cliente: texto(corpo.cliente, 80) || cli?.nome || 'Convênio', telefone: formatarTelefone(tel), pag: 'convenio' });
   } else {
     Object.assign(dados, { cliente: texto(corpo.cliente, 80) || 'Balcão · Retirada', pag: null });
   }
@@ -321,13 +335,13 @@ async function concluirEntrega(num, { forma, recebido }, por) {
     let pagamento;
     const p = await alterarPedido(c, num, (atual) => {
       if (atual.modo !== 'entrega' || !['rota', 'pronto'].includes(atual.status)) falhar(409, `O pedido #${atual.num} já foi finalizado.`);
-      pagamento = conferirPagamento({ forma, valor: atual.total, recebido });
+      pagamento = atual.pag === 'convenio' ? { forma: 'convenio', valor: atual.total } : conferirPagamento({ forma, valor: atual.total, recebido });
       return {
         status: 'concluido', entregueEm: Date.now(), motoboy: atual.motoboy || por, pagoCom: pagamento.forma,
         recebido: pagamento.recebido ?? null, trocoDado: pagamento.troco ?? null,
       };
     });
-    await registrar(c, caixa, { tipo: 'entrega', pedido: p.num, ref: `Entrega #${p.num} · ${p.cliente}`, ...pagamento, por });
+    await registrar(c, caixa, { tipo: 'entrega', pedido: p.num, ref: `Entrega #${p.num} · ${p.cliente}`, ...pagamento, ...(pagamento.forma === 'convenio' ? { telefone: soDigitos(p.telefone) } : {}), por });
     return p;
   });
   whatsapp.avisar(pedido, 'entregue');
@@ -424,7 +438,14 @@ async function fecharComanda(mesa, { pagamentos, pessoas = 1 }, por) {
     /* Sem taxa de serviço: a conta é só o consumo */
     const totalFinal = arred(Number(linha.total));
     const taxa = 0;
-    const conferidos = pagamentos.map(conferirPagamento);
+    const conferidos = [];
+    for (const p of pagamentos) {
+      if (p.forma !== 'convenio') { conferidos.push(conferirPagamento(p)); continue; }
+      const v = numero(p.valor);
+      if (!(v > 0)) falhar(400, 'Informe o valor do convênio.');
+      const conv = await conferirConvenio(c, p.telefone, v, null);
+      conferidos.push({ forma: 'convenio', valor: v, telefone: conv.telefone, cliente: conv.nome });
+    }
     const pago = arred(conferidos.reduce((s, p) => s + p.valor, 0));
     if (Math.abs(pago - totalFinal) > 0.02) falhar(400, `Os pagamentos somam ${pago.toFixed(2).replace('.', ',')}, mas a conta é ${totalFinal.toFixed(2).replace('.', ',')}.`);
 
@@ -466,7 +487,7 @@ async function buscarCliente(telefone) {
   if (tel.length < 10) falhar(400, 'Digite o celular com DDD.');
   const { rows } = await db.query('SELECT * FROM clientes WHERE telefone = $1', [tel]);
   if (!rows[0]) return null;
-  return { telefone: tel, nome: rows[0].nome, enderecos: rows[0].enderecos.map(limparEndereco) };
+  return { telefone: tel, nome: rows[0].nome, enderecos: rows[0].enderecos.map(limparEndereco), convenio: !!rows[0].convenio?.ativo };
 }
 
 function lerEndereco(e = {}) {
@@ -519,7 +540,130 @@ async function salvarCliente({ telefone, nome, endereco, enderecoId }, dispositi
   });
 }
 
+/* ==========================================================================
+   CONVÊNIO (o cliente compra agora e paga no fechamento)
+   ========================================================================== */
+const cpfValido = (cpf) => {
+  const d = soDigitos(cpf);
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const dig = (n) => { let s = 0; for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+  return dig(9) === Number(d[9]) && dig(10) === Number(d[10]);
+};
+
+/** Tudo que o cliente comprou no convênio (pedidos e comandas) e tudo que já pagou. */
+async function movimentosConvenio(c, tel) {
+  const { rows: peds } = await c.query(
+    `SELECT num, status, total, criado_em, dados FROM pedidos WHERE telefone = $1 AND dados->>'pag' = 'convenio' AND status <> 'cancelado' ORDER BY criado_em`, [tel]);
+  const { rows: cmds } = await c.query(
+    `SELECT numero, mesa, fechada_em, dados FROM comandas WHERE NOT aberta AND dados->'pagamentos' @> $1::jsonb ORDER BY fechada_em`,
+    [JSON.stringify([{ forma: 'convenio', telefone: tel }])]);
+  const { rows: pags } = await c.query('SELECT id, valor, forma, por, obs, em FROM convenio_pagamentos WHERE telefone = $1 ORDER BY em', [tel]);
+  const compras = [
+    ...peds.map((p) => ({ tipo: 'pedido', num: p.num, em: new Date(p.criado_em).getTime(), valor: Number(p.total), status: p.status,
+      descricao: `${p.dados.modo === 'entrega' ? 'Entrega' : p.dados.retirada ? 'Retirada' : 'Balcão'} #${p.num}`,
+      itens: (p.dados.itens || []).map((i) => `${i[1]}× ${i[5]}`) })),
+    ...cmds.map((m) => ({ tipo: 'comanda', num: m.numero, em: new Date(m.fechada_em).getTime(), status: 'concluido',
+      valor: arred(m.dados.pagamentos.filter((p) => p.forma === 'convenio' && p.telefone === tel).reduce((s, p) => s + p.valor, 0)),
+      descricao: `${mesaTexto(m.mesa)} · comanda #${m.numero}`,
+      itens: (m.dados.rodadas || []).flatMap((r) => r.itens.map((i) => `${i.qtd}× ${i.nome}`)) })),
+  ].sort((a, b) => a.em - b.em);
+  const pagos = pags.map((p) => ({ tipo: 'pagamento', id: p.id, em: new Date(p.em).getTime(), valor: Number(p.valor), forma: p.forma, por: p.por, obs: p.obs || '' }));
+  const devido = arred(compras.reduce((s, x) => s + x.valor, 0) - pagos.reduce((s, x) => s + x.valor, 0));
+  return { compras, pagos, devido };
+}
+
+/** Confere se o cliente pode comprar no convênio: ativo, CPF certo (pelo cardápio) e dentro do limite. */
+async function conferirConvenio(c, telefone, valor, cpf) {
+  const tel = soDigitos(telefone);
+  const { rows: [cli] } = await c.query('SELECT telefone, nome, convenio FROM clientes WHERE telefone = $1', [tel]);
+  const conv = cli?.convenio;
+  if (!conv?.ativo) falhar(403, 'Esse cliente não tem convênio com a loja.');
+  if (cpf !== null && soDigitos(cpf) !== conv.cpf) falhar(403, 'O CPF não confere com o cadastro do convênio.');
+  if (conv.limite > 0) {
+    const { devido } = await movimentosConvenio(c, tel);
+    if (devido + valor > conv.limite + 0.005) falhar(409, `Passa do limite do convênio (${conv.limite.toFixed(2).replace('.', ',')}). Em aberto: ${devido.toFixed(2).replace('.', ',')}.`);
+  }
+  return { ...conv, telefone: tel, nome: cli.nome };
+}
+
+/** Liga, muda ou desliga o convênio de um cliente (só o administrador) */
+async function definirConvenio(telefone, { ativo, cpf, limite, diaFechamento, empresa, nome, manterCpf }, por) {
+  const tel = soDigitos(telefone);
+  if (tel.length < 10) falhar(400, 'Digite o celular com DDD.');
+  return db.tx(async (c) => {
+    let { rows: [cli] } = await c.query('SELECT * FROM clientes WHERE telefone = $1 FOR UPDATE', [tel]);
+    if (!cli) {
+      const n = texto(nome, 80);
+      if (n.length < 2) falhar(400, 'Digite o nome do cliente.');
+      ({ rows: [cli] } = await c.query('INSERT INTO clientes (telefone, nome) VALUES ($1, $2) RETURNING *', [tel, n]));
+    }
+    const atual = cli.convenio || {};
+    if (!ativo) {
+      await c.query('UPDATE clientes SET convenio = $2 WHERE telefone = $1', [tel, { ...atual, ativo: false, desligadoEm: Date.now(), desligadoPor: por }]);
+      return { telefone: tel, ativo: false };
+    }
+    /* Editando sem digitar o CPF de novo: fica o que já estava */
+    const doc = manterCpf && !soDigitos(cpf) && atual.cpf ? atual.cpf : soDigitos(cpf);
+    if (!cpfValido(doc)) falhar(400, 'CPF inválido. Confira os números.');
+    const dia = parseInt(diaFechamento, 10);
+    const conv = {
+      ...atual, ativo: true, cpf: doc, empresa: texto(empresa, 80),
+      limite: Math.max(0, numero(limite) || 0), diaFechamento: dia >= 1 && dia <= 28 ? dia : 1,
+      desde: atual.desde || Date.now(), por,
+    };
+    await c.query('UPDATE clientes SET convenio = $2 WHERE telefone = $1', [tel, conv]);
+    return { telefone: tel, ativo: true };
+  });
+}
+
+/** Conveniados com o que devem (para a página Convênios) */
+async function listarConvenios() {
+  const { rows } = await db.query("SELECT telefone, nome, convenio FROM clientes WHERE convenio IS NOT NULL ORDER BY nome");
+  const lista = [];
+  for (const r of rows) {
+    const m = await movimentosConvenio(db, r.telefone);
+    const ultima = m.compras[m.compras.length - 1];
+    const { cpf, ...conv } = r.convenio;
+    lista.push({ telefone: r.telefone, nome: r.nome, ...conv, cpfFinal: cpf ? `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**` : '', devido: m.devido, compras: m.compras.length, ultimaCompra: ultima?.em || null });
+  }
+  return lista;
+}
+
+/** Extrato completo de um conveniado */
+async function extratoConvenio(telefone) {
+  const tel = soDigitos(telefone);
+  const { rows: [cli] } = await db.query('SELECT telefone, nome, convenio FROM clientes WHERE telefone = $1', [tel]);
+  if (!cli?.convenio) falhar(404, 'Esse cliente não tem convênio.');
+  const { cpf, ...conv } = cli.convenio;
+  return { telefone: tel, nome: cli.nome, ...conv, ...(await movimentosConvenio(db, tel)) };
+}
+
+/** Recebe o pagamento do convênio: baixa o que ele deve e o dinheiro entra no caixa aberto */
+async function receberConvenio(telefone, { valor, forma, recebido, obs }, por) {
+  const tel = soDigitos(telefone);
+  return db.tx(async (c) => {
+    const caixa = await caixaAberto(c, true);
+    if (!caixa) falhar(409, CAIXA_FECHADO);
+    const { rows: [cli] } = await c.query('SELECT nome, convenio FROM clientes WHERE telefone = $1 FOR UPDATE', [tel]);
+    if (!cli?.convenio) falhar(404, 'Esse cliente não tem convênio.');
+    const { devido } = await movimentosConvenio(c, tel);
+    const pagamento = conferirPagamento({ forma, valor, recebido });
+    if (pagamento.valor > devido + 0.005) falhar(400, `O cliente deve ${devido.toFixed(2).replace('.', ',')}. Não dá para receber mais que isso.`);
+    await c.query('INSERT INTO convenio_pagamentos (telefone, valor, forma, por, obs) VALUES ($1, $2, $3, $4, $5)', [tel, pagamento.valor, pagamento.forma, por, texto(obs, 200)]);
+    await registrar(c, caixa, { tipo: 'convenio', telefone: tel, ref: `Convênio · ${cli.nome}`, ...pagamento, por });
+    return { devido: arred(devido - pagamento.valor), ...pagamento };
+  });
+}
+
+/** Manda o extrato para o cliente no WhatsApp da loja */
+async function enviarExtratoConvenio(telefone, textoExtrato) {
+  const tel = soDigitos(telefone);
+  if (!texto(textoExtrato, 4000)) falhar(400, 'Extrato vazio.');
+  await whatsapp.enviarTexto(tel, String(textoExtrato).slice(0, 4000));
+}
+
 module.exports = {
+  definirConvenio, listarConvenios, extratoConvenio, receberConvenio, enviarExtratoConvenio,
   mesaTexto, pedidoDaLinha, comandaDaLinha,
   abrirCaixa, movimentoCaixa, corrigirMovimento, redividirComanda, fecharCaixa, trocoMotoboy, fecharBolsa,
   criarPedido, avancarPedido, cancelarPedido, sairParaEntrega, concluirEntrega,

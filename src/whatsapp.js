@@ -223,4 +223,4 @@ async function iniciar() {
   } catch (err) { falhou(err); }
 }
 
-module.exports = { avisar, conectar, desconectar, testar, iniciar, status: async () => info() };
+module.exports = { enviarTexto: (telefone, texto) => enviar(telefone, texto), avisar, conectar, desconectar, testar, iniciar, status: async () => info() };

@@ -111,7 +111,7 @@ window.Fomito = window.Fomito || {};
     const loja = Fomito.dados.lanchonete;
     const agora = new Date();
     const data = agora.toLocaleDateString("pt-BR") + " " + agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    const forma = Fomito.dados.formasPagamento.find((f) => f.id === pedido.pag);
+    const forma = Fomito.Fomito.formaPag(pedido.pag);
     /* Cada item guarda o nome e o preço da hora do pedido: [id, qtd, extras, obs, preço unitário, nome] */
     const itens = pedido.itens.map(([id, qtd, extras = [], obs = "", preco, nome]) => {
       const p = Fomito.produto(id);
@@ -207,7 +207,7 @@ window.Fomito = window.Fomito || {};
     const { whatsapp, marca } = Fomito.config.ler();
     const modelo = whatsapp.modelos[status];
     if (!modelo?.ativo || !pedido.telefone) return null;
-    const forma = Fomito.dados.formasPagamento.find((f) => f.id === pedido.pag);
+    const forma = Fomito.Fomito.formaPag(pedido.pag);
     const texto = Fomito.config.montarMensagem(modelo.texto, {
       nome: pedido.cliente.split(" ")[0],
       pedido: pedido.num,
@@ -257,5 +257,5 @@ window.Fomito = window.Fomito || {};
     return tocou;
   }
 
-  Fomito.alertas = { tocarAlerta, textoCupom, partesCupom, ROTULOS, imprimirCupom, textoCupomComanda, imprimirComanda, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, avisosLigados, podeNotificar, avisar };
+  Fomito.alertas = { imprimirTexto, tocarAlerta, textoCupom, partesCupom, ROTULOS, imprimirCupom, textoCupomComanda, imprimirComanda, enviarWhatsApp, ativarNotificacoes, notificacoesAtivas, avisosLigados, podeNotificar, avisar };
 })();

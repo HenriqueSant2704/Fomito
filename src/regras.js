@@ -70,13 +70,15 @@ function resumoCaixa(caixa) {
       r.troco += m.troco || 0;
       if (m.forma === 'dinheiro') r.recebidoDinheiro += m.recebido ?? m.valor;
     }
+    /* Cliente pagou o convênio: não é venda nova (a venda já contou no dia da compra) */
+    if (m.tipo === 'convenio') { r.recebidoConvenio = arred((r.recebidoConvenio || 0) + m.valor); if (m.forma === 'dinheiro') r.convenioDinheiro = arred((r.convenioDinheiro || 0) + m.valor); }
     if (m.tipo === 'sangria') r.sangrias += m.valor;
     if (m.tipo === 'suprimento') r.suprimentos += m.valor;
   }
   /* Gaveta do balcão: o dinheiro das entregas fica na bolsa do motoboy, não aqui */
   const dinheiroEntregas = caixa.movimentos.filter((m) => m.tipo === 'entrega' && m.forma === 'dinheiro').reduce((s, m) => s + m.valor, 0);
   r.dinheiroEntregas = arred(dinheiroEntregas);
-  r.esperado = arred(caixa.fundo + r.porForma.dinheiro - dinheiroEntregas - r.sangrias + r.suprimentos);
+  r.esperado = arred(caixa.fundo + r.porForma.dinheiro - dinheiroEntregas - r.sangrias + r.suprimentos + (r.convenioDinheiro || 0));
   r.bolsas = bolsasMotoboys(caixa);
   r.vendas = arred(r.vendas);
   return r;

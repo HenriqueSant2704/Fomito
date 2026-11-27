@@ -646,3 +646,12 @@ button.tag { cursor: pointer; }
 @media (max-width: 900px), (pointer: coarse) {
   .cupom__fixo .cupom__select { zoom: .71875; }
 }
+
+/* ---------- Convênios ---------- */
+.convenios { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.convenio-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--borda); border-radius: 14px; background: var(--superficie); }
+.convenio-card--off { opacity: .6; border-style: dashed; }
+.convenio-card__topo { display: flex; align-items: center; gap: 10px; }
+.extrato-linha { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--borda); }
+.extrato-linha:last-child { border-bottom: 0; }
+.extrato-linha--pago .num { color: var(--verde-escuro); }

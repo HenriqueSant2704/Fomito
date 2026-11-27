@@ -36,13 +36,14 @@ function quando(ms) {
 /** Clientes com quantos pedidos fizeram, quanto gastaram e quando foi o último. */
 async function clientesComResumo() {
   const { rows } = await db.query(`
-    SELECT c.telefone, c.nome, c.enderecos, c.criado_em,
+    SELECT c.telefone, c.nome, c.enderecos, c.criado_em, c.convenio,
            count(p.num)::int AS pedidos, coalesce(sum(p.total), 0) AS gasto, max(p.criado_em) AS ultimo
       FROM clientes c
       LEFT JOIN pedidos p ON p.telefone = c.telefone AND p.status <> 'cancelado'
-     GROUP BY c.telefone ORDER BY max(p.criado_em) DESC NULLS LAST, c.nome LIMIT 3000`);
+     GROUP BY c.telefone, c.convenio ORDER BY max(p.criado_em) DESC NULLS LAST, c.nome LIMIT 3000`);
   return rows.map((r) => ({
-    telefone: r.telefone, nome: r.nome, desde: desde(r.criado_em), pedidos: r.pedidos, gasto: Number(r.gasto),
+    telefone: r.telefone, nome: r.nome, desde: desde(r.criado_em),
+    convenio: r.convenio ? { ativo: !!r.convenio.ativo, empresa: r.convenio.empresa || '', limite: r.convenio.limite || 0, diaFechamento: r.convenio.diaFechamento || 1 } : null, pedidos: r.pedidos, gasto: Number(r.gasto),
     ultimo: quando(r.ultimo), enderecos: r.enderecos.map(({ dispositivos, ...e }) => (e.numero ? e : { ...e, ...separarNumero(e.rua) })),
   }));
 }

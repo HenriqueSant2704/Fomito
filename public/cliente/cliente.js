@@ -21,6 +21,8 @@ const estado = {
   busca: "",
   carrinho: [],             // [{ id, qtd, obs, extras: [ids] }]
   pagamento: null,          // id da forma de pagamento
+  cpfConvenio: "",          // CPF do titular, quando paga no convênio
+  retConvenio: null,        // { tel, ok }: o celular da retirada tem convênio?
   trocoPara: "",
   semTroco: false,
   /* Finalizar pedido */
@@ -709,7 +711,28 @@ function blocoRetirada() {
     </div>`;
 }
 
+/* Convênio: só aparece para o cliente conveniado (pelo cadastro do celular) */
+const temConvenio = () => (estado.modo === "retirada"
+  ? estado.retConvenio?.tel === estado.retTel && estado.retConvenio.ok
+  : !!estado.cliente?.convenio);
+const formatarCpf = (v) => {
+  const d = String(v).replace(/\D/g, "").slice(0, 11);
+  return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join(".") + (d.length > 9 ? `-${d.slice(9)}` : "");
+};
+function blocoConvenio() {
+  const f = Fomito.FORMA_CONVENIO;
+  return `
+    <button class="opcao opcao--convenio ${estado.pagamento === "convenio" ? "ativa" : ""}" data-pag="convenio">
+      <span class="opcao__icone">${icone(f.icone)}</span>
+      <span class="opcao__texto"><span class="opcao__titulo">${f.nome}</span><span class="opcao__sub">${f.sub}</span></span>
+      <span class="opcao__radio"></span>
+    </button>
+    ${estado.pagamento === "convenio" ? `
+      <div class="campo"><label for="cpfConvenio">CPF do titular do convênio</label><input id="cpfConvenio" class="input" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" value="${formatarCpf(estado.cpfConvenio)}"><span class="pequeno fraco">Para confirmar que é você. Não pagamos nada agora: o valor entra na sua conta.</span></div>` : ""}`;
+}
+
 function blocoPagamento() {
+  if (estado.pagamento === "convenio" && !temConvenio()) estado.pagamento = null;
   return `
     <div class="bloco">
       <h3 class="bloco__titulo">${icone("dinheiro")} Pagamento <small>${estado.modo === "retirada" ? "na retirada" : "na entrega"}</small></h3>
@@ -721,6 +744,7 @@ function blocoPagamento() {
             <span class="opcao__radio"></span>
           </button>
           ${f.id === "dinheiro" && estado.pagamento === "dinheiro" ? blocoTroco() : ""}`).join("")}
+        ${temConvenio() ? blocoConvenio() : ""}
       </div>
     </div>`;
 }
@@ -799,6 +823,12 @@ $("#checkout").addEventListener("input", (e) => {
   if (e.target.id === "retTel") { e.target.value = clientes.formatarTelefone(e.target.value); estado.retTel = clientes.soDigitos(e.target.value); }
   if (e.target.id === "retNome") estado.retNome = e.target.value;
   if (e.target.id === "mesaTel") { e.target.value = clientes.formatarTelefone(e.target.value); estado.mesaTel = clientes.soDigitos(e.target.value); }
+  if (e.target.id === "cpfConvenio") { e.target.value = formatarCpf(e.target.value); estado.cpfConvenio = e.target.value.replace(/\D/g, ""); renderRodapeCheckout(); }
+  /* Retirada: com o celular completo, confere se tem convênio (a opção aparece no pagamento) */
+  if (e.target.id === "retTel" && clientes.telefoneValido(estado.retTel) && estado.retConvenio?.tel !== estado.retTel) {
+    const tel = estado.retTel;
+    clientes.buscarRemoto(tel).then((c) => { estado.retConvenio = { tel, ok: !!c?.convenio }; }).catch(() => {});
+  }
   /* Retirada: com o celular completo, puxa o nome do cadastro (se ainda não digitou) */
   if (e.target.id === "retTel" && clientes.telefoneValido(estado.retTel) && !estado.retNome.trim()) {
     clientes.buscarRemoto(estado.retTel).then((c) => {
@@ -893,6 +923,7 @@ function podeConfirmar() {
   else if (!estado.cliente || estado.novoEndereco || estado.editandoEndereco != null) return false;
   else if (!estado.cliente.enderecos.find((e) => e.id === estado.enderecoId)?.numero) return false; // endereço sem número
   if (!estado.pagamento) return false;
+  if (estado.pagamento === "convenio") return estado.cpfConvenio.length === 11;
   if (estado.pagamento === "dinheiro") return estado.semTroco || valorTroco() >= total();
   return true;
 }
@@ -1062,7 +1093,7 @@ let minhaEntrega = recuperar(CHAVE_ENTREGA, null); // número do pedido de entre
 async function confirmarPedido() {
   if (estado.modo === "local") return enviarParaComanda();
   const itens = estado.carrinho.map((i) => [i.id, i.qtd, i.extras || [], i.obs || "", i.sem || []]);
-  const pagamento = { pag: estado.pagamento, troco: estado.pagamento === "dinheiro" && !estado.semTroco ? valorTroco() : null };
+  const pagamento = { pag: estado.pagamento, troco: estado.pagamento === "dinheiro" && !estado.semTroco ? valorTroco() : null, ...(estado.pagamento === "convenio" ? { cpf: estado.cpfConvenio } : {}) };
   let p;
   if (estado.modo === "retirada") {
     p = await Fomito.pedidos.criar({ modo: "retirada", cliente: estado.retNome.trim(), telefone: clientes.formatarTelefone(estado.retTel), itens, ...pagamento });
@@ -1156,7 +1187,7 @@ function telaEntrega(pedido) {
   if (pedido.modo === "local") return telaRetirada(pedido);
   const passo = etapaDoStatus[pedido.status];
   const atual = etapas[passo];
-  const forma = dados.formasPagamento.find((f) => f.id === pedido.pag);
+  const forma = Fomito.formaPag(pedido.pag);
   const pagamento = `Pagamento na entrega: <b>${forma?.nome}</b>${pedido.pag === "dinheiro" ? (pedido.troco ? `, troco para ${moeda(pedido.troco)} (o entregador leva ${moeda(pedido.troco - pedido.total)})` : ", sem troco") : ""}.`;
   const sub = {
     novo: atual.sub,
@@ -1200,7 +1231,7 @@ function telaRetirada(pedido) {
   ];
   const passo = { novo: 0, preparo: 1, pronto: 2, concluido: 3 }[pedido.status] ?? 0;
   const feito = pedido.status === "concluido";
-  const forma = dados.formasPagamento.find((f) => f.id === pedido.pag);
+  const forma = Fomito.formaPag(pedido.pag);
   return `
     <div class="status">
       <span class="rotulo">Pedido #${pedido.num} · Retirada no balcão</span>
@@ -1259,7 +1290,7 @@ function abrirDetalhePedido(chave) {
   const p = tipoChave === "p" ? Fomito.pedidos.doNumero(numero) : null;
   const f = tipoChave === "c" ? comandas.fechadas().find((x) => x.numero === numero) : null;
   if (!p && !f) return;
-  const formas = Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome]));
+  const formas = { ...Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome])), convenio: "Convênio" };
   const linhaItem = (qtd, nome, valor, obs, extras = []) => `
     <div class="detalhe-item">
       <div class="entre"><span><b>${qtd}×</b> ${nome}</span><span class="num">${moeda(valor)}</span></div>

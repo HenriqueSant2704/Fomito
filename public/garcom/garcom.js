@@ -289,12 +289,16 @@ function abrirFechamento(mesa) {
   /* Valor desta forma: o que o garçom digitou ou, por padrão, o que falta (ou a parte de cada pessoa) */
   const valorAtual = () => conta.valor !== "" ? numero(conta.valor) : arred(Math.min(restante(), conta.pessoas > 1 ? totalFinal() / conta.pessoas : restante()));
   const caixaAberto = () => !!Fomito.caixa.aberto();
+  /* Convênio: o garçom escolhe o cliente conveniado (a parte dele vai para a conta do convênio) */
+  let conveniados = [];
+  Fomito.api("GET", "/convenios/nomes").then((l) => { conveniados = l || []; if (conveniados.length) render(); }).catch(() => {});
 
   function problema() {
     const v = valorAtual();
     if (!caixaAberto()) return "O caixa está fechado. Peça ao responsável para abrir o caixa no painel.";
     if (v <= 0) return "Informe o valor desta forma de pagamento.";
     if (v > restante() + 0.005) return `O valor passa do que falta pagar (${moeda(restante())}).`;
+    if (conta.forma === "convenio" && !conta.convenioTel) return "Escolha o cliente do convênio.";
     if (conta.forma === "dinheiro") {
       if (!conta.recebido) return "Informe quanto o cliente entregou em dinheiro para calcular o troco.";
       if (numero(conta.recebido) < v) return `Faltam ${moeda(v - numero(conta.recebido))} para cobrir ${moeda(v)}.`;
@@ -329,7 +333,7 @@ function abrirFechamento(mesa) {
   };
 
   function render() {
-    const nomes = Fomito.caixa.FORMAS;
+    const nomes = Fomito.caixa.FORMAS_TODAS;
     camada.innerHTML = `
       <div class="folha conta">
         <div class="folha__topo"><h2>Fechar conta · Mesa ${String(mesa.numero).padStart(2, "0")}</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
@@ -350,7 +354,7 @@ function abrirFechamento(mesa) {
             ${conta.pagamentos.map((p, i) => `
               <div class="pago">
                 ${icone("check", "ic--sm")}
-                <span class="flex1">${nomes[p.forma]}${p.forma === "dinheiro" ? ` <span class="pequeno suave">recebeu ${moeda(p.recebido)} · troco ${moeda(p.troco)}</span>` : ""}</span>
+                <span class="flex1">${nomes[p.forma]}${p.forma === "convenio" ? ` <span class="pequeno suave">${p.nome}</span>` : ""}${p.forma === "dinheiro" ? ` <span class="pequeno suave">recebeu ${moeda(p.recebido)} · troco ${moeda(p.troco)}</span>` : ""}</span>
                 <b class="num">${moeda(p.valor)}</b>
                 <button class="btn-icone btn-icone--sm" data-remover="${i}" aria-label="Desfazer pagamento">${icone("fechar", "ic--sm")}</button>
               </div>`).join("")}
@@ -363,8 +367,14 @@ function abrirFechamento(mesa) {
               <button class="opcao ${conta.forma === f.id ? "ativa" : ""}" data-forma="${f.id}">
                 <span class="opcao__icone">${icone(f.icone, "ic--sm")}</span><span class="opcao__titulo pequeno">${f.nome}</span>
               </button>`).join("")}
+            ${conveniados.length ? `<button class="opcao ${conta.forma === "convenio" ? "ativa" : ""}" data-forma="convenio"><span class="opcao__icone">${icone("conta", "ic--sm")}</span><span class="opcao__titulo pequeno">Convênio</span></button>` : ""}
           </div>
         </div>
+        ${conta.forma === "convenio" ? `
+          <div class="campo"><label for="clienteConvenio">Cliente do convênio</label>
+            <select class="input" id="clienteConvenio" data-convenio><option value="">Escolha o cliente</option>${conveniados.map((c) => `<option value="${c.telefone}" ${conta.convenioTel === c.telefone ? "selected" : ""}>${c.nome}${c.empresa ? ` · ${c.empresa}` : ""}</option>`).join("")}</select>
+            <span class="pequeno fraco">Não cobra agora: o valor vai para a conta do cliente e a loja cobra no fechamento.</span>
+          </div>` : ""}
 
         <div class="campo"><label for="valorForma">Valor nesta forma</label>
           <input class="input num" id="valorForma" data-valor inputmode="decimal" value="${conta.valor !== "" ? conta.valor : valorAtual().toFixed(2).replace(".", ",")}">
@@ -396,6 +406,7 @@ function abrirFechamento(mesa) {
     const v = valorAtual();
     const pagamento = { forma: conta.forma, valor: v };
     if (conta.forma === "dinheiro") Object.assign(pagamento, { recebido: numero(conta.recebido), troco: arred(numero(conta.recebido) - v) });
+    if (conta.forma === "convenio") Object.assign(pagamento, { telefone: conta.convenioTel, nome: conveniados.find((c) => c.telefone === conta.convenioTel)?.nome || "" });
     conta.pagamentos.push(pagamento);
     Object.assign(conta, { valor: "", recebido: "" });
 
@@ -432,6 +443,7 @@ function abrirFechamento(mesa) {
     if (e.target.closest("[data-confirmar]")) confirmar();
   });
   camada.addEventListener("change", (e) => {
+    if (e.target.matches("[data-convenio]")) { conta.convenioTel = e.target.value; atualizarParcial(); }
   });
   camada.addEventListener("input", (e) => {
     if (e.target.matches("[data-recebido]")) conta.recebido = e.target.value;

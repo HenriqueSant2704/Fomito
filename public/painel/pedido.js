@@ -11,7 +11,7 @@ const hora = (ts) => Fomito.pedidos.hora(ts);
 /* ---------- 1. DETALHE DO PEDIDO ---------- */
 function abrirPedido(num) {
   const p = Fomito.pedidos.doNumero(num);
-  const forma = dados.formasPagamento.find((f) => f.id === p.pag) || { icone: "dinheiro", nome: "Pagamento" };
+  const forma = Fomito.formaPag(p.pag) || { icone: "dinheiro", nome: "Pagamento" };
   const entrega = p.modo === "entrega";
   const subtotalPedido = p.itens.reduce((s, item) => s + precoItem(item), 0);
   const passo = ["novo", "preparo", "pronto", "rota", "concluido"].indexOf(p.status);
@@ -27,7 +27,7 @@ function abrirPedido(num) {
   const cadastro = p.telefone && Fomito.clientes.buscar(p.telefone);
   /* O servidor guarda em p.whats a última mensagem que o WhatsApp confirmou */
   const mensagens = entrega && p.whats ? [`Última mensagem enviada: ${p.whats}`] : [];
-  const pagoCom = dados.formasPagamento.find((f) => f.id === p.pagoCom);
+  const pagoCom = Fomito.formaPag(p.pagoCom);
 
   const camada = document.createElement("div");
   camada.className = "sobreposicao sobreposicao--lado";

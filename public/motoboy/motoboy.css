@@ -151,3 +151,4 @@ body { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
 .bolsa { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--raio-md); background: var(--superficie-2); }
 .feita[data-ver-entrega] { cursor: pointer; }
 .feita[data-ver-entrega]:active { background: var(--superficie-2); }
+.aviso--convenio { background: var(--roxo-claro); color: var(--roxo); }

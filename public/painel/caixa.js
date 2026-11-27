@@ -71,8 +71,8 @@ function renderCaixa() {
 /* Iniciais para o círculo do nome: "João Pereira" → "JP" */
 const iniciaisCaixa = (nome) => String(nome || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 const escAttr = (t) => String(t).replace(/"/g, "&quot;");
-const ICONE_FORMA = { dinheiro: "dinheiro", pix: "pix", credito: "cartao", debito: "cartao" };
-const CURTAS = { dinheiro: "Dinheiro", pix: "Pix", credito: "Crédito", debito: "Débito" };
+const ICONE_FORMA = { dinheiro: "dinheiro", pix: "pix", credito: "cartao", debito: "cartao", convenio: "conta" };
+const CURTAS = { dinheiro: "Dinheiro", pix: "Pix", credito: "Crédito", debito: "Débito", convenio: "Convênio" };
 
 /* Bolsa de cada motoboy: separada da gaveta do balcão (troco + dinheiro das entregas) */
 function blocoBolsas(r, cx) {
@@ -195,6 +195,7 @@ const TIPOS_MOV = {
   balcao: { nome: "Balcão", icone: "loja", cor: "azul" },
   sangria: { nome: "Tirado da gaveta", icone: "menos", cor: "vermelho" },
   suprimento: { nome: "Colocado na gaveta", icone: "mais", cor: "verde" },
+  convenio: { nome: "Convênio recebido", icone: "conta", cor: "verde" },
 };
 let filtroForma = "todas";
 const abertosCaixa = new Set(); // cartões de movimentação abertos (continuam abertos ao atualizar a tela)
@@ -236,6 +237,7 @@ function efeitoGrupo(g) {
   const m = g.movs[0];
   if (g.tipo === "sangria") return `<span class="valor-saida">− ${moeda(g.total)} da gaveta</span>`;
   if (g.tipo === "suprimento") return `<span class="valor-entrada">+ ${moeda(g.total)} na gaveta</span>`;
+  if (g.formas.every((f) => f === "convenio")) return "no convênio do cliente";
   if (g.tipo === "entrega" && g.formas.includes("dinheiro")) return `na bolsa do ${String(m.por).split(" ")[0]}`;
   if (g.gaveta) return `<span class="valor-entrada">+ ${moeda(g.gaveta)} na gaveta</span>`;
   return "cai na conta";
@@ -266,12 +268,12 @@ function cartaoMovimento(g) {
           <div class="mov-pag">
             <span class="mov-pag__forma">${icone(gaveta ? "dinheiro" : ICONE_FORMA[m.forma], "ic--sm")}</span>
             <span class="mov-pag__texto">
-              <span class="forte">${g.movs.length > 1 ? `${g.tipo === "comanda" ? "Pessoa" : "Pagamento"} ${i + 1} · ` : ""}${gaveta ? "Dinheiro" : Fomito.caixa.FORMAS[m.forma]}</span>
+              <span class="forte">${g.movs.length > 1 ? `${g.tipo === "comanda" ? "Pessoa" : "Pagamento"} ${i + 1} · ` : ""}${gaveta ? "Dinheiro" : Fomito.caixa.FORMAS_TODAS[m.forma]}${m.forma === "convenio" && m.cliente ? ` · ${m.cliente}` : ""}</span>
               <span class="pequeno fraco">${m.forma === "dinheiro" && !gaveta ? `Deu ${moeda(m.recebido ?? m.valor)} · troco ${moeda(m.troco || 0)} · ` : ""}${horaCaixa(m.hora)} · ${m.por}</span>
               ${m.correcoes?.length ? `<button class="mov-pag__corr" data-historico="${m.id}">${icone("editar", "ic--sm")} Ver a correção</button>` : ""}
             </span>
             <span class="num forte">${moeda(m.valor)}</span>
-            <button class="btn-icone btn-icone--sm" data-corrigir="${m.id}" aria-label="Corrigir este pagamento" title="Corrigir">${icone("editar", "ic--sm")}</button>
+            ${m.forma === "convenio" || m.tipo === "convenio" ? `<span style="width:32px"></span>` : `<button class="btn-icone btn-icone--sm" data-corrigir="${m.id}" aria-label="Corrigir este pagamento" title="Corrigir">${icone("editar", "ic--sm")}</button>`}
           </div>`).join("")}
         ${g.tipo === "comanda" && g.comanda ? `
           <div class="mov__acoes">
@@ -324,7 +326,7 @@ function blocoCorrecoes(correcoes) {
 
 function caixaAberto(cx) {
   const r = Fomito.caixa.resumo(cx);
-  const nomes = { ...Fomito.caixa.FORMAS };
+  const nomes = { ...Fomito.caixa.FORMAS_TODAS };
   const cartoes = r.porForma.credito + r.porForma.debito;
   const correcoes = Fomito.caixa.correcoes(cx);
   const grupos = gruposMovimentos(cx.movimentos);
@@ -386,6 +388,7 @@ function caixaAberto(cx) {
             <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
             <div class="entre"><span>+ Notas que os clientes deram</span><span class="num">${moeda(r.recebidoDinheiro - bolsaRec)}</span></div>
             <div class="entre"><span>− Troco devolvido</span><span class="num valor-saida">${moeda(r.troco - bolsaTroco)}</span></div>
+            ${r.convenioDinheiro ? `<div class="entre"><span>+ Convênios recebidos em dinheiro</span><span class="num">${moeda(r.convenioDinheiro)}</span></div>` : ""}
             <div class="entre"><span>+ Dinheiro colocado</span><span class="num">${moeda(r.suprimentos)}</span></div>
             <div class="entre"><span>− Dinheiro tirado</span><span class="num valor-saida">${moeda(r.sangrias)}</span></div>
             <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
@@ -614,7 +617,7 @@ function janelaFechar() {
   };
   janelaCaixa("Fechar caixa", `
     <div class="conferencia">
-      ${Object.entries(r.porForma).map(([f, v]) => `<div class="entre"><span>${Fomito.caixa.FORMAS[f]}</span><span class="num">${moeda(v)}</span></div>`).join("")}
+      ${Object.entries(r.porForma).map(([f, v]) => `<div class="entre"><span>${Fomito.caixa.FORMAS_TODAS[f] || f}</span><span class="num">${moeda(v)}</span></div>`).join("")}
       <div class="entre conferencia__total"><span>Total de vendas</span><span class="num">${moeda(r.vendas)}</span></div>
     </div>
     <div class="conferencia">

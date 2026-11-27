@@ -36,6 +36,8 @@ window.Fomito = window.Fomito || {};
         r.troco += m.troco || 0;
         if (m.forma === "dinheiro") r.recebidoDinheiro += m.recebido ?? m.valor; // notas que o cliente deu
       }
+      /* Cliente pagou o convênio: entra no caixa, mas não é venda nova */
+      if (m.tipo === "convenio") { r.recebidoConvenio = (r.recebidoConvenio || 0) + m.valor; if (m.forma === "dinheiro") r.convenioDinheiro = (r.convenioDinheiro || 0) + m.valor; }
       if (m.tipo === "sangria") r.sangrias += m.valor;
       if (m.tipo === "suprimento") r.suprimentos += m.valor;
     });
@@ -51,7 +53,7 @@ window.Fomito = window.Fomito || {};
     Object.values(bolsas).forEach((b) => { b.esperado = Math.round((b.fundo + b.dinheiro) * 100) / 100; });
     r.bolsas = bolsas;
     r.dinheiroEntregas = Object.values(bolsas).reduce((s, b) => s + b.dinheiro, 0);
-    r.esperado = caixa.fundo + r.porForma.dinheiro - r.dinheiroEntregas - r.sangrias + r.suprimentos;
+    r.esperado = caixa.fundo + r.porForma.dinheiro - r.dinheiroEntregas - r.sangrias + r.suprimentos + (r.convenioDinheiro || 0);
     return r;
   };
 
@@ -80,8 +82,10 @@ window.Fomito = window.Fomito || {};
   const fechar = ({ contado, obs = "" }) => Fomito.acao("POST", "/caixa/fechar", { contado, obs });
 
   const FORMAS = { dinheiro: "Dinheiro", pix: "Pix", credito: "Cartão de crédito", debito: "Cartão de débito" };
+  /* Para mostrar (o convênio não é escolhido no caixa: vem do pedido ou da comanda) */
+  const FORMAS_TODAS = { ...FORMAS, convenio: "Convênio" };
   /* Nomes que aparecem na tela (simples, para qualquer um entender) */
   const NOMES = { sangria: "Tirar dinheiro", suprimento: "Colocar dinheiro", fundo: "Dinheiro inicial" };
 
-  Fomito.caixa = { estado, aberto, abrir, registrar, corrigir, correcoes, fechar, resumo, FORMAS, NOMES };
+  Fomito.caixa = { estado, aberto, abrir, registrar, corrigir, correcoes, fechar, resumo, FORMAS, FORMAS_TODAS, NOMES };
 })();

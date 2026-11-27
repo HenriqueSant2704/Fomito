@@ -198,6 +198,15 @@ r.post('/comandas/conta', ok(async (req) => {
 r.post('/comandas/:mesa/fechar', garcom, ok((req) => s.fecharComanda(req.params.mesa, req.body, nome(req))));
 
 /* ---------- Caixa (administrador e atendente) ---------- */
+/* ---------- Convênios ---------- */
+r.get('/convenios', balcao, ok(() => s.listarConvenios()));
+/* Para o garçom e o caixa escolherem o cliente no fechar conta (sem valores, sem CPF) */
+r.get('/convenios/nomes', garcom, ok(async () => (await db.query("SELECT telefone, nome, convenio->>'empresa' AS empresa FROM clientes WHERE (convenio->>'ativo')::boolean ORDER BY nome")).rows));
+r.get('/convenios/:telefone', balcao, ok((req) => s.extratoConvenio(req.params.telefone)));
+r.put('/convenios/:telefone', admin, ok((req) => s.definirConvenio(req.params.telefone, req.body, nome(req))));
+r.post('/convenios/:telefone/receber', balcao, ok((req) => s.receberConvenio(req.params.telefone, req.body, nome(req))));
+r.post('/convenios/:telefone/enviar', balcao, ok((req) => s.enviarExtratoConvenio(req.params.telefone, req.body.texto)));
+
 r.post('/caixa/abrir', balcao, ok((req) => s.abrirCaixa(req.body, nome(req))));
 r.post('/caixa/movimento', balcao, ok((req) => s.movimentoCaixa(req.body, nome(req))));
 r.post('/caixa/corrigir', balcao, ok((req) => s.corrigirMovimento(String(req.body.id), req.body.novo || {}, req.body, nome(req))));
