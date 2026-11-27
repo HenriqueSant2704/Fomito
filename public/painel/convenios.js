@@ -203,9 +203,22 @@ async function abrirExtrato(telefone) {
   camada.addEventListener("click", async (e) => {
     if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
     if (e.target.closest("[data-imprimir-extrato]")) return Fomito.alertas.imprimirTexto(textoExtrato(x, mesExtrato));
-    if (e.target.closest("[data-whats-extrato]")) {
-      try { await Fomito.api("POST", `/convenios/${x.telefone}/enviar`, { texto: textoExtrato(x, mesExtrato) }); toast(`Extrato enviado para ${x.nome}`, "whatsapp"); }
-      catch (err) { toast(err.message, "info"); }
+    const whats = e.target.closest("[data-whats-extrato]");
+    if (whats) {
+      /* Trava o botão até o servidor responder: um clique = uma mensagem */
+      if (whats.disabled) return;
+      const original = whats.innerHTML;
+      whats.disabled = true;
+      whats.innerHTML = `${icone("relogio", "ic--sm")} Enviando...`;
+      try {
+        await Fomito.api("POST", `/convenios/${x.telefone}/enviar`, { texto: textoExtrato(x, mesExtrato) });
+        whats.innerHTML = `${icone("check", "ic--sm")} Enviado`;
+        toast(`Extrato enviado para ${x.nome}`, "whatsapp");
+      } catch (err) {
+        whats.disabled = false;
+        whats.innerHTML = original;
+        toast(err.message, "info");
+      }
       return;
     }
     if (e.target.closest("[data-receber-extrato]")) { camada.remove(); return janelaReceberConvenio(x.telefone, x); }
@@ -233,23 +246,17 @@ async function janelaReceberConvenio(telefone, extrato) {
   const x = extrato || await Fomito.api("GET", `/convenios/${telefone}`).catch((err) => { toast(err.message, "info"); return null; });
   if (!x) return;
   if (!Fomito.caixa.aberto()) return toast("Abra o caixa para receber o pagamento do convênio.", "info");
-  const r = await Fomito.dialogo({
+  /* Mesma janela de pagamento do balcão: no dinheiro, valor recebido obrigatório e troco calculado */
+  const r = await janelaPagamento({
     titulo: `Receber de ${x.nome}`,
-    texto: `Em aberto: <b>${moeda(x.devido)}</b>. O valor entra no caixa aberto e baixa a conta do convênio.`,
-    campos: [
-      { id: "valor", rotulo: "Valor recebido (R$)", tipo: "moeda", valor: x.devido.toFixed(2).replace(".", ","), obrigatorio: true },
-      { id: "forma", rotulo: "Forma", tipo: "select", valor: "pix", opcoes: Object.entries(Fomito.caixa.FORMAS) },
-      { id: "recebido", rotulo: "Se for dinheiro: quanto o cliente deu (R$)", tipo: "moeda", valor: "" },
-      { id: "obs", rotulo: "Observação (opcional)", max: 200 },
-    ],
-    confirmar: "Receber",
+    subtitulo: "O valor entra no caixa de hoje e baixa a conta do convênio.",
+    total: x.devido, rotuloTotal: "Em aberto no convênio",
+    forma: "pix", valorEditavel: true, observacao: true, botao: "Receber pagamento",
   });
   if (!r) return;
-  const valor = parseFloat(String(r.valor).replace(/\./g, "").replace(",", ".")) || 0;
-  const recebido = r.forma === "dinheiro" ? (parseFloat(String(r.recebido).replace(/\./g, "").replace(",", ".")) || valor) : undefined;
   try {
-    const feito = await Fomito.api("POST", `/convenios/${telefone}/receber`, { valor, forma: r.forma, recebido, obs: r.obs });
-    toast(`${moeda(valor)} recebido. ${feito.devido > 0 ? `Ainda em aberto: ${moeda(feito.devido)}` : "Convênio quitado!"}`, "check");
+    const feito = await Fomito.api("POST", `/convenios/${telefone}/receber`, { valor: r.valor, forma: r.forma, recebido: r.recebido ?? undefined, obs: r.obs });
+    toast(`${moeda(r.valor)} recebido${feito.troco ? ` · troco ${moeda(feito.troco)}` : ""}. ${feito.devido > 0 ? `Ainda em aberto: ${moeda(feito.devido)}` : "Convênio quitado!"}`, "check");
     await Fomito.sincronizar().catch(() => {});
     carregarConvenios();
   } catch (err) { toast(err.message, "info"); }

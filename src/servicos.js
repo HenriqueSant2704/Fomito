@@ -737,10 +737,21 @@ async function estornarConvenio(telefone, { num, motivo }, por) {
 }
 
 /** Manda o extrato para o cliente no WhatsApp da loja */
+/* Evita mandar o mesmo extrato várias vezes seguidas (duplo clique, dois aparelhos): o WhatsApp pode bloquear por spam */
+const ultimoExtrato = new Map();
+const ESPERA_EXTRATO = 60 * 1000;
 async function enviarExtratoConvenio(telefone, textoExtrato) {
   const tel = soDigitos(telefone);
   if (!texto(textoExtrato, 4000)) falhar(400, 'Extrato vazio.');
-  await whatsapp.enviarTexto(tel, String(textoExtrato).slice(0, 4000));
+  const desde = Date.now() - (ultimoExtrato.get(tel) || 0);
+  if (desde < ESPERA_EXTRATO) falhar(429, `O extrato já foi enviado para esse cliente agora há pouco. Espere ${Math.ceil((ESPERA_EXTRATO - desde) / 1000)} segundos para mandar de novo.`);
+  ultimoExtrato.set(tel, Date.now());
+  try {
+    await whatsapp.enviarTexto(tel, String(textoExtrato).slice(0, 4000));
+  } catch (err) {
+    ultimoExtrato.delete(tel); // não foi: pode tentar de novo na hora
+    throw err;
+  }
 }
 
 module.exports = {
