@@ -1,85 +1,106 @@
 {
- "marca": {
-  "nome": "Fomito",
-  "slogan": "Lanches na chapa desde 2012",
-  "logo": "",
-  "corPrincipal": "#4B2B8F",
-  "corDestaque": "#FF8A00",
-  "fonteTitulo": "Nunito",
-  "fonteTexto": "Inter"
- },
- "whatsapp": {
-  "apiUrl": "",
-  "apiKey": "",
-  "instancia": "fomito",
-  "conectado": false,
-  "numero": "",
-  "modelos": {
-   "recebido": {
+  "marca": {
+    "nome": "Fomito",
+    "slogan": "Lanches na chapa desde 2012",
+    "logo": "",
+    "corPrincipal": "#4B2B8F",
+    "corDestaque": "#FF8A00",
+    "fonteTitulo": "Nunito",
+    "fonteTexto": "Inter"
+  },
+  "whatsapp": {
+    "apiUrl": "",
+    "apiKey": "",
+    "instancia": "fomito",
+    "conectado": false,
+    "numero": "",
+    "modelos": {
+      "recebido": {
+        "ativo": true,
+        "titulo": "Pedido recebido",
+        "texto": "Olá, {nome}! Recebemos seu pedido #{pedido} na {loja}. Total: {total}. Já vamos começar o preparo."
+      },
+      "preparo": {
+        "ativo": true,
+        "titulo": "Em preparo (entrega)",
+        "texto": "{nome}, seu pedido #{pedido} já está na chapa! 🔥 Previsão de entrega: {previsao}."
+      },
+      "saiu": {
+        "ativo": true,
+        "titulo": "Saiu para entrega",
+        "texto": "Boa notícia, {nome}! Seu pedido #{pedido} saiu para entrega e chega em breve. 🛵 Pagamento na entrega: {pagamento}."
+      },
+      "entregue": {
+        "ativo": true,
+        "titulo": "Entregue",
+        "texto": "Pedido #{pedido} entregue. Obrigado pela preferência, {nome}! Bom apetite. 😋"
+      },
+      "preparo_balcao": {
+        "ativo": true,
+        "titulo": "Em preparo (retirada)",
+        "texto": "{nome}, seu pedido #{pedido} já está sendo preparado! 🔥 Avisamos aqui assim que ficar pronto para retirar."
+      },
+      "pronto_balcao": {
+        "ativo": true,
+        "titulo": "Pronto para retirar",
+        "texto": "{nome}, seu pedido #{pedido} está pronto! 🎉 Pode vir retirar no balcão da {loja} ({endereco}). Total: {total}."
+      },
+      "retirado": {
+        "ativo": true,
+        "titulo": "Retirado",
+        "texto": "Pedido #{pedido} retirado. Obrigado pela preferência, {nome}! Bom apetite. 😋"
+      },
+      "mesa_recebido": {
+        "ativo": true,
+        "titulo": "Mesa: pedido recebido",
+        "texto": "Olá, {nome}! Recebemos seu pedido na {mesa} da {loja}. Já vai para a cozinha. 🍔"
+      },
+      "mesa_preparo": {
+        "ativo": true,
+        "titulo": "Mesa: em preparo",
+        "texto": "{nome}, seu pedido da {mesa} já está sendo preparado! 🔥"
+      },
+      "mesa_pronto": {
+        "ativo": true,
+        "titulo": "Mesa: pronto",
+        "texto": "{nome}, seu pedido está pronto e já está indo para a {mesa}! 😋"
+      },
+      "mesa_fechada": {
+        "ativo": true,
+        "titulo": "Mesa: conta fechada",
+        "texto": "Conta da {mesa} fechada: {total}. Obrigado pela visita, {nome}! Volte sempre. 💛"
+      }
+    }
+  },
+  "impressao": {
+    "aoAceitar": true,
+    "vias": 1,
+    "largura": "80mm",
+    "rodape": "Obrigado pela preferência!",
+    "modelo": {
+      "cabecalho": "",
+      "mensagem": "",
+      "posicaoMensagem": "fim",
+      "ordem": [
+        "loja",
+        "pedido",
+        "cliente",
+        "itens",
+        "pagamento",
+        "mensagem"
+      ],
+      "mostrar": {
+        "endereco": true,
+        "telefoneLoja": false,
+        "telefoneCliente": true,
+        "enderecoCliente": true,
+        "observacoes": true,
+        "fomito": true
+      }
+    }
+  },
+  "som": {
     "ativo": true,
-    "titulo": "Pedido recebido",
-    "texto": "Olá, {nome}! Recebemos seu pedido #{pedido} na {loja}. Total: {total}. Já vamos começar o preparo."
-   },
-   "preparo": {
-    "ativo": true,
-    "titulo": "Em preparo (entrega)",
-    "texto": "{nome}, seu pedido #{pedido} já está na chapa! 🔥 Previsão de entrega: {previsao}."
-   },
-   "saiu": {
-    "ativo": true,
-    "titulo": "Saiu para entrega",
-    "texto": "Boa notícia, {nome}! Seu pedido #{pedido} saiu para entrega e chega em breve. 🛵 Pagamento na entrega: {pagamento}."
-   },
-   "entregue": {
-    "ativo": true,
-    "titulo": "Entregue",
-    "texto": "Pedido #{pedido} entregue. Obrigado pela preferência, {nome}! Bom apetite. 😋"
-   },
-   "preparo_balcao": {
-    "ativo": true,
-    "titulo": "Em preparo (retirada)",
-    "texto": "{nome}, seu pedido #{pedido} já está sendo preparado! 🔥 Avisamos aqui assim que ficar pronto para retirar."
-   },
-   "pronto_balcao": {
-    "ativo": true,
-    "titulo": "Pronto para retirar",
-    "texto": "{nome}, seu pedido #{pedido} está pronto! 🎉 Pode vir retirar no balcão da {loja} ({endereco}). Total: {total}."
-   },
-   "retirado": {
-    "ativo": true,
-    "titulo": "Retirado",
-    "texto": "Pedido #{pedido} retirado. Obrigado pela preferência, {nome}! Bom apetite. 😋"
-   },
-   "mesa_recebido": {
-    "ativo": true,
-    "titulo": "Mesa: pedido recebido",
-    "texto": "Olá, {nome}! Recebemos seu pedido na {mesa} da {loja}. Já vai para a cozinha. 🍔"
-   },
-   "mesa_preparo": {
-    "ativo": true,
-    "titulo": "Mesa: em preparo",
-    "texto": "{nome}, seu pedido da {mesa} já está sendo preparado! 🔥"
-   },
-   "mesa_pronto": {
-    "ativo": true,
-    "titulo": "Mesa: pronto",
-    "texto": "{nome}, seu pedido está pronto e já está indo para a {mesa}! 😋"
-   },
-   "mesa_fechada": {
-    "ativo": true,
-    "titulo": "Mesa: conta fechada",
-    "texto": "Conta da {mesa} fechada: {total}. Obrigado pela visita, {nome}! Volte sempre. 💛"
-   }
+    "volume": 0.6
   }
- },
- "impressao": {
-  "aoAceitar": true,
-  "vias": 1,
-  "largura": "80mm",
-  "rodape": "Obrigado pela preferência!"
- },
- "som": {
-  "ativo": true,
-  "volume": 0.6
- }
 }

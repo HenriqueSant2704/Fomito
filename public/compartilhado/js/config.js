@@ -49,7 +49,11 @@ window.Fomito = window.Fomito || {};
         mesa_fechada: {ativo: true,titulo: "Mesa: conta fechada",texto: "Conta da {mesa} fechada: {total}. Obrigado pela visita, {nome}! Volte sempre. 💛"},
       },
     },
-    impressao: { aoAceitar: true, vias: 1, largura: "80mm", rodape: "Obrigado pela preferência!" },
+    impressao: {
+      aoAceitar: true, vias: 1, largura: "80mm", rodape: "Obrigado pela preferência!",
+      /* Modelo da notinha: textos e o que aparece (os itens e valores são sempre os do pedido) */
+      modelo: {"cabecalho":"","mensagem":"","posicaoMensagem":"fim","ordem":["loja","pedido","cliente","itens","pagamento","mensagem"],"mostrar":{"endereco":true,"telefoneLoja":false,"telefoneCliente":true,"enderecoCliente":true,"observacoes":true,"fomito":true}},
+    },
     som: { ativo: true, volume: 0.6 },
   };
 

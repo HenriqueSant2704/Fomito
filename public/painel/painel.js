@@ -689,10 +689,10 @@ function configImpressao() {
           <div class="form-grade">
             <div class="campo"><label for="iLargura">Largura do papel</label><select id="iLargura" class="input"><option ${imp.largura === "80mm" ? "selected" : ""}>80mm</option><option ${imp.largura === "58mm" ? "selected" : ""}>58mm</option></select></div>
             <div class="campo"><label for="iVias">Vias por pedido</label><input id="iVias" class="input" type="number" min="1" max="3" value="${imp.vias}"></div>
-            <div class="campo" style="grid-column:1/-1"><label for="iRodape">Mensagem no fim do cupom</label><input id="iRodape" class="input" value="${imp.rodape}"></div>
           </div>
           <button class="btn btn--contorno" id="iTeste">${icone("impressora", "ic--sm")} Imprimir cupom de teste</button>
         </div>
+        ${cartaoModeloNotinha(imp)}
         <div class="card painel-card">
           <div class="pilha" style="gap:2px"><h3>Som de novo pedido</h3><p class="pequeno suave">Toca um alerta no computador do caixa sempre que chega pedido.</p></div>
           <div class="config-pag"><span>Tocar som quando chegar pedido</span><label class="interruptor"><input type="checkbox" id="sAtivo" ${som.ativo ? "checked" : ""}><span></span></label></div>
@@ -702,9 +702,45 @@ function configImpressao() {
       </div>
       <div class="card painel-card">
         <div class="painel-card__topo"><h3>Prévia do cupom</h3><span class="tag tag--cinza">80mm</span></div>
-        <div class="cupom"><pre>${alertas.textoCupom(exemplo).replace(/</g, "&lt;")}</pre></div>
+        <p class="pequeno suave">Atualiza enquanto você edita. Itens e valores são sempre os do pedido.</p>
+        <div class="cupom"><pre id="previaCupom">${alertas.textoCupom(exemplo, imp).replace(/</g, "&lt;")}</pre></div>
       </div>
     </div>`;
+}
+
+/* Modelo da notinha: textos, o que aparece e a ordem dos blocos */
+const NOMES_BLOCOS = { loja: "Nome e dados da loja", pedido: "Número do pedido e data", cliente: "Cliente", itens: "Itens e total", pagamento: "Pagamento e troco", mensagem: "Sua mensagem" };
+const OPCOES_MOSTRAR = [["endereco", "Endereço da loja"], ["telefoneLoja", "Telefone da loja"], ["telefoneCliente", "Telefone do cliente"], ["enderecoCliente", "Endereço do cliente"], ["observacoes", "Observações dos itens"], ["fomito", "“Pedidos com Fomito” no fim"]];
+function modeloRascunho(imp) {
+  const padrao = Fomito.config.PADRAO?.impressao?.modelo || {};
+  imp.modelo = { cabecalho: "", mensagem: "", ...padrao, ...(imp.modelo || {}), mostrar: { ...(padrao.mostrar || {}), ...((imp.modelo || {}).mostrar || {}) } };
+  const blocos = Object.keys(NOMES_BLOCOS);
+  imp.modelo.ordem = [...(imp.modelo.ordem || []).filter((b) => blocos.includes(b)), ...blocos.filter((b) => !(imp.modelo.ordem || []).includes(b))];
+  return imp.modelo;
+}
+function cartaoModeloNotinha(imp) {
+  const m = modeloRascunho(imp);
+  return `
+    <div class="card painel-card">
+      <div class="pilha" style="gap:2px"><h3>Modelo da notinha</h3><p class="pequeno suave">Personalize os textos e o que aparece. Os itens e valores impressos são sempre os do pedido.</p></div>
+      <div class="campo"><label for="iCabecalho">Linhas abaixo do nome <span class="fraco">(ex.: CNPJ, telefone, Instagram)</span></label><textarea id="iCabecalho" class="input" rows="2" maxlength="160" placeholder="CNPJ 00.000.000/0001-00&#10;@lanchonetedoze">${m.cabecalho}</textarea></div>
+      <div class="campo"><label for="iMensagem">Sua mensagem <span class="fraco">(ex.: promoção da semana)</span></label><textarea id="iMensagem" class="input" rows="2" maxlength="200" placeholder="Terça é dia de X-Bacon em dobro!">${m.mensagem}</textarea></div>
+      <div class="campo"><label for="iRodape">Mensagem do fim</label><input id="iRodape" class="input" maxlength="80" value="${imp.rodape}"></div>
+      <div class="pilha" style="gap:0">
+        <span class="rotulo">O que aparece</span>
+        ${OPCOES_MOSTRAR.map(([id, nome]) => `<label class="config-pag check-linha"><span>${nome}</span><label class="interruptor"><input type="checkbox" data-mostrar-cupom="${id}" ${m.mostrar[id] ? "checked" : ""}><span></span></label></label>`).join("")}
+      </div>
+      <div class="pilha" style="gap:6px">
+        <span class="rotulo">Ordem dos blocos</span>
+        <div class="lista-ordem" id="ordemCupom">${m.ordem.map((b, i) => `
+          <div class="item-ordem item-ordem--compacto"><span class="item-ordem__num">${i + 1}</span><span class="forte" style="flex:1">${NOMES_BLOCOS[b]}</span>
+            <span class="item-ordem__acoes"><button type="button" class="btn-icone btn-icone--sm" data-ordem-cupom="${i},-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">${icone("cima", "ic--sm")}</button><button type="button" class="btn-icone btn-icone--sm" data-ordem-cupom="${i},1" ${i === m.ordem.length - 1 ? "disabled" : ""} aria-label="Descer">${icone("baixo", "ic--sm")}</button></span></div>`).join("")}</div>
+      </div>
+    </div>`;
+}
+function atualizarPreviaCupom() {
+  const el = $("#previaCupom");
+  if (el) el.textContent = alertas.textoCupom({ ...comTotal(pedidoExemplo()) }, rascunho.impressao);
 }
 
 /* --- Aba: Loja e entrega --- */
@@ -793,7 +829,15 @@ function ligarConfig() {
       [rascunho.marca.corPrincipal, rascunho.marca.corDestaque] = [rascunho.marca.corDestaque, rascunho.marca.corPrincipal];
       return renderConfiguracoes();
     }
-    if (e.target.closest("#iTeste")) { alertas.imprimirCupom(comTotal(pedidoExemplo())); toast("Cupom de teste enviado para a impressora", "impressora"); }
+    if (e.target.closest("#iTeste")) { alertas.imprimirCupom(comTotal(pedidoExemplo()), rascunho.impressao); toast("Cupom de teste enviado para a impressora", "impressora"); }
+    const ordem = e.target.closest("[data-ordem-cupom]");
+    if (ordem) {
+      const [i, passo] = ordem.dataset.ordemCupom.split(",").map(Number);
+      const o = rascunho.impressao.modelo.ordem;
+      [o[i], o[i + passo]] = [o[i + passo], o[i]];
+      $("#conteudoConfig").innerHTML = configImpressao();
+      return;
+    }
     if (e.target.closest("#sTeste")) alertas.tocarAlerta(rascunho.som.volume);
     if (e.target.closest("#cfgRestaurar")) {
       const atual = Fomito.config.ler();
@@ -850,7 +894,9 @@ function ligarConfig() {
       const previa = $("#previaFuncionamento");
       if (previa) previa.innerHTML = `No cardápio aparece: <b>${Fomito.textoFuncionamento(rascunhoLoja) || "-"}</b>`;
     }
-    if (t.id === "iRodape") rascunho.impressao.rodape = t.value;
+    if (t.id === "iRodape") { rascunho.impressao.rodape = t.value; atualizarPreviaCupom(); }
+    if (t.id === "iCabecalho") { rascunho.impressao.modelo.cabecalho = t.value; atualizarPreviaCupom(); }
+    if (t.id === "iMensagem") { rascunho.impressao.modelo.mensagem = t.value; atualizarPreviaCupom(); }
     if (t.id === "iVias") rascunho.impressao.vias = Number(t.value);
     if (t.id === "sVolume") rascunho.som.volume = Number(t.value);
   };
@@ -861,6 +907,7 @@ function ligarConfig() {
     if (t.dataset.modeloAtivo) rascunho.whatsapp.modelos[t.dataset.modeloAtivo].ativo = t.checked;
     if (t.id === "iAuto") rascunho.impressao.aoAceitar = t.checked;
     if (t.id === "iLargura") rascunho.impressao.largura = t.value;
+    if (t.dataset.mostrarCupom) { rascunho.impressao.modelo.mostrar[t.dataset.mostrarCupom] = t.checked; atualizarPreviaCupom(); }
     if (t.id === "sAtivo") rascunho.som.ativo = t.checked;
     if (t.id === "sVolume") alertas.tocarAlerta(rascunho.som.volume); // ao soltar o controle, já toca no volume escolhido
     if (t.dataset.formaAtiva) rascunhoLoja.formas[t.dataset.formaAtiva] = t.checked;

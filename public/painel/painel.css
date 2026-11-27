@@ -585,3 +585,7 @@ button.tag { cursor: pointer; }
 .campo-senha .input { padding-right: 84px; }
 .campo-senha .link { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
 @media (max-width: 520px) { .membro { flex-wrap: wrap; } .membro__info { flex: 1; min-width: 0; } }
+
+/* ---------- Modelo da notinha ---------- */
+.item-ordem--compacto { padding: 8px 0; }
+.item-ordem__num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--roxo-claro); color: var(--roxo); font-size: 12px; font-weight: 700; flex: none; }

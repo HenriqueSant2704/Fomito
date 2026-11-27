@@ -58,11 +58,41 @@ window.Fomito = window.Fomito || {};
   };
   const valor = (n) => n.toFixed(2).replace(".", ",");
 
-  /** Gera o texto do cupom (42 colunas = largura de uma POS-80) */
-  function textoCupom(pedido) {
-    const { marca, impressao } = Fomito.config.ler();
+  /* Modelo da notinha (Configurações › Impressora): cabeçalho, mensagem, o que aparece e a ordem.
+     Os itens, quantidades e valores vêm SEMPRE do pedido: o modelo só muda textos e o que mostrar. */
+  const BLOCOS = ["loja", "pedido", "cliente", "itens", "pagamento", "mensagem"];
+  const modeloDe = (impressao) => {
+    const m = impressao.modelo || {};
+    const ordem = [...(m.ordem || []).filter((b) => BLOCOS.includes(b)), ...BLOCOS.filter((b) => !(m.ordem || []).includes(b))];
+    return { cabecalho: "", mensagem: "", ...m, ordem, mostrar: { endereco: true, telefoneLoja: false, telefoneCliente: true, enderecoCliente: true, observacoes: true, fomito: true, ...(m.mostrar || {}) } };
+  };
+  const centro = (t) => String(t).split("\n").map((l) => " ".repeat(Math.max(0, Math.floor((42 - l.length) / 2))) + l).join("\n");
+  const quebrar = (t) => String(t || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  /** Junta os blocos na ordem do modelo, com uma linha entre eles */
+  const montar = (blocos, m, impressao) => {
+    const partes = m.ordem.map((b) => blocos[b]).filter((b) => b && b.length);
+    const fim = [...(impressao.rodape ? [centro(impressao.rodape)] : []), ...(m.mostrar.fomito ? [centro("Pedidos com Fomito")] : [])];
+    return [...partes.flatMap((b, k) => (k ? [linha, ...b] : b)), ...(fim.length ? [linha, ...fim] : [])].join("\n");
+  };
+  const blocoLoja = (marca, loja, m, extra = []) => [
+    centro(marca.nome.toUpperCase()),
+    ...quebrar(m.cabecalho).map(centro),
+    ...(m.mostrar.endereco && loja.endereco ? [centro(loja.endereco)] : []),
+    ...(m.mostrar.telefoneLoja && loja.telefone ? [centro(`Tel.: ${loja.telefone}`)] : []),
+    ...extra,
+  ];
+  const linhasItem = (qtd, nome, total, extras, obs, m) => [
+    colunas(`${qtd}x ${nome}`.slice(0, 32), valor(total)),
+    ...extras.map((a) => `   + ${a.nome}`),
+    ...(obs && m.mostrar.observacoes ? [`   OBS: ${obs}`] : []),
+  ].join("\n");
+
+  /** Gera o texto do cupom (42 colunas = largura de uma POS-80). "impressaoTeste": prévia nas Configurações. */
+  function textoCupom(pedido, impressaoTeste) {
+    const { marca, impressao: salva } = Fomito.config.ler();
+    const impressao = impressaoTeste || salva;
+    const m = modeloDe(impressao);
     const loja = Fomito.dados.lanchonete;
-    const centro = (t) => " ".repeat(Math.max(0, Math.floor((42 - t.length) / 2))) + t;
     const agora = new Date();
     const data = agora.toLocaleDateString("pt-BR") + " " + agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const forma = Fomito.dados.formasPagamento.find((f) => f.id === pedido.pag);
@@ -72,36 +102,31 @@ window.Fomito = window.Fomito || {};
       const p = Fomito.produto(id);
       const nomesExtras = Fomito.todosAdicionaisDo(p).filter((a) => extras.includes(a.id));
       const unit = preco ?? p.preco + nomesExtras.reduce((s, a) => s + a.preco, 0);
-      return [
-        colunas(`${qtd}x ${nome || p.nome}`.slice(0, 32), valor(unit * qtd)),
-        ...nomesExtras.map((a) => `   + ${a.nome}`),
-        ...(obs ? [`   OBS: ${obs}`] : []),
-      ].join("\n");
+      return linhasItem(qtd, nome || p.nome, unit * qtd, nomesExtras, obs, m);
     }).join("\n");
 
     const total = pedido.total;
-    const partes = [
-      centro(marca.nome.toUpperCase()),
-      centro(loja.endereco),
-      linha,
-      colunas(`PEDIDO #${pedido.num}`, pedido.modo === "entrega" ? "ENTREGA" : "RETIRADA BALCAO"),
-      data,
-      `Cliente: ${pedido.cliente}`,
-      ...(pedido.telefone ? [`Tel: ${pedido.telefone}`] : []),
-      ...(pedido.endereco ? [`End: ${pedido.endereco}`] : []),
-      linha,
-      itens,
-      linha,
-      ...(pedido.modo === "entrega" ? [colunas("Taxa de entrega", (pedido.taxa ?? loja.taxaEntrega) > 0 ? valor(pedido.taxa ?? loja.taxaEntrega) : "Grátis")] : []),
-      colunas("TOTAL", "R$ " + valor(total)),
-      linha,
-      pedido.modo === "entrega" ? `Pagamento: ${forma?.nome || "-"} (na entrega)` : forma ? `Pagamento: ${forma.nome} (na retirada)` : "Pagamento no balcão",
-      ...(pedido.pag === "dinheiro" && pedido.troco ? [colunas("Troco para", valor(pedido.troco)), colunas("LEVAR DE TROCO", valor(pedido.troco - total))] : []),
-      linha,
-      centro(impressao.rodape),
-      centro("Pedidos com Fomito"),
-    ];
-    return partes.join("\n");
+    const mensagem = quebrar(m.mensagem).map(centro);
+    return montar({
+      loja: blocoLoja(marca, loja, m),
+      pedido: [colunas(`PEDIDO #${pedido.num}`, pedido.modo === "entrega" ? "ENTREGA" : "RETIRADA BALCAO"), data],
+      cliente: [
+        `Cliente: ${pedido.cliente}`,
+        ...(pedido.telefone && m.mostrar.telefoneCliente ? [`Tel: ${pedido.telefone}`] : []),
+        ...(pedido.endereco && m.mostrar.enderecoCliente ? [`End: ${pedido.endereco}`] : []),
+      ],
+      itens: [
+        itens,
+        linha,
+        ...(pedido.modo === "entrega" ? [colunas("Taxa de entrega", (pedido.taxa ?? loja.taxaEntrega) > 0 ? valor(pedido.taxa ?? loja.taxaEntrega) : "Grátis")] : []),
+        colunas("TOTAL", "R$ " + valor(total)),
+      ],
+      pagamento: [
+        pedido.modo === "entrega" ? `Pagamento: ${forma?.nome || "-"} (na entrega)` : forma ? `Pagamento: ${forma.nome} (na retirada)` : "Pagamento no balcão",
+        ...(pedido.pag === "dinheiro" && pedido.troco ? [colunas("Troco para", valor(pedido.troco)), colunas("LEVAR DE TROCO", valor(pedido.troco - total))] : []),
+      ],
+      mensagem,
+    }, m, impressao);
   }
 
   /**
@@ -110,8 +135,9 @@ window.Fomito = window.Fomito || {};
    */
   function textoCupomComanda(comanda, indice) {
     const { marca, impressao } = Fomito.config.ler();
+    const m = modeloDe(impressao);
+    const loja = Fomito.dados.lanchonete;
     const r = comanda.rodadas[indice];
-    const centro = (t) => " ".repeat(Math.max(0, Math.floor((42 - t.length) / 2))) + t;
     const quando = new Date(r.hora);
     const data = quando.toLocaleDateString("pt-BR") + " " + quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const mesa = `MESA ${String(comanda.mesa).padStart(2, "0")}`;
@@ -119,32 +145,20 @@ window.Fomito = window.Fomito || {};
       const p = Fomito.produto(it.id);
       const nomesExtras = Fomito.todosAdicionaisDo(p).filter((a) => (it.extras || []).includes(a.id));
       const unit = it.preco ?? p.preco;
-      return [
-        colunas(`${it.qtd}x ${it.nome || p.nome}`.slice(0, 32), valor(unit * it.qtd)),
-        ...nomesExtras.map((a) => `   + ${a.nome}`),
-        ...(it.obs ? [`   OBS: ${it.obs}`] : []),
-      ].join("\n");
+      return linhasItem(it.qtd, it.nome || p.nome, unit * it.qtd, nomesExtras, it.obs, m);
     }).join("\n");
     const totalRodada = r.itens.reduce((s, it) => s + (it.preco ?? Fomito.produto(it.id).preco) * it.qtd, 0);
-    return [
-      centro(marca.nome.toUpperCase()),
-      centro("*** COMANDA DA MESA ***"),
-      linha,
-      colunas(mesa, `${indice + 1}o PEDIDO`),
-      data,
-      ...(comanda.nome ? [`Cliente: ${comanda.nome}`] : []),
-      `Pedido por: ${r.por === "qr" ? "cliente (QR Code da mesa)" : `garçom${r.quem ? ` ${r.quem}` : ""}`}`,
-      linha,
-      itens,
-      linha,
-      colunas("Total deste pedido", "R$ " + valor(totalRodada)),
-      colunas("Total da comanda", "R$ " + valor(Fomito.comandas.total(comanda))),
-      linha,
-      "Pagamento no fim, com o garçom",
-      linha,
-      centro(impressao.rodape),
-      centro("Pedidos com Fomito"),
-    ].join("\n");
+    return montar({
+      loja: blocoLoja(marca, loja, m, [centro("*** COMANDA DA MESA ***")]),
+      pedido: [colunas(mesa, `${indice + 1}o PEDIDO`), data],
+      cliente: [
+        ...(comanda.nome ? [`Cliente: ${comanda.nome}`] : []),
+        `Pedido por: ${r.por === "qr" ? "cliente (QR Code da mesa)" : `garçom${r.quem ? ` ${r.quem}` : ""}`}`,
+      ],
+      itens: [itens, linha, colunas("Total deste pedido", "R$ " + valor(totalRodada)), colunas("Total da comanda", "R$ " + valor(Fomito.comandas.total(comanda)))],
+      pagamento: ["Pagamento no fim, com o garçom"],
+      mensagem: quebrar(m.mensagem).map(centro),
+    }, m, impressao);
   }
 
   /** Manda um texto para a impressora térmica (pela impressão do navegador). */
@@ -161,7 +175,7 @@ window.Fomito = window.Fomito || {};
   }
 
   /** Imprime o cupom do pedido. Retorna o texto para mostrar a prévia na tela. */
-  const imprimirCupom = (pedido) => imprimirTexto(textoCupom(pedido));
+  const imprimirCupom = (pedido, impressaoTeste) => imprimirTexto(textoCupom(pedido, impressaoTeste));
   /** Imprime a notinha da cozinha de uma rodada da comanda. */
   const imprimirComanda = (comanda, indice) => imprimirTexto(textoCupomComanda(comanda, indice));
 
