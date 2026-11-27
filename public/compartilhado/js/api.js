@@ -52,7 +52,25 @@ window.Fomito = window.Fomito || {};
   };
 
   /** Chamada à API. Erro do servidor vira um Error com a mensagem para mostrar na tela. */
-  async function api(metodo, url, corpo) {
+  /* Envios (POST/PUT/DELETE) em andamento: o mesmo envio clicado de novo espera o primeiro,
+     em vez de ir duas vezes para o servidor (ex.: duplo clique em "Enviar no WhatsApp"). */
+  const emAndamento = new Map();
+  let ocupadas = 0;
+  const travar = () => { ocupadas++; document.body?.classList.add("ocupado"); };
+  const destravar = () => { if (--ocupadas === 0) document.body?.classList.remove("ocupado"); };
+
+  function api(metodo, url, corpo) {
+    if (metodo === "GET") return chamar(metodo, url, corpo);
+    const chave = `${metodo} ${url} ${corpo === undefined ? "" : JSON.stringify(corpo)}`;
+    if (emAndamento.has(chave)) return emAndamento.get(chave);
+    /* Enquanto o servidor não responde, os botões ficam travados (sem envio em dobro) */
+    travar();
+    const envio = chamar(metodo, url, corpo).finally(() => { emAndamento.delete(chave); destravar(); });
+    emAndamento.set(chave, envio);
+    return envio;
+  }
+
+  async function chamar(metodo, url, corpo) {
     let r;
     try {
       r = await fetch(`/api${url}`, {
@@ -120,16 +138,14 @@ window.Fomito = window.Fomito || {};
    * Enquanto espera, os botões ficam travados (evita pedido em dobro).
    * Se der erro, a mensagem aparece sozinha (veja "unhandledrejection" abaixo).
    */
-  let ocupadas = 0;
   async function acao(metodo, url, corpo) {
-    ocupadas++;
-    document.body.classList.add("ocupado");
+    travar();
     try {
       const resposta = await api(metodo, url, corpo);
       await sincronizar().catch(() => {});
       return resposta;
     } finally {
-      if (--ocupadas === 0) document.body.classList.remove("ocupado");
+      destravar();
     }
   }
 

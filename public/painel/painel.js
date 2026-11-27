@@ -346,53 +346,77 @@ document.addEventListener("click", async (e) => {
   else toast(`Pedido #${p.num} atualizado`, "check");
 });
 
-/* "Cliente retirou": como ele pagou no balcão. Igual ao motoboy e ao garçom:
-   no dinheiro, o valor recebido é OBRIGATÓRIO e o troco é calculado. Convênio não cobra.
-   Devolve { forma, recebido } ou null se fechar a janela. */
+/* "Cliente retirou": como ele pagou no balcão. Convênio não cobra. */
 function janelaRetirada(p) {
+  const total = totalPedido(p);
+  return janelaPagamento({
+    titulo: `Cliente retirou · #${p.num}`,
+    subtitulo: p.cliente,
+    total,
+    combinado: p.pag ? `Combinado: ${Fomito.formaPag(p.pag)?.nome || "-"}${p.pag === "dinheiro" && p.troco ? `, troco para ${moeda(p.troco)}` : ""}` : "Pagamento no balcão",
+    forma: p.pag === "convenio" ? "convenio" : p.pag || "",
+    trocoCombinado: p.troco,
+    botao: p.pag === "convenio" ? "Cliente retirou" : "Recebi e o cliente retirou",
+  }).then((r) => r && { forma: r.forma, recebido: r.recebido });
+}
+
+/**
+ * Janela de pagamento do painel (igual ao motoboy e ao garçom): forma, e no dinheiro
+ * o valor recebido é OBRIGATÓRIO e o troco é calculado; se faltar, não deixa confirmar.
+ * valorEditavel: o valor pode ser menor (pagar uma parte), até "total".
+ * Devolve { forma, valor, recebido, obs } ou null se fechar a janela.
+ */
+function janelaPagamento({ titulo, subtitulo = "", total, rotuloTotal = "Valor do pedido", combinado = "", forma = "", trocoCombinado = null, botao = "Confirmar", valorEditavel = false, observacao = false }) {
   const arred = (n) => Math.round(n * 100) / 100;
   const numero = (t) => parseFloat(String(t).replace(/\./g, "").replace(",", ".")) || 0;
-  const total = totalPedido(p);
-  const convenio = p.pag === "convenio";
-  const r = { forma: convenio ? "convenio" : p.pag || "", recebido: "" };
+  const convenio = forma === "convenio";
+  const r = { forma, recebido: "", valor: total.toFixed(2).replace(".", ","), obs: "" };
   const formas = Fomito.formasAtivas();
-  const notas = () => [...new Set([p.troco, Math.ceil(total / 10) * 10, Math.ceil(total / 50) * 50, Math.ceil(total / 100) * 100])].filter((n) => n && n > total).slice(0, 3);
+  const valor = () => (valorEditavel ? arred(numero(r.valor)) : total);
+  const notas = () => { const v = valor(); return [...new Set([trocoCombinado, Math.ceil(v / 10) * 10, Math.ceil(v / 50) * 50, Math.ceil(v / 100) * 100])].filter((n) => n && n > v).slice(0, 3); };
   const caixaAberto = () => !!Fomito.caixa.aberto();
   const problema = () => {
     if (!caixaAberto()) return "O caixa está fechado. Abra o caixa (menu Caixa) para registrar o pagamento.";
-    if (!r.forma) return "Escolha como o cliente pagou.";
+    if (!(valor() > 0)) return "Informe o valor.";
+    if (valor() > total + 0.005) return `O valor não pode passar de ${moeda(total)}.`;
+    if (!r.forma) return "Escolha a forma de pagamento.";
     if (r.forma !== "dinheiro") return null;
     if (!r.recebido) return "Informe quanto o cliente entregou em dinheiro para calcular o troco.";
-    if (numero(r.recebido) < total) return `Faltam ${moeda(total - numero(r.recebido))} para cobrir o pedido.`;
+    if (numero(r.recebido) < valor()) return `Faltam ${moeda(valor() - numero(r.recebido))} para cobrir o valor.`;
     return null;
   };
   const blocoTroco = () => {
     if (r.forma !== "dinheiro") return "";
     if (!r.recebido) return `<div class="troco-caixa aviso-campo">${icone("info", "ic--sm")}<span>Campo obrigatório: o troco é calculado a partir do valor recebido.</span></div>`;
     const v = numero(r.recebido);
-    return v < total
-      ? `<div class="troco-caixa erro"><span>Faltam</span><strong class="num">${moeda(total - v)}</strong></div>`
-      : `<div class="troco-caixa"><span>Troco a devolver</span><strong class="num">${moeda(v - total)}</strong></div>`;
+    return v < valor()
+      ? `<div class="troco-caixa erro"><span>Faltam</span><strong class="num">${moeda(valor() - v)}</strong></div>`
+      : `<div class="troco-caixa"><span>Troco a devolver</span><strong class="num">${moeda(v - valor())}</strong></div>`;
   };
   const areaConfirmar = () => {
     const erro = problema();
-    return `${erro && (r.recebido !== "" || !caixaAberto()) ? `<p class="form-erro">${erro}</p>` : ""}
-      <button class="btn btn--primario btn--bloco" data-confirmar ${erro ? "disabled" : ""}>${icone("check", "ic--sm")} ${convenio ? "Cliente retirou" : "Recebi e o cliente retirou"}</button>`;
+    const mostrar = erro && (r.recebido !== "" || !caixaAberto() || (valorEditavel && (valor() > total + 0.005 || !(valor() > 0))));
+    return `${mostrar ? `<p class="form-erro">${erro}</p>` : ""}
+      <button class="btn btn--primario btn--bloco" data-confirmar ${erro ? "disabled" : ""}>${icone("check", "ic--sm")} ${botao}</button>`;
   };
-  const combinado = p.pag ? `Combinado: ${Fomito.formaPag(p.pag)?.nome || "-"}${p.pag === "dinheiro" && p.troco ? `, troco para ${moeda(p.troco)}` : ""}` : "Pagamento no balcão";
 
   return new Promise((resolver) => {
     const camada = document.createElement("div");
     camada.className = "sobreposicao sobreposicao--centro";
     document.body.appendChild(camada);
-    const fechar = (valor) => { camada.remove(); document.removeEventListener("keydown", tecla); resolver(valor); };
+    let enviado = false;
+    const fechar = (resultado) => { camada.remove(); document.removeEventListener("keydown", tecla); resolver(resultado); };
     const tecla = (e) => { if (e.key === "Escape") fechar(null); };
     document.addEventListener("keydown", tecla);
     const desenhar = () => {
       camada.innerHTML = `
         <div class="folha receber" style="max-width:460px">
-          <div class="folha__topo"><div class="pilha" style="gap:2px"><h2>Cliente retirou · #${p.num}</h2><span class="pequeno suave">${p.cliente}</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
-          <div class="receber__total"><span class="rotulo">Valor do pedido</span><span class="preco">${moeda(total)}</span><span class="pequeno suave">${combinado}</span></div>
+          <div class="folha__topo"><div class="pilha" style="gap:2px"><h2>${titulo}</h2><span class="pequeno suave">${subtitulo}</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+          <div class="receber__total"><span class="rotulo">${rotuloTotal}</span><span class="preco">${moeda(total)}</span>${combinado ? `<span class="pequeno suave">${combinado}</span>` : ""}</div>
+          ${valorEditavel ? `
+            <div class="campo"><label for="valorPagamento">Valor que o cliente está pagando agora</label>
+              <input class="input num" id="valorPagamento" inputmode="decimal" value="${r.valor}">
+              <span class="pequeno fraco">Para pagar só uma parte, diminua o valor.</span></div>` : ""}
           ${convenio
             ? `<div class="aviso aviso--convenio">${icone("conta", "ic--sm")}<span><b>Convênio:</b> não cobre nada. O valor vai para a conta do cliente na loja.</span></div>`
             : `<div class="campo"><span class="rotulo-campo">Como o cliente pagou?</span>
@@ -400,26 +424,29 @@ function janelaRetirada(p) {
                   ${formas.map((f) => `<button class="opcao ${r.forma === f.id ? "ativa" : ""}" data-forma="${f.id}"><span class="opcao__icone">${icone(f.icone, "ic--sm")}</span><span class="opcao__titulo pequeno">${f.nome}</span></button>`).join("")}
                 </div></div>`}
           ${r.forma === "dinheiro" ? `
-            <div class="campo"><label for="recebidoBalcao">Valor recebido em dinheiro <span class="obrigatorio">*</span></label>
-              <input class="input num ${r.recebido ? "" : "input--pendente"}" id="recebidoBalcao" inputmode="decimal" placeholder="Quanto o cliente entregou" value="${r.recebido}">
-              <div class="notas">
-                <button data-nota="${total}">Valor exato</button>
-                ${notas().map((n) => `<button data-nota="${n}">${moeda(n)}${n === p.troco ? " (combinado)" : ""}</button>`).join("")}
-              </div>
+            <div class="campo"><label for="recebidoPagamento">Valor recebido em dinheiro <span class="obrigatorio">*</span></label>
+              <input class="input num ${r.recebido ? "" : "input--pendente"}" id="recebidoPagamento" inputmode="decimal" placeholder="Quanto o cliente entregou" value="${r.recebido}">
+              <div class="notas" id="notasPagamento">${botoesNotas()}</div>
             </div>
             <div id="caixaTroco">${blocoTroco()}</div>` : ""}
+          ${observacao ? `<div class="campo"><label for="obsPagamento">Observação <span class="fraco">(opcional)</span></label><input class="input" id="obsPagamento" maxlength="200" value="${r.obs.replace(/"/g, "&quot;")}"></div>` : ""}
           <div id="areaConfirmar">${areaConfirmar()}</div>
         </div>`;
-      $("#recebidoBalcao", camada)?.focus();
     };
+    function botoesNotas() {
+      return `<button data-nota="${valor()}">Valor exato</button>
+        ${notas().map((n) => `<button data-nota="${n}">${moeda(n)}${n === trocoCombinado ? " (combinado)" : ""}</button>`).join("")}`;
+    }
     const parcial = () => {
       if ($("#caixaTroco", camada)) $("#caixaTroco", camada).innerHTML = blocoTroco();
+      if ($("#notasPagamento", camada)) $("#notasPagamento", camada).innerHTML = botoesNotas();
       $("#areaConfirmar", camada).innerHTML = areaConfirmar();
-      $("#recebidoBalcao", camada)?.classList.toggle("input--pendente", !r.recebido);
+      $("#recebidoPagamento", camada)?.classList.toggle("input--pendente", !r.recebido);
     };
     const confirmar = () => {
-      if (problema()) return;
-      fechar({ forma: r.forma, recebido: r.forma === "dinheiro" ? arred(numero(r.recebido)) : null });
+      if (problema() || enviado) return;
+      enviado = true; // um clique só
+      fechar({ forma: r.forma, valor: valor(), recebido: r.forma === "dinheiro" ? arred(numero(r.recebido)) : null, obs: r.obs.trim() });
     };
     desenhar();
     camada.addEventListener("click", (e) => {
@@ -427,10 +454,14 @@ function janelaRetirada(p) {
       const f = e.target.closest("[data-forma]");
       if (f) { r.forma = f.dataset.forma; r.recebido = ""; return desenhar(); }
       const nota = e.target.closest("[data-nota]");
-      if (nota) { r.recebido = Number(nota.dataset.nota).toFixed(2).replace(".", ","); $("#recebidoBalcao", camada).value = r.recebido; return parcial(); }
+      if (nota) { r.recebido = Number(nota.dataset.nota).toFixed(2).replace(".", ","); $("#recebidoPagamento", camada).value = r.recebido; return parcial(); }
       if (e.target.closest("[data-confirmar]")) confirmar();
     });
-    camada.addEventListener("input", (e) => { if (e.target.id === "recebidoBalcao") { r.recebido = e.target.value; parcial(); } });
+    camada.addEventListener("input", (e) => {
+      if (e.target.id === "recebidoPagamento") { r.recebido = e.target.value; parcial(); }
+      if (e.target.id === "valorPagamento") { r.valor = e.target.value; parcial(); }
+      if (e.target.id === "obsPagamento") r.obs = e.target.value;
+    });
     camada.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches("input")) confirmar(); });
   });
 }
