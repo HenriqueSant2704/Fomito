@@ -3,10 +3,10 @@
    --------------------------------------------------------------------------
    Carregado antes do painel.js. O cadastro nasce sozinho quando o cliente
    informa o celular no finalizar pedido.
-     1. Indicadores, quem mais compra e a lista com segmentos
-        (Fiéis, Novos, Ativos, Em risco, Sumidos) e ordenação
-     2. Mensagem automática para quem sumiu (WhatsApp)
-     3. Ficha do cliente: números, favoritos, histórico, convênio e endereços
+     1. Ranking no topo (pódio): quem mais gasta, mais pede ou é mais frequente
+     2. Clientes: filtros por segmento (Fiéis, Novos, Em risco, Sumidos, Convênio)
+     3. Sumidos: escolher quem recebe a mensagem e a mensagem automática
+     4. Ficha do cliente: números, favoritos, histórico, convênio e endereços
    Os números vêm prontos do servidor (src/estado.js › clientesComResumo).
    ========================================================================== */
 
@@ -14,14 +14,16 @@ let buscaClientes = "";
 let segmentoClientes = "todos";
 let ordemClientes = "gasto";
 let rankingPor = "gasto";
+let abaSumidos = "sumido";
+const selecionadosSumidos = new Set();
 
 const SEGMENTOS = {
-  fiel: { nome: "Fiel", plural: "Fiéis", cor: "verde", dica: "3 ou mais pedidos nos últimos 60 dias" },
-  novo: { nome: "Novo", plural: "Novos", cor: "roxo", dica: "Primeiro pedido há menos de 30 dias" },
-  ativo: { nome: "Ativo", plural: "Ativos", cor: "cinza", dica: "Pede de vez em quando" },
-  risco: { nome: "Em risco", plural: "Em risco", cor: "amarelo", dica: "Está demorando mais que o normal para voltar" },
-  sumido: { nome: "Sumido", plural: "Sumidos", cor: "vermelho", dica: "Não pede há muito tempo" },
-  sem: { nome: "Sem pedido", plural: "Sem pedido", cor: "cinza", dica: "Cadastrou e ainda não pediu" },
+  fiel: { nome: "Fiel", plural: "Fiéis", cor: "verde", ponto: "#16A34A", dica: "3 ou mais pedidos nos últimos 60 dias" },
+  novo: { nome: "Novo", plural: "Novos", cor: "roxo", ponto: "#7C3AED", dica: "Primeiro pedido há menos de 30 dias" },
+  ativo: { nome: "Ativo", plural: "Ativos", cor: "cinza", ponto: "#64748B", dica: "Pede de vez em quando" },
+  risco: { nome: "Em risco", plural: "Em risco", cor: "amarelo", ponto: "#D97706", dica: "Está demorando mais que o normal para voltar" },
+  sumido: { nome: "Sumido", plural: "Sumidos", cor: "vermelho", ponto: "#DC2626", dica: "Não pede há muito tempo" },
+  sem: { nome: "Sem pedido", plural: "Sem pedido", cor: "cinza", ponto: "#94A3B8", dica: "Cadastrou e ainda não pediu" },
 };
 const ORDENS = {
   gasto: ["Quem mais gasta", (a, b) => b.gasto - a.gasto],
@@ -30,13 +32,71 @@ const ORDENS = {
   sumidos: ["Há mais tempo sem pedir", (a, b) => (b.diasSem ?? -1) - (a.diasSem ?? -1)],
   ticket: ["Maior ticket médio", (a, b) => b.ticket - a.ticket],
 };
+/* Critérios do ranking: o valor que decide a posição e como ele aparece */
+const RANKINGS = {
+  gasto: { nome: "gasta", valor: (c) => c.gasto, texto: (c) => moeda(c.gasto), sub: (c) => `${c.pedidos} pedido${c.pedidos === 1 ? "" : "s"}` },
+  pedidos: { nome: "pede", valor: (c) => c.pedidos, texto: (c) => `${c.pedidos} pedido${c.pedidos === 1 ? "" : "s"}`, sub: (c) => moeda(c.gasto) },
+  frequencia: { nome: "volta", valor: (c) => c.ultimos60 || 0, texto: (c) => `${c.ultimos60 || 0} em 60 dias`, sub: (c) => (c.intervalo ? `a cada ~${c.intervalo} dias` : "1º pedido") },
+};
 const escCli = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 const tagSegmento = (s) => (SEGMENTOS[s] ? `<span class="tag tag--${SEGMENTOS[s].cor}" title="${SEGMENTOS[s].dica}">${SEGMENTOS[s].nome}</span>` : "");
 const frequencia = (c) => (c.intervalo ? `pede a cada ~${c.intervalo} dia${c.intervalo === 1 ? "" : "s"}` : c.pedidos === 1 ? "1 pedido até agora" : "");
+const primeiroNomeCli = (n) => String(n || "").split(/\s+/)[0];
+const COROA = `<svg class="podio__coroa" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5l4.6 3.8L12 5l4.4 7.3L21 8.5 19.2 18H4.8z" fill="currentColor"/><rect x="4.8" y="19" width="14.4" height="2" rx="1" fill="currentColor"/></svg>`;
 
-/* ---------- 1. TELA ---------- */
-function renderClientes() {
-  const todos = Fomito.clientes.lista();
+/* ---------- 1. RANKING (pódio) ---------- */
+function blocoRanking(todos) {
+  const r = RANKINGS[rankingPor];
+  const top = todos.filter((c) => r.valor(c) > 0).sort((a, b) => r.valor(b) - r.valor(a)).slice(0, 5);
+  const comPedido = todos.filter((c) => c.pedidos);
+  const ticket = comPedido.reduce((s, c) => s + c.gasto, 0) / Math.max(1, comPedido.reduce((s, c) => s + c.pedidos, 0));
+  const ativos = todos.filter((c) => c.diasSem !== null && c.diasSem <= 30).length;
+  const chamar = todos.filter((c) => c.segmento === "risco" || c.segmento === "sumido").length;
+  const lugar = (c, pos) => (c ? `
+    <div class="podio__lugar podio__lugar--${pos} linha-clicavel" data-cliente="${c.telefone}" style="--atraso:${[0, 0.15, 0, 0.3][pos]}s">
+      <div class="podio__pessoa">
+        ${pos === 1 ? COROA : ""}
+        <span class="podio__avatar">${iniciais(c.nome)}</span>
+        <span class="podio__nome" title="${escCli(c.nome)}">${escCli(primeiroNomeCli(c.nome))}</span>
+        <span class="podio__valor">${r.texto(c)}</span>
+        <span class="podio__sub">${r.sub(c)}</span>
+      </div>
+      <div class="podio__bloco"><span>${pos}º</span></div>
+    </div>` : `<div class="podio__lugar podio__lugar--${pos} podio__lugar--vazio"><div class="podio__pessoa"><span class="podio__avatar">?</span><span class="podio__sub">ainda ninguém</span></div><div class="podio__bloco"><span>${pos}º</span></div></div>`);
+  return `
+    <section class="card hero-ranking">
+      <div class="hero-ranking__topo">
+        <div class="pilha" style="gap:2px">
+          <span class="rotulo">Ranking dos clientes</span>
+          <h3 class="hero-ranking__titulo">Quem mais <span>${r.nome}</span></h3>
+        </div>
+        <div class="segmentado" role="tablist" aria-label="Critério do ranking">
+          ${Object.entries({ gasto: "Gasta mais", pedidos: "Pede mais", frequencia: "Mais frequente" }).map(([id, nome]) => `<button class="${rankingPor === id ? "ativo" : ""}" data-ranking="${id}" role="tab" aria-selected="${rankingPor === id}">${nome}</button>`).join("")}
+        </div>
+      </div>
+      <div class="hero-ranking__corpo">
+        <div class="podio">${lugar(top[1], 2)}${lugar(top[0], 1)}${lugar(top[2], 3)}</div>
+        <div class="hero-ranking__lado">
+          ${[top[3], top[4]].map((c, i) => (c ? `
+            <div class="ranking-mini linha-clicavel" data-cliente="${c.telefone}">
+              <span class="ranking-mini__pos">${i + 4}º</span>
+              <span class="avatar" style="width:34px;height:34px;font-size:12px">${iniciais(c.nome)}</span>
+              <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${escCli(c.nome)}</span><span class="pequeno fraco">${r.sub(c)}</span></div>
+              <span class="num forte">${r.texto(c)}</span>
+            </div>` : "")).join("")}
+          <div class="hero-stats">
+            <div><strong>${todos.length}</strong><span>clientes</span></div>
+            <div><strong>${ativos}</strong><span>ativos em 30 dias</span></div>
+            <div><strong>${moeda(ticket)}</strong><span>ticket médio</span></div>
+            <div class="hero-stats__alerta"><strong>${chamar}</strong><span>para chamar de volta</span></div>
+          </div>
+        </div>
+      </div>
+    </section>`;
+}
+
+/* ---------- 2. CLIENTES ---------- */
+function blocoListaClientes(todos) {
   const termo = Fomito.paraBusca(buscaClientes);
   const digitos = Fomito.clientes.soDigitos(buscaClientes);
   const conta = (s) => todos.filter((c) => c.segmento === s).length;
@@ -44,78 +104,85 @@ function renderClientes() {
     .filter((c) => segmentoClientes === "todos" || (segmentoClientes === "convenio" ? c.convenio?.ativo : c.segmento === segmentoClientes))
     .filter((c) => !termo || Fomito.paraBusca(c.nome).includes(termo) || (digitos && c.telefone.includes(digitos)))
     .sort(ORDENS[ordemClientes][1]);
-  const comPedido = todos.filter((c) => c.pedidos);
-  const gasto = comPedido.reduce((s, c) => s + c.gasto, 0);
-  const pedidosTotal = comPedido.reduce((s, c) => s + c.pedidos, 0);
-  const ativos30 = todos.filter((c) => c.diasSem !== null && c.diasSem <= 30).length;
-  const novos30 = todos.filter((c) => c.primeiroTs && Date.now() - c.primeiroTs <= 30 * 86400000).length;
-  const ranking = [...comPedido].sort(rankingPor === "gasto" ? ORDENS.gasto[1] : ORDENS.pedidos[1]).slice(0, 5);
-  const maxRank = ranking[0] ? (rankingPor === "gasto" ? ranking[0].gasto : ranking[0].pedidos) : 1;
-  const filtros = [["todos", "Todos", todos.length], ...["fiel", "novo", "ativo", "risco", "sumido", "sem"].map((s) => [s, SEGMENTOS[s].plural, conta(s)]), ["convenio", "Convênio", todos.filter((c) => c.convenio?.ativo).length]].filter(([id, , n]) => id === "todos" || n);
-
-  $('[data-secao="clientes"].secao').innerHTML = `
-    <div class="kpis kpis--clientes">
-      <div class="card kpi"><span class="kpi__rotulo">Clientes ${icone("pessoas", "ic--sm")}</span><span class="kpi__valor">${todos.length}</span><span class="variacao bom"><b>+${novos30}</b> nos últimos 30 dias</span></div>
-      <div class="card kpi"><span class="kpi__rotulo">Ativos ${icone("sobe", "ic--sm")}</span><span class="kpi__valor">${ativos30}</span><span class="variacao">pediram nos últimos 30 dias</span></div>
-      <div class="card kpi"><span class="kpi__rotulo">Fiéis ${icone("estrela", "ic--sm")}</span><span class="kpi__valor">${conta("fiel")}</span><span class="variacao">3+ pedidos em 60 dias</span></div>
-      <div class="card kpi kpi--destaque"><span class="kpi__rotulo">Para chamar de volta ${icone("sino", "ic--sm")}</span><span class="kpi__valor">${conta("risco") + conta("sumido")}</span><span class="variacao">${conta("risco")} em risco · ${conta("sumido")} sumidos</span></div>
-      <div class="card kpi"><span class="kpi__rotulo">Ticket médio ${icone("moeda", "ic--sm")}</span><span class="kpi__valor">${moeda(pedidosTotal ? gasto / pedidosTotal : 0)}</span><span class="variacao">por pedido</span></div>
-    </div>
-
-    <div class="duas-colunas">
-      <div class="card painel-card">
-        <div class="painel-card__topo"><h3>Quem mais compra</h3>
-          <nav class="filtros"><button class="filtro ${rankingPor === "gasto" ? "ativo" : ""}" data-ranking="gasto">Gasto</button><button class="filtro ${rankingPor === "pedidos" ? "ativo" : ""}" data-ranking="pedidos">Pedidos</button></nav></div>
-        <div class="ranking">
-          ${ranking.map((c, i) => {
-            const v = rankingPor === "gasto" ? c.gasto : c.pedidos;
-            return `
-            <div class="ranking__linha linha-clicavel" data-cliente="${c.telefone}">
-              <span class="ranking__pos ranking__pos--${i + 1}">${i + 1}</span>
-              <div class="pilha" style="gap:4px;flex:1;min-width:0">
-                <div class="entre"><span class="forte">${escCli(c.nome)}</span><span class="num forte">${rankingPor === "gasto" ? moeda(v) : `${v} pedido${v === 1 ? "" : "s"}`}</span></div>
-                <div class="barra-cat__trilho"><span style="width:${Math.max(4, (v / maxRank) * 100)}%"></span></div>
-              </div>
-            </div>`;
-          }).join("") || `<p class="pequeno fraco">Ainda sem pedidos com celular.</p>`}
-        </div>
-      </div>
-      ${ehAdmin ? cartaoReativacao(conta("sumido")) : ""}
-    </div>
-
-    <div class="card painel-card">
+  const pilulas = [
+    ["todos", "Todos", todos.length, "#4B2B8F"],
+    ...["fiel", "novo", "ativo", "risco", "sumido", "sem"].map((s) => [s, SEGMENTOS[s].plural, conta(s), SEGMENTOS[s].ponto]),
+    ["convenio", "Convênio", todos.filter((c) => c.convenio?.ativo).length, "#EA580C"],
+  ].filter(([id, , n]) => id === "todos" || n);
+  return `
+    <section class="card painel-card">
       <div class="painel-card__topo" style="flex-wrap:wrap">
         <div class="pilha" style="gap:2px"><h3>Clientes</h3><span class="pequeno suave">${lista.length} de ${todos.length} · toque para ver a ficha</span></div>
         <span class="linha" style="gap:8px;flex-wrap:wrap">
           <label class="busca-painel">${icone("busca", "ic--sm")}<input id="buscaClientes" placeholder="Nome ou telefone" value="${escCli(buscaClientes)}"></label>
-          <select class="input input--sm" id="ordemClientes" aria-label="Ordenar">${Object.entries(ORDENS).map(([id, [nome]]) => `<option value="${id}" ${id === ordemClientes ? "selected" : ""}>${nome}</option>`).join("")}</select>
+          <label class="ordenar">${icone("baixo", "ic--sm")}<select id="ordemClientes" aria-label="Ordenar">${Object.entries(ORDENS).map(([id, [nome]]) => `<option value="${id}" ${id === ordemClientes ? "selected" : ""}>${nome}</option>`).join("")}</select></label>
         </span>
       </div>
-      <nav class="filtros">${filtros.map(([id, nome, n]) => `<button class="filtro ${segmentoClientes === id ? "ativo" : ""}" data-segmento="${id}">${nome} <small>${n}</small></button>`).join("")}</nav>
-      ${segmentoClientes !== "todos" && SEGMENTOS[segmentoClientes] ? `<p class="pequeno suave">${SEGMENTOS[segmentoClientes].dica}.</p>` : ""}
+      <div class="seg-filtros">
+        ${pilulas.map(([id, nome, n, cor]) => `
+          <button class="seg-pilula ${segmentoClientes === id ? "ativa" : ""}" data-segmento="${id}" style="--cor:${cor}" title="${SEGMENTOS[id]?.dica || ""}">
+            <span class="seg-pilula__ponto"></span>${nome}<span class="seg-pilula__n">${n}</span>
+          </button>`).join("")}
+      </div>
+      ${segmentoClientes !== "todos" && SEGMENTOS[segmentoClientes] ? `<p class="pequeno suave" style="margin:0">${SEGMENTOS[segmentoClientes].dica}.</p>` : ""}
       <div class="lista-clientes">
         ${lista.map((c) => `
-          <div class="cliente-linha linha-clicavel" data-cliente="${c.telefone}">
-            <span class="avatar" style="width:40px;height:40px;font-size:13px">${iniciais(c.nome)}</span>
+          <div class="cliente-linha linha-clicavel" data-cliente="${c.telefone}" style="--cor:${SEGMENTOS[c.segmento]?.ponto || "#94A3B8"}">
+            <span class="avatar cliente-linha__avatar">${iniciais(c.nome)}</span>
             <div class="pilha" style="gap:2px;flex:1;min-width:0">
-              <div class="linha" style="gap:6px;flex-wrap:wrap"><span class="forte">${escCli(c.nome)}</span>${tagSegmento(c.segmento)}${c.convenio?.ativo ? `<span class="tag tag--roxo">Convênio</span>` : ""}</div>
-              <span class="pequeno suave">${c.pedidos ? `${c.pedidos} pedido${c.pedidos === 1 ? "" : "s"} · ticket ${moeda(c.ticket)}` : "Ainda não pediu"}${c.pedidos ? ` · último: ${c.ultimo.toLowerCase()}` : ""}</span>
+              <div class="linha" style="gap:6px;flex-wrap:wrap"><span class="forte">${escCli(c.nome)}</span>${tagSegmento(c.segmento)}${c.convenio?.ativo ? `<span class="tag tag--laranja">Convênio</span>` : ""}</div>
+              <span class="pequeno suave">${c.pedidos ? `${c.pedidos} pedido${c.pedidos === 1 ? "" : "s"} · ticket ${moeda(c.ticket)} · último: ${c.ultimo.toLowerCase()}` : "Ainda não pediu"}</span>
               ${frequencia(c) ? `<span class="pequeno fraco">${frequencia(c)}${c.favoritos?.[0] ? ` · gosta de ${escCli(c.favoritos[0].nome)}` : ""}</span>` : ""}
             </div>
             <div class="pilha" style="gap:0;align-items:flex-end"><span class="num forte">${moeda(c.gasto)}</span><span class="pequeno fraco">gasto</span></div>
           </div>`).join("") || `<p class="suave" style="text-align:center;padding:24px">Nenhum cliente neste filtro.</p>`}
       </div>
+    </section>`;
+}
+
+/* ---------- 3. SUMIDOS: escolher quem recebe e a mensagem automática ---------- */
+function blocoSumidos(todos) {
+  const lista = todos.filter((c) => c.segmento === abaSumidos).sort((a, b) => (b.diasSem || 0) - (a.diasSem || 0));
+  [...selecionadosSumidos].forEach((t) => { if (!lista.some((c) => c.telefone === t)) selecionadosSumidos.delete(t); });
+  const todosMarcados = lista.length && lista.every((c) => selecionadosSumidos.has(c.telefone));
+  const conta = (s) => todos.filter((c) => c.segmento === s).length;
+  return `
+    <div class="grade-sumidos">
+      <section class="card painel-card">
+        <div class="painel-card__topo" style="flex-wrap:wrap">
+          <div class="pilha" style="gap:2px"><h3>Chamar de volta</h3><span class="pequeno suave">Escolha quem recebe a mensagem agora.</span></div>
+          <div class="segmentado segmentado--sm">
+            <button class="${abaSumidos === "sumido" ? "ativo" : ""}" data-aba-sumidos="sumido">Sumidos <b>${conta("sumido")}</b></button>
+            <button class="${abaSumidos === "risco" ? "ativo" : ""}" data-aba-sumidos="risco">Em risco <b>${conta("risco")}</b></button>
+          </div>
+        </div>
+        ${lista.length ? `
+        <label class="sumidos-todos check-linha"><input type="checkbox" data-marcar-todos ${todosMarcados ? "checked" : ""}> Selecionar todos (${lista.length})</label>
+        <div class="sumidos-lista lista-rolagem">
+          ${lista.map((c) => `
+            <label class="sumido-linha ${selecionadosSumidos.has(c.telefone) ? "marcado" : ""}">
+              <input type="checkbox" data-sumido="${c.telefone}" ${selecionadosSumidos.has(c.telefone) ? "checked" : ""}>
+              <span class="avatar" style="width:34px;height:34px;font-size:12px">${iniciais(c.nome)}</span>
+              <span class="pilha" style="gap:1px;flex:1;min-width:0"><span class="forte">${escCli(c.nome)}</span><span class="pequeno fraco">${c.diasSem} dias sem pedir · gastou ${moeda(c.gasto)}${c.favoritos?.[0] ? ` · gosta de ${escCli(c.favoritos[0].nome)}` : ""}</span></span>
+              ${c.reativadoEm ? `<span class="tag tag--cinza" title="Já recebeu a mensagem">${(() => { const d = Math.max(0, Math.floor((Date.now() - c.reativadoEm) / 86400000)); return d ? `mensagem há ${d}d` : "mensagem hoje"; })()}</span>` : ""}
+            </label>`).join("")}
+        </div>
+        <div class="sumidos-acao">
+          <span class="pequeno suave">${selecionadosSumidos.size ? `<b>${selecionadosSumidos.size}</b> selecionado${selecionadosSumidos.size === 1 ? "" : "s"}` : "Ninguém selecionado"}</span>
+          ${ehAdmin ? `<button class="btn btn--primario btn--sm" data-enviar-selecionados ${selecionadosSumidos.size ? "" : "disabled"}>${icone("whatsapp", "ic--sm")} Enviar mensagem${selecionadosSumidos.size ? ` (${selecionadosSumidos.size})` : ""}</button>` : ""}
+        </div>` : `<div class="vazio-sumidos">${icone("check")}<span>Ninguém ${abaSumidos === "sumido" ? "sumido" : "em risco"} agora. Bom sinal!</span></div>`}
+      </section>
+      ${ehAdmin ? cartaoReativacao() : ""}
     </div>`;
 }
 
-/* ---------- 2. MENSAGEM PARA QUEM SUMIU ---------- */
-function cartaoReativacao(qtdSumidos) {
+function cartaoReativacao() {
   const r = Fomito.config.ler().clientes?.reativacao || {};
   const exemplo = (r.texto || "").replace(/\{nome\}/g, "Ana").replace(/\{dias\}/g, r.dias || 30).replace(/\{loja\}/g, Fomito.config.ler().marca.nome);
   return `
-    <div class="card painel-card">
+    <section class="card painel-card automacao ${r.ativo ? "automacao--ligada" : ""}">
       <div class="painel-card__topo">
-        <div class="pilha" style="gap:2px"><h3>Chamar de volta quem sumiu</h3><span class="pequeno suave">Mensagem automática no WhatsApp para quem não pede há um tempo.</span></div>
+        <div class="pilha" style="gap:2px"><h3 class="linha" style="gap:8px">${icone("relogio", "ic--sm")} Mensagem automática</h3><span class="pequeno suave">${r.ativo ? "Ligada: envia sozinha para quem sumir." : "Desligada: só envia quando você escolher."}</span></div>
         <label class="interruptor" title="Ligar a mensagem automática"><input type="checkbox" id="rvAtivo" ${r.ativo ? "checked" : ""}><span></span></label>
       </div>
       <div class="form-grade">
@@ -124,12 +191,14 @@ function cartaoReativacao(qtdSumidos) {
       </div>
       <div class="campo"><label for="rvTexto">Mensagem <span class="fraco">({nome}, {dias} e {loja} são trocados)</span></label><textarea class="input" id="rvTexto" rows="3" maxlength="600">${escCli(r.texto || "")}</textarea></div>
       <div class="balao-whats"><span class="pequeno fraco">Como chega:</span><p id="rvPrevia">${escCli(exemplo)}</p></div>
-      <p class="pequeno fraco">Envia de hora em hora, das 10h às 20h, até 15 por vez, pelo WhatsApp conectado da loja. Hoje: ${qtdSumidos} cliente${qtdSumidos === 1 ? "" : "s"} no segmento Sumidos.</p>
-      <div class="linha" style="gap:8px;flex-wrap:wrap">
-        <button class="btn btn--primario btn--sm" data-salvar-reativacao>${icone("check", "ic--sm")} Salvar</button>
-        <button class="btn btn--contorno btn--sm" data-ver-sumidos>${icone("pessoas", "ic--sm")} Quem vai receber</button>
-      </div>
-    </div>`;
+      <p class="pequeno fraco" style="margin:0">Envia de hora em hora, das 10h às 20h, até 15 por vez, pelo WhatsApp conectado da loja.</p>
+      <button class="btn btn--primario btn--sm" data-salvar-reativacao style="align-self:flex-start">${icone("check", "ic--sm")} Salvar mensagem</button>
+    </section>`;
+}
+
+function renderClientes() {
+  const todos = Fomito.clientes.lista();
+  $('[data-secao="clientes"].secao').innerHTML = `${blocoRanking(todos)}${blocoListaClientes(todos)}${blocoSumidos(todos)}`;
 }
 
 async function salvarReativacao() {
@@ -138,38 +207,25 @@ async function salvarReativacao() {
     ativo: $("#rvAtivo").checked, dias: Number($("#rvDias").value), intervalo: Number($("#rvIntervalo").value), texto: $("#rvTexto").value,
   } };
   await Fomito.config.salvar(cfg);
-  toast(cfg.clientes.reativacao.ativo ? "Mensagem automática ligada" : "Configuração salva (mensagem desligada)", "check");
+  toast(cfg.clientes.reativacao.ativo ? "Mensagem automática ligada" : "Mensagem salva (automática desligada)", "check");
   renderClientes();
 }
 
-async function verSumidos() {
-  let r;
-  try { r = await Fomito.api("GET", "/clientes/sumidos"); } catch (err) { return toast(err.message, "info"); }
-  const camada = document.createElement("div");
-  camada.className = "sobreposicao sobreposicao--centro";
-  camada.innerHTML = `
-    <div class="folha" style="max-width:440px;display:flex;flex-direction:column;gap:14px">
-      <div class="folha__topo"><div class="pilha" style="gap:0"><h2>Quem vai receber</h2><span class="pequeno suave">${r.total} cliente${r.total === 1 ? "" : "s"} sem pedir e sem mensagem recente</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
-      <div class="lista-rolagem pilha" style="gap:0">
-        ${r.lista.map((c) => `<div class="extrato-linha"><span class="forte">${escCli(c.nome)}</span><span class="pequeno suave">há ${c.dias} dias</span></div>`).join("") || `<p class="pequeno fraco">Ninguém para chamar agora.</p>`}
-      </div>
-      ${r.total ? `<button class="btn btn--primario btn--bloco" data-enviar-sumidos>${icone("whatsapp", "ic--sm")} Enviar agora (até 15)</button>` : `<button class="btn btn--contorno btn--bloco" data-fechar>Fechar</button>`}
-    </div>`;
-  document.body.appendChild(camada);
-  camada.addEventListener("click", async (e) => {
-    if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
-    const botao = e.target.closest("[data-enviar-sumidos]");
-    if (!botao) return;
-    botao.disabled = true;
-    try {
-      const feito = await Fomito.api("POST", "/clientes/sumidos/enviar");
-      camada.remove();
-      toast(feito.enviados ? `${feito.enviados} mensagem(ns) enviada(s)${feito.faltam ? `. Faltam ${feito.faltam}` : ""}` : (feito.erro || "Nenhuma mensagem enviada"), feito.enviados ? "whatsapp" : "info");
-    } catch (err) { toast(err.message, "info"); botao.disabled = false; }
-  });
+async function enviarSelecionados() {
+  const telefones = [...selecionadosSumidos];
+  if (!telefones.length) return;
+  const nomes = Fomito.clientes.lista().filter((c) => selecionadosSumidos.has(c.telefone)).map((c) => primeiroNomeCli(c.nome));
+  if (!(await Fomito.confirmar(`Enviar para ${telefones.length} cliente${telefones.length === 1 ? "" : "s"}?`, `${nomes.slice(0, 6).join(", ")}${nomes.length > 6 ? "..." : ""} vão receber a mensagem no WhatsApp da loja.`, "Enviar agora"))) return;
+  try {
+    const feito = await Fomito.api("POST", "/clientes/sumidos/enviar", { telefones });
+    selecionadosSumidos.clear();
+    await Fomito.sincronizar().catch(() => {});
+    renderClientes();
+    toast(feito.enviados ? `${feito.enviados} mensagem(ns) enviada(s)` : (feito.erro || "Nenhuma mensagem enviada"), feito.enviados ? "whatsapp" : "info");
+  } catch (err) { toast(err.message, "info"); }
 }
 
-/* ---------- 3. FICHA DO CLIENTE ---------- */
+/* ---------- 4. FICHA DO CLIENTE ---------- */
 async function abrirCliente(telefone) {
   const c = Fomito.clientes.buscar(telefone);
   if (!c) return;
@@ -245,17 +301,29 @@ async function abrirCliente(telefone) {
 /* ---------- Cliques e digitação ---------- */
 document.addEventListener("click", (e) => {
   if (!e.target.closest('[data-secao="clientes"].secao')) return;
+  if (e.target.closest(".sumido-linha, [data-marcar-todos]")) return; // checkboxes: tratados no "change"
   const linha = e.target.closest("[data-cliente]");
   if (linha) return abrirCliente(linha.dataset.cliente);
   const seg = e.target.closest("[data-segmento]");
   if (seg) { segmentoClientes = seg.dataset.segmento; return renderClientes(); }
   const rk = e.target.closest("[data-ranking]");
   if (rk) { rankingPor = rk.dataset.ranking; return renderClientes(); }
+  const aba = e.target.closest("[data-aba-sumidos]");
+  if (aba) { abaSumidos = aba.dataset.abaSumidos; selecionadosSumidos.clear(); return renderClientes(); }
   if (e.target.closest("[data-salvar-reativacao]")) return salvarReativacao();
-  if (e.target.closest("[data-ver-sumidos]")) return verSumidos();
+  if (e.target.closest("[data-enviar-selecionados]")) return enviarSelecionados();
 });
 document.addEventListener("change", (e) => {
-  if (e.target.id === "ordemClientes") { ordemClientes = e.target.value; renderClientes(); }
+  if (e.target.id === "ordemClientes") { ordemClientes = e.target.value; return renderClientes(); }
+  if (e.target.dataset?.sumido) {
+    if (e.target.checked) selecionadosSumidos.add(e.target.dataset.sumido); else selecionadosSumidos.delete(e.target.dataset.sumido);
+    return renderClientes();
+  }
+  if (e.target.matches?.("[data-marcar-todos]")) {
+    const lista = Fomito.clientes.lista().filter((c) => c.segmento === abaSumidos);
+    lista.forEach((c) => (e.target.checked ? selecionadosSumidos.add(c.telefone) : selecionadosSumidos.delete(c.telefone)));
+    return renderClientes();
+  }
 });
 document.addEventListener("input", (e) => {
   if (e.target.id === "rvTexto" || e.target.id === "rvDias") {

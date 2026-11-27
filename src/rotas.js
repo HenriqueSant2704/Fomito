@@ -172,7 +172,11 @@ r.get('/clientes/sumidos', admin, ok(async () => {
   const lista = await require('./reativacao').candidatos();
   return { total: lista.length, lista: lista.slice(0, 60) };
 }));
-r.post('/clientes/sumidos/enviar', admin, ok(() => require('./reativacao').rodar({ manual: true })));
+r.post('/clientes/sumidos/enviar', admin, ok(async (req) => {
+  const feito = await require('./reativacao').rodar({ manual: true, telefones: req.body?.telefones || null });
+  require('./estado').limparCacheClientes(); // a tela já mostra quem recebeu
+  return feito;
+}));
 
 /* ---------- Pedidos de entrega e balcão ---------- */
 r.post('/pedidos', ok(async (req) => {

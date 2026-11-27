@@ -23,17 +23,29 @@ async function candidatos(cfg = loja.obter().config.clientes.reativacao) {
     .map((r) => ({ telefone: r.telefone, nome: r.nome, dias: Math.floor((Date.now() - new Date(r.ultimo).getTime()) / DIA) }));
 }
 
+/** Clientes escolhidos na tela, com os dias desde o último pedido */
+async function escolhidos(telefones) {
+  const { rows } = await db.query(
+    `SELECT c.telefone, c.nome, max(p.criado_em) AS ultimo FROM clientes c
+       LEFT JOIN pedidos p ON p.telefone = c.telefone AND p.status <> 'cancelado'
+      WHERE c.telefone = ANY($1) GROUP BY c.telefone`, [telefones.map((t) => String(t).replace(/\D/g, ''))]);
+  return rows.map((r) => ({ telefone: r.telefone, nome: r.nome, dias: r.ultimo ? Math.floor((Date.now() - new Date(r.ultimo).getTime()) / DIA) : 0 }));
+}
+
 /** Manda a mensagem para os sumidos. manual = o dono apertou "Enviar agora" (vale fora do horário). */
-async function rodar({ manual = false } = {}) {
+async function rodar({ manual = false, telefones = null } = {}) {
   const { config } = loja.obter();
   const cfg = config.clientes?.reativacao;
   if (!cfg || (!manual && !cfg.ativo)) return { enviados: 0, faltam: 0 };
   const hora = Number(new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }));
   if (!manual && (hora < 10 || hora >= 20)) return { enviados: 0, faltam: 0 };
-  const lista = await candidatos(cfg);
+  /* Selecionados na tela: vai só para eles (o dono escolheu, então não espera o intervalo) */
+  const lista = Array.isArray(telefones) && telefones.length
+    ? await escolhidos(telefones.slice(0, 30))
+    : await candidatos(cfg);
   let enviados = 0;
   const erros = [];
-  for (const c of lista.slice(0, POR_RODADA)) {
+  for (const c of lista.slice(0, telefones ? 30 : POR_RODADA)) {
     try {
       await whatsapp.enviarTexto(c.telefone, montar(cfg.texto, { nome: primeiroNome(c.nome), dias: c.dias, loja: config.marca.nome }));
       await db.query(`UPDATE clientes SET contato = coalesce(contato, '{}'::jsonb) || $2::jsonb WHERE telefone = $1`, [c.telefone, { reativadoEm: Date.now() }]);
