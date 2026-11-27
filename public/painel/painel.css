@@ -586,6 +586,34 @@ button.tag { cursor: pointer; }
 .campo-senha .link { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
 @media (max-width: 520px) { .membro { flex-wrap: wrap; } .membro__info { flex: 1; min-width: 0; } }
 
-/* ---------- Modelo da notinha ---------- */
-.item-ordem--compacto { padding: 8px 0; }
-.item-ordem__num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--roxo-claro); color: var(--roxo); font-size: 12px; font-weight: 700; flex: none; }
+
+/* ---------- Notinha editável na prévia ---------- */
+.cupom__papel {
+  box-sizing: content-box; width: 42ch; flex: none; padding: 16px 14px 22px; background: #fff; color: #111;
+  font: 11.5px/1.4 "Courier New", ui-monospace, monospace; box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x;
+}
+.cupom__zona {
+  display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 4px 2px; resize: none; overflow: hidden;
+  font: inherit; color: inherit; text-align: center; background: transparent;
+  border: 1px dashed #C9C3DA; border-radius: 6px; outline: none; transition: background .15s, border-color .15s;
+}
+.cupom__zona:hover { background: #FBFAFE; border-color: var(--roxo-medio); }
+.cupom__zona:focus { background: #F6F3FD; border-color: var(--roxo); border-style: solid; }
+.cupom__zona::placeholder { color: #A8A2B8; font-style: italic; }
+.cupom__linha { white-space: pre; overflow: hidden; }
+.cupom__fixo { white-space: pre-wrap; color: #333; cursor: not-allowed; }
+.cupom__fixo-linha { position: relative; }
+.cupom__ocultar { position: absolute; right: -6px; top: 0; width: 18px; height: 18px; border-radius: 50%; border: 0; background: #EEE; color: #666; font: 700 12px/18px system-ui, sans-serif; cursor: pointer; opacity: .55; }
+.cupom__ocultar:hover { opacity: 1; background: var(--vermelho-claro); color: var(--vermelho-escuro); }
+.cupom__mostrar { display: block; margin: 4px 0; padding: 0; border: 0; background: none; font: 600 11px system-ui, sans-serif; color: var(--roxo); cursor: pointer; }
+.cupom__papel .cupom__zona { font-size: 11.5px; line-height: 1.4; min-height: 0; height: auto; }
+.cupom__fixo { white-space: normal; }
+.cupom__fixo-linha { white-space: pre-wrap; padding-right: 0; }
+.cupom { max-height: none; }
+/* No celular os campos ficam em 16px (para não dar zoom ao tocar): aqui o campo é "encolhido"
+   para ficar do tamanho da letra da notinha, sem perder isso */
+@media (max-width: 760px) {
+  .cupom__papel .cupom__zona { zoom: .71875; }
+}

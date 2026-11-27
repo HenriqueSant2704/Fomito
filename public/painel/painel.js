@@ -692,7 +692,7 @@ function configImpressao() {
           </div>
           <button class="btn btn--contorno" id="iTeste">${icone("impressora", "ic--sm")} Imprimir cupom de teste</button>
         </div>
-        ${cartaoModeloNotinha(imp)}
+
         <div class="card painel-card">
           <div class="pilha" style="gap:2px"><h3>Som de novo pedido</h3><p class="pequeno suave">Toca um alerta no computador do caixa sempre que chega pedido.</p></div>
           <div class="config-pag"><span>Tocar som quando chegar pedido</span><label class="interruptor"><input type="checkbox" id="sAtivo" ${som.ativo ? "checked" : ""}><span></span></label></div>
@@ -702,45 +702,42 @@ function configImpressao() {
       </div>
       <div class="card painel-card">
         <div class="painel-card__topo"><h3>Prévia do cupom</h3><span class="tag tag--cinza">80mm</span></div>
-        <p class="pequeno suave">Atualiza enquanto você edita. Itens e valores são sempre os do pedido.</p>
-        <div class="cupom"><pre id="previaCupom">${alertas.textoCupom(exemplo, imp).replace(/</g, "&lt;")}</pre></div>
+        <p class="pequeno suave">Toque no topo ou no fim da notinha para apagar ou escrever. O meio (pedido, itens e valores) é sempre o do pedido.</p>
+        <div class="cupom" id="previaCupom">${editorCupom(exemplo, imp)}</div>
+        <button type="button" class="link pequeno" data-restaurar-cupom style="align-self:flex-start">Voltar ao modelo padrão</button>
       </div>
     </div>`;
 }
 
-/* Modelo da notinha: textos, o que aparece e a ordem dos blocos */
-const NOMES_BLOCOS = { loja: "Nome e dados da loja", pedido: "Número do pedido e data", cliente: "Cliente", itens: "Itens e total", pagamento: "Pagamento e troco", mensagem: "Sua mensagem" };
-const OPCOES_MOSTRAR = [["endereco", "Endereço da loja"], ["telefoneLoja", "Telefone da loja"], ["telefoneCliente", "Telefone do cliente"], ["enderecoCliente", "Endereço do cliente"], ["observacoes", "Observações dos itens"], ["fomito", "“Pedidos com Fomito” no fim"]];
-function modeloRascunho(imp) {
-  const padrao = Fomito.config.PADRAO?.impressao?.modelo || {};
-  imp.modelo = { cabecalho: "", mensagem: "", ...padrao, ...(imp.modelo || {}), mostrar: { ...(padrao.mostrar || {}), ...((imp.modelo || {}).mostrar || {}) } };
-  const blocos = Object.keys(NOMES_BLOCOS);
-  imp.modelo.ordem = [...(imp.modelo.ordem || []).filter((b) => blocos.includes(b)), ...blocos.filter((b) => !(imp.modelo.ordem || []).includes(b))];
-  return imp.modelo;
-}
-function cartaoModeloNotinha(imp) {
-  const m = modeloRascunho(imp);
+/* Notinha editável na própria prévia: o topo e o fim são texto livre (uma linha por linha do papel);
+   o meio vem do pedido e fica travado. Telefone e endereço do cliente podem ser escondidos. */
+const escHtml = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function editorCupom(pedido, imp) {
+  const p = alertas.partesCupom(pedido, imp);
+  const area = (zona, linhas, dica) => `<textarea class="cupom__zona" data-zona-cupom="${zona}" rows="${Math.max(1, linhas.length)}" spellcheck="false" placeholder="${dica}" aria-label="${zona === "topo" ? "Topo da notinha" : "Fim da notinha"}">${escHtml(linhas.join("\n"))}</textarea>`;
+  const ocultas = Object.entries(p.ocultaveis).filter(([k, tem]) => tem && !p.mostrar[k]);
   return `
-    <div class="card painel-card">
-      <div class="pilha" style="gap:2px"><h3>Modelo da notinha</h3><p class="pequeno suave">Personalize os textos e o que aparece. Os itens e valores impressos são sempre os do pedido.</p></div>
-      <div class="campo"><label for="iCabecalho">Linhas abaixo do nome <span class="fraco">(ex.: CNPJ, telefone, Instagram)</span></label><textarea id="iCabecalho" class="input" rows="2" maxlength="160" placeholder="CNPJ 00.000.000/0001-00&#10;@lanchonetedoze">${m.cabecalho}</textarea></div>
-      <div class="campo"><label for="iMensagem">Sua mensagem <span class="fraco">(ex.: promoção da semana)</span></label><textarea id="iMensagem" class="input" rows="2" maxlength="200" placeholder="Terça é dia de X-Bacon em dobro!">${m.mensagem}</textarea></div>
-      <div class="campo"><label for="iRodape">Mensagem do fim</label><input id="iRodape" class="input" maxlength="80" value="${imp.rodape}"></div>
-      <div class="pilha" style="gap:0">
-        <span class="rotulo">O que aparece</span>
-        ${OPCOES_MOSTRAR.map(([id, nome]) => `<label class="config-pag check-linha"><span>${nome}</span><label class="interruptor"><input type="checkbox" data-mostrar-cupom="${id}" ${m.mostrar[id] ? "checked" : ""}><span></span></label></label>`).join("")}
+    <div class="cupom__papel">
+      ${area("topo", p.topo, "Toque para escrever o topo (nome, CNPJ, Instagram...)")}
+      <div class="cupom__linha">${"-".repeat(42)}</div>
+      <div class="cupom__fixo" title="Vem do pedido: não dá para editar">
+        ${p.meio.map((x) => `<div class="cupom__fixo-linha">${escHtml(x.t)}${x.ocultar ? `<button type="button" class="cupom__ocultar" data-ocultar-cupom="${x.ocultar}" aria-label="Esconder esta linha" title="Esconder esta linha">×</button>` : ""}</div>`).join("")}
+        ${ocultas.map(([k]) => `<button type="button" class="cupom__mostrar" data-mostrar-linha-cupom="${k}">+ mostrar ${k === "telefoneCliente" ? "telefone" : "endereço"} do cliente</button>`).join("")}
       </div>
-      <div class="pilha" style="gap:6px">
-        <span class="rotulo">Ordem dos blocos</span>
-        <div class="lista-ordem" id="ordemCupom">${m.ordem.map((b, i) => `
-          <div class="item-ordem item-ordem--compacto"><span class="item-ordem__num">${i + 1}</span><span class="forte" style="flex:1">${NOMES_BLOCOS[b]}</span>
-            <span class="item-ordem__acoes"><button type="button" class="btn-icone btn-icone--sm" data-ordem-cupom="${i},-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">${icone("cima", "ic--sm")}</button><button type="button" class="btn-icone btn-icone--sm" data-ordem-cupom="${i},1" ${i === m.ordem.length - 1 ? "disabled" : ""} aria-label="Descer">${icone("baixo", "ic--sm")}</button></span></div>`).join("")}</div>
-      </div>
+      <div class="cupom__linha">${"-".repeat(42)}</div>
+      ${area("fim", p.fim, "Toque para escrever o fim (agradecimento, promoção...)")}
     </div>`;
 }
 function atualizarPreviaCupom() {
   const el = $("#previaCupom");
-  if (el) el.textContent = alertas.textoCupom({ ...comTotal(pedidoExemplo()) }, rascunho.impressao);
+  if (el) el.innerHTML = editorCupom({ ...comTotal(pedidoExemplo()) }, rascunho.impressao);
+}
+/* Começa a editar: guarda o topo e o fim atuais no rascunho (a partir daí o texto é do dono) */
+function garantirModeloEditavel() {
+  const imp = rascunho.impressao;
+  const p = alertas.partesCupom({ ...comTotal(pedidoExemplo()) }, imp);
+  imp.modelo = { ...(imp.modelo || {}), topo: p.topo, fim: p.fim, mostrar: { ...p.mostrar } };
+  return imp.modelo;
 }
 
 /* --- Aba: Loja e entrega --- */
@@ -830,13 +827,15 @@ function ligarConfig() {
       return renderConfiguracoes();
     }
     if (e.target.closest("#iTeste")) { alertas.imprimirCupom(comTotal(pedidoExemplo()), rascunho.impressao); toast("Cupom de teste enviado para a impressora", "impressora"); }
-    const ordem = e.target.closest("[data-ordem-cupom]");
-    if (ordem) {
-      const [i, passo] = ordem.dataset.ordemCupom.split(",").map(Number);
-      const o = rascunho.impressao.modelo.ordem;
-      [o[i], o[i + passo]] = [o[i + passo], o[i]];
-      $("#conteudoConfig").innerHTML = configImpressao();
-      return;
+    const ocultar = e.target.closest("[data-ocultar-cupom]");
+    if (ocultar) { garantirModeloEditavel().mostrar[ocultar.dataset.ocultarCupom] = false; return atualizarPreviaCupom(); }
+    const mostrar = e.target.closest("[data-mostrar-linha-cupom]");
+    if (mostrar) { garantirModeloEditavel().mostrar[mostrar.dataset.mostrarLinhaCupom] = true; return atualizarPreviaCupom(); }
+    if (e.target.closest("[data-restaurar-cupom]")) {
+      rascunho.impressao.modelo = { topo: null, fim: null, mostrar: { telefoneCliente: true, enderecoCliente: true, observacoes: true } };
+      rascunho.impressao.rodape = "Obrigado pela preferência!";
+      atualizarPreviaCupom();
+      return toast("Modelo padrão de volta. Salve para gravar.", "info");
     }
     if (e.target.closest("#sTeste")) alertas.tocarAlerta(rascunho.som.volume);
     if (e.target.closest("#cfgRestaurar")) {
@@ -894,9 +893,11 @@ function ligarConfig() {
       const previa = $("#previaFuncionamento");
       if (previa) previa.innerHTML = `No cardápio aparece: <b>${Fomito.textoFuncionamento(rascunhoLoja) || "-"}</b>`;
     }
-    if (t.id === "iRodape") { rascunho.impressao.rodape = t.value; atualizarPreviaCupom(); }
-    if (t.id === "iCabecalho") { rascunho.impressao.modelo.cabecalho = t.value; atualizarPreviaCupom(); }
-    if (t.id === "iMensagem") { rascunho.impressao.modelo.mensagem = t.value; atualizarPreviaCupom(); }
+    if (t.dataset.zonaCupom) {
+      const m = garantirModeloEditavel();
+      m[t.dataset.zonaCupom] = t.value.split("\n").map((l) => l.slice(0, 42));
+      t.rows = Math.max(1, t.value.split("\n").length);
+    }
     if (t.id === "iVias") rascunho.impressao.vias = Number(t.value);
     if (t.id === "sVolume") rascunho.som.volume = Number(t.value);
   };
@@ -907,7 +908,7 @@ function ligarConfig() {
     if (t.dataset.modeloAtivo) rascunho.whatsapp.modelos[t.dataset.modeloAtivo].ativo = t.checked;
     if (t.id === "iAuto") rascunho.impressao.aoAceitar = t.checked;
     if (t.id === "iLargura") rascunho.impressao.largura = t.value;
-    if (t.dataset.mostrarCupom) { rascunho.impressao.modelo.mostrar[t.dataset.mostrarCupom] = t.checked; atualizarPreviaCupom(); }
+
     if (t.id === "sAtivo") rascunho.som.ativo = t.checked;
     if (t.id === "sVolume") alertas.tocarAlerta(rascunho.som.volume); // ao soltar o controle, já toca no volume escolhido
     if (t.dataset.formaAtiva) rascunhoLoja.formas[t.dataset.formaAtiva] = t.checked;

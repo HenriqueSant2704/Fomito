@@ -78,24 +78,12 @@
     "largura": "80mm",
     "rodape": "Obrigado pela preferência!",
     "modelo": {
-      "cabecalho": "",
-      "mensagem": "",
-      "posicaoMensagem": "fim",
-      "ordem": [
-        "loja",
-        "pedido",
-        "cliente",
-        "itens",
-        "pagamento",
-        "mensagem"
-      ],
+      "topo": null,
+      "fim": null,
       "mostrar": {
-        "endereco": true,
-        "telefoneLoja": false,
         "telefoneCliente": true,
         "enderecoCliente": true,
-        "observacoes": true,
-        "fomito": true
+        "observacoes": true
       }
     }
   },
