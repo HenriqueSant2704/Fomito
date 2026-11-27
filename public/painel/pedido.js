@@ -55,7 +55,7 @@ function abrirPedido(num) {
         ${p.itens.map((item) => {
           const [id, qtd, extras = [], obs] = item;
           const prod = Fomito.produto(id);
-          const nomesExtras = (dados.adicionais[prod.cat] || []).filter((a) => extras.includes(a.id));
+          const nomesExtras = Fomito.todosAdicionaisDo(prod).filter((a) => extras.includes(a.id));
           return `
             <div class="item-pedido">
               ${Fomito.foto(prod, 40)}

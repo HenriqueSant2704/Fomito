@@ -24,7 +24,7 @@ window.Fomito = window.Fomito || {};
   const precoItem = ([id, qtd, extras = [], , preco]) => {
     if (preco != null) return preco * qtd;
     const p = Fomito.produto(id);
-    const adicionais = (Fomito.dados.adicionais[p.cat] || []).filter((a) => extras.includes(a.id));
+    const adicionais = Fomito.todosAdicionaisDo(p).filter((a) => extras.includes(a.id));
     return (p.preco + adicionais.reduce((s, a) => s + a.preco, 0)) * qtd;
   };
   const total = (p) => p.total ?? p.itens.reduce((s, item) => s + precoItem(item), 0) + (p.modo === "entrega" ? Fomito.dados.lanchonete.taxaEntrega : 0);

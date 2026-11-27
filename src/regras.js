@@ -2,6 +2,17 @@
 const { falhar, arred, numero, texto } = require('./util');
 
 /**
+ * Adicionais que o cliente pode escolher num produto: os da categoria (menos os que o dono
+ * desmarcou neste produto) e os avulsos ligados só a ele. Igual ao Fomito.adicionaisDo do navegador.
+ */
+function adicionaisDo(cardapio, p) {
+  const fora = p.adicionaisFora || [];
+  const daCategoria = (cardapio.adicionais[p.cat] || []).filter((a) => !fora.includes(a.id));
+  const avulsos = (cardapio.avulsos || []).filter((a) => (p.avulsos || []).includes(a.id) && !daCategoria.some((x) => x.id === a.id));
+  return [...daCategoria, ...avulsos];
+}
+
+/**
  * Monta um item com o preço do cardápio de agora (o que o cliente mandou só diz o quê e quanto).
  * Guarda o nome e o preço no item: se o produto mudar depois, o pedido antigo continua certo.
  */
@@ -11,7 +22,7 @@ function montarItem(cardapio, { id, qtd, extras = [], obs = '', sem = [] }) {
   if (p.esgotado) falhar(409, `${p.nome} acabou de esgotar. Tire da sacola para continuar.`);
   const q = Number(qtd);
   if (!Number.isInteger(q) || q < 1 || q > 99) falhar(400, 'Quantidade inválida.');
-  const opcoes = cardapio.adicionais[p.cat] || [];
+  const opcoes = adicionaisDo(cardapio, p);
   const escolhidos = (Array.isArray(extras) ? extras : []).filter((e) => opcoes.some((a) => a.id === e));
   const preco = arred(p.preco + opcoes.filter((a) => escolhidos.includes(a.id)).reduce((s, a) => s + a.preco, 0));
   /* Ingredientes que o cliente tirou: viram "SEM alface" na observação, que já aparece
@@ -89,4 +100,4 @@ function conferirPagamento({ forma, valor, recebido }) {
   return { forma, valor: v, recebido: deu, troco: arred(deu - v) };
 }
 
-module.exports = { bolsasMotoboys, montarItem, montarItens, somaItens, resumoCaixa, conferirPagamento, FORMAS, VENDAS };
+module.exports = { adicionaisDo, bolsasMotoboys, montarItem, montarItens, somaItens, resumoCaixa, conferirPagamento, FORMAS, VENDAS };

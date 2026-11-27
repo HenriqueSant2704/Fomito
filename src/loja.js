@@ -128,6 +128,10 @@ async function salvarCardapio(recebido) {
     aberta: l.aberta !== false,
     vitrine: Array.isArray(l.vitrine) ? l.vitrine.slice(0, 12) : [],
   };
+  /* Adicionais avulsos: não pertencem a uma categoria; cada produto escolhe os seus */
+  const avulsos = (Array.isArray(c.avulsos) ? c.avulsos : []).slice(0, 200)
+    .map((a) => ({ id: texto(a.id, 40), nome: texto(a.nome, 60), preco: Math.max(0, numero(a.preco) || 0) }))
+    .filter((a, i, l) => a.id && a.nome && l.findIndex((x) => x.id === a.id) === i);
   const produtos = c.produtos.map((p) => ({
     ...p,
     id: Number(p.id),
@@ -138,10 +142,13 @@ async function salvarCardapio(recebido) {
     destaque: !!p.destaque,
     ingredientes: (p.ingredientes || []).map((i) => texto(i, 60)).slice(0, 30),
     fotos: (p.fotos || []).slice(0, 10),
+    /* Adicionais só deste produto (avulsos) e os da categoria que ele não oferece */
+    avulsos: (Array.isArray(p.avulsos) ? p.avulsos : []).map((x) => texto(x, 40)).filter((x) => avulsos.some((a) => a.id === x)),
+    adicionaisFora: (Array.isArray(p.adicionaisFora) ? p.adicionaisFora : []).map((x) => texto(x, 40)).slice(0, 60),
   }));
   if (new Set(produtos.map((p) => p.id)).size !== produtos.length || produtos.some((p) => !Number.isInteger(p.id))) falhar(400, 'Produtos com código repetido.');
   const formasPagamento = (c.formasPagamento || atual.cardapio.formasPagamento).map((f) => ({ ...f, ativa: f.ativa !== false }));
-  const cardapio = { ...atual.cardapio, ...c, lanchonete, produtos, formasPagamento };
+  const cardapio = { ...atual.cardapio, ...c, lanchonete, produtos, formasPagamento, avulsos };
   await garantirMesas(lanchonete.mesas);
   return gravar({ cardapio });
 }

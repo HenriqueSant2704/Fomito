@@ -204,7 +204,7 @@ function abrirComandaFechada(numero) {
   const valorItem = (it) => (it.preco != null ? it.preco * it.qtd : cmd.precoItem(it));
   const extrasItem = (it) => {
     const cat = Fomito.produto(it.id)?.cat;
-    return (dados.adicionais[cat] || []).filter((a) => it.extras?.includes(a.id)).map((a) => a.nome);
+    return Fomito.todosAdicionaisDo(Fomito.produto(it.id)).filter((a) => it.extras?.includes(a.id)).map((a) => a.nome);
   };
   /* Pagamentos: se o caixa ainda está aberto, vale o que está nele (já com as correções) */
   const movs = (Fomito.caixa.aberto()?.movimentos || []).filter((m) => m.tipo === "comanda" && (m.comanda === numero || String(m.ref || "").endsWith(`comanda #${numero}`)));

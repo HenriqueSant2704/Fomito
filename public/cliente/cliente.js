@@ -44,7 +44,7 @@ const iniciais = (nome) => nome.split(" ").map((p) => p[0]).slice(0, 2).join("")
 
 const taxaEntrega = () => (estado.modo === "entrega" ? dados.lanchonete.taxaEntrega : 0);
 /* Preço de uma unidade do item, já com os adicionais escolhidos */
-const adicionaisDe = (item) => (dados.adicionais[Fomito.produto(item.id).cat] || []).filter((a) => item.extras?.includes(a.id));
+const adicionaisDe = (item) => Fomito.todosAdicionaisDo(Fomito.produto(item.id)).filter((a) => item.extras?.includes(a.id));
 const precoUnitario = (item) => Fomito.produto(item.id).preco + adicionaisDe(item).reduce((s, a) => s + a.preco, 0);
 const subtotal = () => estado.carrinho.reduce((s, i) => s + precoUnitario(i) * i.qtd, 0);
 const total = () => subtotal() + taxaEntrega();
@@ -262,7 +262,7 @@ document.addEventListener("click", (e) => {
 
 function abrirProduto(id) {
   const p = Fomito.produto(id);
-  const extras = dados.adicionais[p.cat] || [];
+  const extras = Fomito.adicionaisDo(p);
   const escolha = { qtd: 1, extras: [], sem: [] }; // sem: ingredientes que o cliente tirou
   const tela = $('[data-tela="produto"]');
 
@@ -1240,7 +1240,7 @@ function abrirDetalhePedido(chave) {
       ${extras.length ? `<span class="pequeno suave">+ ${extras.join(", ")}</span>` : ""}
       ${obs ? `<span class="pequeno detalhe-item__obs">${obs}</span>` : ""}
     </div>`;
-  const nomesExtras = (id, ids = []) => (dados.adicionais[Fomito.produto(id).cat] || []).filter((a) => ids.includes(a.id)).map((a) => a.nome);
+  const nomesExtras = (id, ids = []) => Fomito.todosAdicionaisDo(Fomito.produto(id)).filter((a) => ids.includes(a.id)).map((a) => a.nome);
   let corpo;
   if (p) {
     const retirada = p.modo === "local";

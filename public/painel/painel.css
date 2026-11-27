@@ -564,3 +564,13 @@ button.tag { cursor: pointer; }
 @media (max-width: 1024px) { .menu__logo .logo__nome { font-size: 18px; line-height: 1.15; } }
 /* Página curta (ex.: busca com 1 produto): a barra não pode esticar para ocupar a sobra da tela */
 @media (max-width: 1024px) { body { align-content: start; grid-template-rows: auto auto 1fr; } .barra-menu { align-self: start; } }
+
+/* ---------- Adicionais avulsos ---------- */
+.adic-grupo { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; }
+.adic-grupo + .adic-grupo { border-top: 1px solid var(--borda); margin-top: 6px; }
+.adic-usar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0; }
+.adic-novo { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; padding-top: 8px; }
+@media (max-width: 520px) { .adic-novo { grid-template-columns: minmax(0, 1fr) auto; } .adic-novo #avNome { grid-column: 1 / -1; } }
+.card-avulsos { border-style: dashed; border-color: var(--roxo-medio); }
+.avulso { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--borda); }
+.avulso:last-child { border-bottom: 0; padding-bottom: 0; }

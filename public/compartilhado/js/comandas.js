@@ -24,7 +24,7 @@ window.Fomito = window.Fomito || {};
   const precoItem = (item) => {
     if (item.preco != null) return item.preco * item.qtd;
     const p = Fomito.produto(item.id);
-    const extras = (Fomito.dados.adicionais[p.cat] || []).filter((a) => item.extras?.includes(a.id));
+    const extras = Fomito.todosAdicionaisDo(p).filter((a) => item.extras?.includes(a.id));
     return (p.preco + extras.reduce((s, a) => s + a.preco, 0)) * item.qtd;
   };
   const totalRodada = (r) => r.itens.reduce((s, i) => s + precoItem(i), 0);

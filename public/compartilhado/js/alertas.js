@@ -70,7 +70,7 @@ window.Fomito = window.Fomito || {};
     /* Cada item guarda o nome e o preço da hora do pedido: [id, qtd, extras, obs, preço unitário, nome] */
     const itens = pedido.itens.map(([id, qtd, extras = [], obs = "", preco, nome]) => {
       const p = Fomito.produto(id);
-      const nomesExtras = (Fomito.dados.adicionais[p.cat] || []).filter((a) => extras.includes(a.id));
+      const nomesExtras = Fomito.todosAdicionaisDo(p).filter((a) => extras.includes(a.id));
       const unit = preco ?? p.preco + nomesExtras.reduce((s, a) => s + a.preco, 0);
       return [
         colunas(`${qtd}x ${nome || p.nome}`.slice(0, 32), valor(unit * qtd)),
@@ -117,7 +117,7 @@ window.Fomito = window.Fomito || {};
     const mesa = `MESA ${String(comanda.mesa).padStart(2, "0")}`;
     const itens = r.itens.map((it) => {
       const p = Fomito.produto(it.id);
-      const nomesExtras = (Fomito.dados.adicionais[p.cat] || []).filter((a) => (it.extras || []).includes(a.id));
+      const nomesExtras = Fomito.todosAdicionaisDo(p).filter((a) => (it.extras || []).includes(a.id));
       const unit = it.preco ?? p.preco;
       return [
         colunas(`${it.qtd}x ${it.nome || p.nome}`.slice(0, 32), valor(unit * it.qtd)),
