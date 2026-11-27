@@ -73,20 +73,30 @@
     }
   },
   "impressao": {
-    "aoAceitar": true,
-    "vias": 1,
-    "largura": "80mm",
-    "rodape": "Obrigado pela preferência!",
-    "modelo": {
-      "topo": null,
-      "fim": null,
-      "mostrar": {
-        "telefoneCliente": true,
-        "enderecoCliente": true,
-        "observacoes": true
-      }
+  "aoAceitar": true,
+  "vias": 1,
+  "largura": "80mm",
+  "rodape": "Obrigado pela preferência!",
+  "modelo": {
+    "topo": null,
+    "fim": null,
+    "mostrar": {
+      "telefoneCliente": true,
+      "enderecoCliente": true,
+      "observacoes": true
+    },
+    "rotulos": {
+      "pedido": "PEDIDO",
+      "entrega": "ENTREGA",
+      "cliente": "Cliente",
+      "telefone": "Tel",
+      "endereco": "End.",
+      "taxaEntrega": "Taxa de entrega",
+      "total": "TOTAL",
+      "pagamento": "Pagamento"
     }
-  },
+  }
+},
   "som": {
     "ativo": true,
     "volume": 0.6
