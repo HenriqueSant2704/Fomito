@@ -61,6 +61,46 @@ r.post('/usuarios', admin, ok(async (req) => {
     throw err;
   }
 }));
+/* Editar um funcionário: nome, usuário (login), tipo e, se mandar, senha nova */
+r.put('/usuarios/:usuario', admin, ok(async (req) => {
+  const atualUsuario = String(req.params.usuario);
+  const n = texto(req.body.nome, 60);
+  const usuario = texto(req.body.usuario, 30).toLowerCase();
+  const senha = String(req.body.senha || '');
+  const perfil = req.body.perfil;
+  if (!n || !usuario) falhar(400, 'Preencha o nome e o usuário.');
+  if (!/^[a-z0-9._-]{3,30}$/.test(usuario)) falhar(400, 'O usuário precisa ter de 3 a 30 letras ou números, sem espaços nem acentos.');
+  if (senha && senha.length < 4) falhar(400, 'A senha nova precisa ter pelo menos 4 caracteres.');
+  if (!['atendente', 'garcom', 'motoboy', 'admin'].includes(perfil)) falhar(400, 'Tipo de funcionário inválido.');
+  await db.tx(async (c) => {
+    const { rows } = await c.query('SELECT * FROM usuarios WHERE usuario = $1 FOR UPDATE', [atualUsuario]);
+    const u = rows[0];
+    if (!u) falhar(404, 'Funcionário não encontrado.');
+    if (u.id === req.usuario.id && perfil !== 'admin') falhar(400, 'Você não pode tirar o seu próprio acesso de administrador.');
+    if (u.perfil === 'admin' && perfil !== 'admin') {
+      const { rows: adms } = await c.query("SELECT count(*)::int AS n FROM usuarios WHERE perfil = 'admin' AND id <> $1", [u.id]);
+      if (!adms[0].n) falhar(400, 'O sistema precisa de pelo menos um administrador.');
+    }
+    try {
+      await c.query('UPDATE usuarios SET nome = $2, usuario = $3, perfil = $4' + (senha ? ', senha_hash = $5' : '') + ' WHERE id = $1',
+        [u.id, n, usuario, perfil, ...(senha ? [await bcrypt.hash(senha, 10)] : [])]);
+    } catch (err) {
+      if (err.code === '23505') falhar(409, 'Já existe alguém com esse usuário.');
+      throw err;
+    }
+    /* Motoboy mudou de nome: as entregas em rota e a bolsa do caixa aberto acompanham o nome novo */
+    if (u.perfil === 'motoboy' && u.nome !== n) {
+      await c.query("UPDATE pedidos SET dados = jsonb_set(dados, '{motoboy}', to_jsonb($2::text)) WHERE status = 'rota' AND dados->>'motoboy' = $1", [u.nome, n]);
+      const { rows: cx } = await c.query('SELECT id, dados FROM caixas WHERE aberto FOR UPDATE');
+      if (cx[0]) {
+        const d = cx[0].dados;
+        if (d.motoboys?.[u.nome] && !d.motoboys[n]) { d.motoboys[n] = d.motoboys[u.nome]; delete d.motoboys[u.nome]; }
+        (d.movimentos || []).forEach((m) => { if (m.tipo === 'entrega' && m.por === u.nome) m.por = n; });
+        await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [cx[0].id, d]);
+      }
+    }
+  });
+}));
 r.delete('/usuarios/:usuario', admin, ok(async (req) => {
   if (req.params.usuario === req.usuario.usuario) falhar(400, 'Você não pode remover o seu próprio acesso.');
   const { rows } = await db.query("SELECT count(*)::int AS n FROM usuarios WHERE perfil = 'admin' AND usuario <> $1", [req.params.usuario]);

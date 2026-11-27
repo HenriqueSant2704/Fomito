@@ -578,3 +578,10 @@ button.tag { cursor: pointer; }
 .grade-icones__item.ativo { background: var(--roxo-claro); color: var(--roxo); border-color: var(--roxo); box-shadow: 0 0 0 3px var(--roxo-claro); }
 .grade-icones__sugerido { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--laranja-escuro); }
 @media (max-width: 520px) { .item-ordem { flex-wrap: wrap; } .item-ordem__acoes { width: 100%; justify-content: flex-end; } }
+
+/* ---------- Equipe: editar acesso ---------- */
+.membro__acoes { display: flex; gap: 6px; flex: none; }
+.campo-senha { position: relative; }
+.campo-senha .input { padding-right: 84px; }
+.campo-senha .link { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
+@media (max-width: 520px) { .membro { flex-wrap: wrap; } .membro__info { flex: 1; min-width: 0; } }

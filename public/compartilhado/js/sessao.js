@@ -31,6 +31,11 @@ window.Fomito = window.Fomito || {};
       catch (err) { return err.message; }
     },
 
+    /** Edita um funcionário (senha só se vier preenchida). Retorna null ou a mensagem de erro. */
+    async editarUsuario(usuario, dados) {
+      try { await Fomito.acao("PUT", `/usuarios/${encodeURIComponent(usuario)}`, dados); return null; }
+      catch (err) { return err.message; }
+    },
     removerUsuario: (usuario) => Fomito.acao("DELETE", `/usuarios/${encodeURIComponent(usuario)}`),
 
     /** Retorna o usuário logado ou a mensagem de erro (texto) */

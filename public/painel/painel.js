@@ -437,7 +437,10 @@ function renderEquipe() {
               <span class="avatar">${iniciais(u.nome)}</span>
               <div class="membro__info"><span class="forte">${u.nome}</span><span class="pequeno suave">Usuário: ${u.usuario}</span></div>
               <span class="tag tag--${perfis[u.perfil].cor}">${perfis[u.perfil].nome}</span>
-              ${u.perfil !== "admin" ? `<button class="btn-icone" data-remover="${u.usuario}" aria-label="Remover ${u.nome}">${icone("lixo", "ic--sm")}</button>` : `<span style="width:38px"></span>`}
+              <span class="membro__acoes">
+                <button class="btn-icone" data-editar-membro="${u.usuario}" aria-label="Editar ${u.nome}" title="Editar nome, usuário, tipo e senha">${icone("editar", "ic--sm")}</button>
+                ${u.perfil !== "admin" ? `<button class="btn-icone" data-remover="${u.usuario}" aria-label="Remover ${u.nome}" title="Remover acesso">${icone("lixo", "ic--sm")}</button>` : ""}
+              </span>
             </div>`).join("")}
         </div>
       </div>
@@ -473,7 +476,7 @@ function renderEquipe() {
   /* O atendente só vê quem tem acesso: não cria nem remove */
   if (!ehAdmin) {
     $("#formFuncionario").remove();
-    $$('[data-secao="equipe"].secao [data-remover]').forEach((b) => b.remove());
+    $('[data-secao="equipe"].secao [data-remover], [data-secao="equipe"].secao [data-editar-membro]').forEach((b) => b.remove());
     return;
   }
   $("#formFuncionario").addEventListener("submit", async (e) => {
@@ -491,6 +494,8 @@ function renderEquipe() {
   $('[data-secao="equipe"].secao').onclick = async (e) => {
     const tipoBotao = e.target.closest("[data-tipo-funcionario]");
     if (tipoBotao) { tipoNovoFuncionario = tipoBotao.dataset.tipoFuncionario; return renderEquipe(); }
+    const editar = e.target.closest("[data-editar-membro]");
+    if (editar) return editarMembro(editar.dataset.editarMembro);
     const b = e.target.closest("[data-remover]");
     if (!b) return;
     if (!(await Fomito.confirmar("Remover acesso?", `O usuário <b>${b.dataset.remover}</b> sai do sistema na hora e não consegue mais entrar.`, "Remover acesso"))) return;
@@ -498,6 +503,56 @@ function renderEquipe() {
     renderEquipe();
     toast("Acesso removido", "lixo");
   };
+}
+
+/* Editar um funcionário: nome, usuário de login, tipo e senha nova (opcional) */
+function editarMembro(login) {
+  const u = sessao.usuarios().find((x) => x.usuario === login);
+  if (!u) return;
+  const perfis = sessao.PERFIS;
+  const euMesmo = u.usuario === usuarioLogado.usuario;
+  const camada = document.createElement("div");
+  camada.className = "sobreposicao sobreposicao--centro";
+  camada.innerHTML = `
+    <form class="folha" style="max-width:440px;display:flex;flex-direction:column;gap:14px" novalidate>
+      <div class="folha__topo"><div class="linha" style="gap:12px"><span class="avatar">${iniciais(u.nome)}</span><div class="pilha" style="gap:0"><h2>Editar acesso</h2><span class="pequeno suave">${u.nome}${euMesmo ? " (você)" : ""}</span></div></div><button type="button" class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+      <div class="campo"><label for="eNome">Nome</label><input class="input" id="eNome" maxlength="60" value="${u.nome.replace(/"/g, "&quot;")}"></div>
+      <div class="form-grade">
+        <div class="campo"><label for="eUsuario">Usuário (para entrar)</label><input class="input" id="eUsuario" maxlength="30" autocomplete="off" value="${u.usuario}"></div>
+        <div class="campo"><label for="ePerfil">Tipo</label><select class="input" id="ePerfil" ${euMesmo ? "disabled" : ""}>${Object.entries(perfis).map(([id, p]) => `<option value="${id}" ${id === u.perfil ? "selected" : ""}>${p.nome}</option>`).join("")}</select></div>
+      </div>
+      <div class="campo">
+        <label for="eSenha">Senha nova <span class="fraco">(deixe em branco para manter)</span></label>
+        <div class="campo-senha"><input class="input" id="eSenha" type="password" autocomplete="new-password" placeholder="Mínimo 4 caracteres"><button type="button" class="link pequeno" data-ver-senha>Mostrar</button></div>
+      </div>
+      ${u.perfil === "motoboy" ? `<p class="pequeno fraco">Se mudar o nome, as entregas em rota e a bolsa de hoje passam para o nome novo.</p>` : ""}
+      ${euMesmo ? `<p class="pequeno fraco">Você não pode mudar o seu próprio tipo de acesso.</p>` : ""}
+      <p class="form-erro" id="eErro" hidden></p>
+      <button class="btn btn--primario btn--bloco" type="submit" data-ok>${icone("check", "ic--sm")} Salvar alterações</button>
+    </form>`;
+  document.body.appendChild(camada);
+  const form = camada.querySelector("form");
+  camada.addEventListener("click", (e) => {
+    if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
+    const ver = e.target.closest("[data-ver-senha]");
+    if (ver) { const i = $("#eSenha", camada); i.type = i.type === "password" ? "text" : "password"; ver.textContent = i.type === "password" ? "Mostrar" : "Esconder"; }
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nome = $("#eNome", camada).value.trim();
+    const usuario = $("#eUsuario", camada).value.trim().toLowerCase();
+    const senha = $("#eSenha", camada).value;
+    const perfil = $("#ePerfil", camada).value;
+    const mostrar = (t) => { $("#eErro", camada).textContent = t; $("#eErro", camada).hidden = false; };
+    if (!nome || !usuario) return mostrar("Preencha o nome e o usuário.");
+    if (senha && senha.length < 4) return mostrar("A senha nova precisa ter pelo menos 4 caracteres.");
+    const erro = await sessao.editarUsuario(u.usuario, { nome, usuario, perfil, senha });
+    if (erro) return mostrar(erro);
+    camada.remove();
+    if (euMesmo) { usuarioLogado.nome = nome; usuarioLogado.usuario = usuario; $("#avatar").textContent = iniciais(nome); }
+    renderEquipe();
+    toast(senha ? `${nome}: dados e senha atualizados` : `${nome} atualizado`, "check");
+  });
 }
 
 /* ---------- 8. CONFIGURAÇÕES ---------- */
