@@ -1255,7 +1255,7 @@ function abrirDetalhePedido(chave) {
         <span class="pequeno suave">${dataHora(p.criadoEm)}</span>
       </div>
       <div class="detalhe-bloco"><span class="rotulo">Itens</span>
-        ${p.itens.map((it) => linhaItem(it[1], it[5] || Fomito.produto(it[0]).nome, Fomito.pedidos.precoItem(it), it[3], nomesExtras(it[0], it[2]))).join("")}
+        <div class="lista-rolagem">${p.itens.map((it) => linhaItem(it[1], it[5] || Fomito.produto(it[0]).nome, Fomito.pedidos.precoItem(it), it[3], nomesExtras(it[0], it[2]))).join("")}</div>
         <div class="detalhe-totais">
           <div class="entre pequeno"><span class="suave">Subtotal</span><span class="num">${moeda(subtotal)}</span></div>
           ${retirada ? "" : `<div class="entre pequeno"><span class="suave">Taxa de entrega</span><span class="num">${Fomito.taxaTexto(p.taxa ?? 0)}</span></div>`}
@@ -1278,7 +1278,7 @@ function abrirDetalhePedido(chave) {
         <span class="pequeno suave">${comandas.hora(f.abertaEm)} – ${comandas.hora(f.fechadaEm)} · ${dataHora(f.fechadaEm).split(" às ")[0]}</span>
       </div>
       <div class="detalhe-bloco"><span class="rotulo">Itens</span>
-        ${f.rodadas.flatMap((r) => r.itens).map((it) => linhaItem(it.qtd, it.nome || Fomito.produto(it.id).nome, comandas.precoItem(it), it.obs, nomesExtras(it.id, it.extras))).join("")}
+        <div class="lista-rolagem">${f.rodadas.flatMap((r) => r.itens).map((it) => linhaItem(it.qtd, it.nome || Fomito.produto(it.id).nome, comandas.precoItem(it), it.obs, nomesExtras(it.id, it.extras))).join("")}</div>
         <div class="detalhe-totais">
           <div class="entre pequeno"><span class="suave">Consumo</span><span class="num">${moeda(consumo)}</span></div>
           ${f.servico ? `<div class="entre pequeno"><span class="suave">Serviço (10%)</span><span class="num">${moeda(f.servico)}</span></div>` : ""}

@@ -161,7 +161,7 @@ function janelaConferirBolsa(nome) {
     ${entregas.length ? `
       <div class="pilha" style="gap:6px">
         <span class="rotulo">Entregas em dinheiro (${entregas.length})</span>
-        <div class="lista-bolsa">
+        <div class="lista-bolsa lista-rolagem">
           ${entregas.map((m) => `
             <div class="entre pequeno"><span><b>${m.ref.split(" · ")[0]}</b> <span class="fraco">${horaCaixa(m.hora)}</span><br><span class="fraco">deu ${moeda(m.recebido ?? m.valor)} · troco ${moeda(m.troco || 0)}</span></span><span class="num forte">${moeda(m.valor)}</span></div>`).join("")}
         </div>
@@ -595,7 +595,7 @@ function janelaHistorico(id) {
   const m = Fomito.caixa.aberto().movimentos.find((x) => x.id === id);
   janelaCaixa("Histórico da correção", `
     <div class="conferencia"><div class="forte">${m.ref}</div><div class="pequeno suave">Lançado por ${m.por} às ${horaCaixa(m.hora)}</div></div>
-    <div class="historico-corr">
+    <div class="historico-corr lista-rolagem">
       ${m.correcoes.map((c) => `<div class="pequeno"><b>${horaCaixa(c.em)} · corrigido por ${c.por}</b>${mudancas(c).map((t) => `<div>${t}</div>`).join("")}<div class="fraco">Motivo: “${c.motivo}”</div></div>`).join("")}
     </div>
     <button class="btn btn--contorno btn--bloco" data-fechar>Fechar</button>`, () => {});

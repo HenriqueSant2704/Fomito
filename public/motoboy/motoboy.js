@@ -215,7 +215,7 @@ function abrirDetalheEntrega(num) {
       <div class="folha__topo"><h2>Pedido #${p.num}</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
       <div class="pilha" style="gap:2px"><span class="forte">${p.cliente}</span><span class="pequeno suave">${p.telefone || ""}</span><span class="pequeno">${p.endereco}${p.ref ? ` · Ref.: ${p.ref}` : ""}</span></div>
       <div class="pilha" style="gap:6px;border-top:1px solid var(--borda);padding-top:10px">
-        ${p.itens.map((it) => `<div class="entre pequeno"><span>${it[1]}× ${it[5] || Fomito.produto(it[0]).nome}${it[3] ? `<br><span class="fraco">${it[3]}</span>` : ""}</span><span class="num">${moeda(pedidos.precoItem(it))}</span></div>`).join("")}
+        <div class="lista-rolagem pilha" style="gap:6px">${p.itens.map((it) => `<div class="entre pequeno"><span>${it[1]}× ${it[5] || Fomito.produto(it[0]).nome}${it[3] ? `<br><span class="fraco">${it[3]}</span>` : ""}</span><span class="num">${moeda(pedidos.precoItem(it))}</span></div>`).join("")}</div>
         <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(p.total)}</span></div>
       </div>
       <div class="pilha" style="gap:2px;border-top:1px solid var(--borda);padding-top:10px">

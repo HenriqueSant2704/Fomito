@@ -346,7 +346,7 @@ function abrirFechamento(mesa) {
         </div>
 
         ${conta.pagamentos.length ? `
-          <div class="pagos">
+          <div class="pagos lista-rolagem">
             ${conta.pagamentos.map((p, i) => `
               <div class="pago">
                 ${icone("check", "ic--sm")}

@@ -432,7 +432,7 @@ button.tag { cursor: pointer; }
 .bolsa-card__topo { display: flex; align-items: center; gap: 10px; }
 .avatar-mini { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--roxo-claro); color: var(--roxo); font-weight: 700; font-size: 12px; letter-spacing: .3px; }
 .conferencia--feita { background: var(--verde-claro); }
-.lista-bolsa { display: flex; flex-direction: column; gap: 8px; max-height: 190px; overflow-y: auto; padding: 10px 12px; border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.lista-bolsa { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--borda); border-radius: var(--raio-md); }
 .lista-bolsa > div + div { padding-top: 8px; border-top: 1px dashed var(--borda); }
 
 /* ---------- Caixa: abrir ---------- */
@@ -500,4 +500,33 @@ button.tag { cursor: pointer; }
 @media (max-width: 600px) {
   .bolsa-linha { grid-template-columns: minmax(0, 1fr) auto; }
   .bolsa-linha select { grid-column: 1 / -1; }
+}
+
+/* ---------- Menu ☰ (celular e telas estreitas) ---------- */
+.barra-menu, .menu__fechar, .menu-fundo { display: none; }
+@media (max-width: 1024px) {
+  body { grid-template-columns: minmax(0, 1fr); }
+  .barra-menu {
+    display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 40;
+    padding: 10px 16px; background: var(--roxo-escuro); color: #fff;
+  }
+  .barra-menu__botao { width: 44px; height: 44px; border-radius: var(--raio-md); display: inline-flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; background: rgba(255,255,255,.08); }
+  .barra-menu__botao span { width: 20px; height: 2px; border-radius: 2px; background: #fff; }
+  .barra-menu__titulo { font-weight: 700; font-size: 16px; }
+  .menu {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 60; width: min(300px, 86vw); height: 100dvh;
+    padding: 22px 14px; gap: 18px; overflow-y: auto;
+    transform: translateX(-100%); transition: transform .22s ease, box-shadow .22s;
+  }
+  body.menu-aberto .menu { transform: none; box-shadow: 0 0 40px rgba(0,0,0,.3); }
+  .menu__logo { padding-right: 52px; }
+  .menu__grupo { display: block; }
+  .menu__loja { display: flex; }
+  .menu__nav { flex-direction: column; overflow: visible; }
+  .menu__rodape { flex-direction: column; border-top: 1px solid rgba(255,255,255,.08); padding-top: 14px; margin-top: auto; }
+  .menu__item { flex: none; min-height: 44px; }
+  .menu__fechar { display: inline-grid; position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,.08); border-color: transparent; color: #fff; }
+  .menu-fundo { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(27, 21, 48, .45); }
+  .menu-fundo[hidden] { display: none; }
+  body.menu-aberto { overflow: hidden; }
 }

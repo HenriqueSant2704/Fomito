@@ -288,3 +288,23 @@ button, a, label, select, input, textarea, [data-ir], [data-produto] { touch-act
 /* Janelas (folhas): no celular, a altura é a da tela visível (sem a barra do navegador),
    para os botões de baixo nunca ficarem escondidos */
 .folha { max-height: 92vh; max-height: 92dvh; padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---------- Botões sempre no tamanho certo ----------
+   Dentro de janelas em coluna (flex), o navegador "espremia" os botões quando o conteúdo
+   era maior que a tela: eles ficavam fininhos. Agora nada encolhe; quem rola é a janela. */
+.btn, .btn-icone { flex-shrink: 0; min-height: 44px; }
+.btn--sm { min-height: 36px; height: 36px; }
+.btn-icone { min-height: 38px; }
+.btn-icone--sm { min-height: 0; }
+.folha > * { flex-shrink: 0; }
+
+/* O botão principal do fim da janela fica sempre visível embaixo, mesmo com a janela rolando */
+.folha > .btn--bloco:last-child, .folha > [data-ok]:last-child {
+  position: sticky; bottom: 0; z-index: 2;
+  box-shadow: 0 -18px 14px -2px var(--superficie);
+}
+
+/* Listas longas dentro de janelas: rolam sozinhas (cerca de 5 itens à vista),
+   sem empurrar o botão de confirmar para baixo */
+.lista-rolagem { max-height: 250px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+@media (max-width: 520px) { .lista-rolagem { max-height: 220px; } }

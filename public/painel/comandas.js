@@ -230,14 +230,14 @@ function abrirComandaFechada(numero) {
 
       <div class="detalhe-bloco">
         <span class="rotulo">Pedidos</span>
-        ${f.rodadas.map((r, i) => `
+        <div class="lista-rolagem pilha" style="gap:8px">${f.rodadas.map((r, i) => `
           <div class="detalhe-rodada">
             <div class="entre pequeno"><span class="forte">${i + 1}º pedido · ${cmd.hora(r.hora)}</span><span class="fraco">${r.por === "qr" ? "QR da mesa" : (r.quem ? `Lançado por ${r.quem}` : "Garçom")}</span></div>
             ${r.itens.map((it) => {
               const ex = extrasItem(it);
               return `<div class="entre pequeno"><span>${it.qtd}× ${nomeItem(it)}${ex.length ? `<br><span class="fraco">+ ${ex.join(", ")}</span>` : ""}${it.obs ? `<br><span class="fraco">Obs.: ${it.obs}</span>` : ""}</span><span class="num">${moeda(valorItem(it))}</span></div>`;
             }).join("")}
-          </div>`).join("")}
+          </div>`).join("")}</div>
         <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(f.total)}</span></div>
       </div>
 

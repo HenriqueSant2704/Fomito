@@ -77,9 +77,22 @@ function abrirSecao(nome) {
   $$(".menu__item").forEach((b) => b.classList.toggle("ativo", b.dataset.secao === nome));
   $$(".secao").forEach((s) => (s.hidden = s.dataset.secao !== nome));
   $("#tituloSecao").textContent = titulos[nome][0];
+  $("#barraSecao").textContent = titulos[nome][0];
+  menuMovel(false);
   $("#subtituloSecao").textContent = nome === "dashboard" ? `Resumo de hoje, ${hojeExtenso()}.` : titulos[nome][1];
   renderizadores[nome]();
 }
+
+/* Menu ☰ (celular e telas estreitas): abre a gaveta com todas as páginas */
+function menuMovel(abrir) {
+  document.body.classList.toggle("menu-aberto", abrir);
+  $("#menuFundo").hidden = !abrir;
+  $("#abrirMenu").setAttribute("aria-expanded", String(abrir));
+}
+$("#abrirMenu").addEventListener("click", () => menuMovel(true));
+$("#fecharMenu").addEventListener("click", () => menuMovel(false));
+$("#menuFundo").addEventListener("click", () => menuMovel(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("menu-aberto")) menuMovel(false); });
 
 $("#menu").addEventListener("click", (e) => {
   const item = e.target.closest("[data-secao]");

@@ -10,8 +10,16 @@
 </head>
 <body>
 
+  <!-- ============ BARRA DO CELULAR (menu ☰) ============ -->
+  <div class="barra-menu">
+    <button class="barra-menu__botao" id="abrirMenu" aria-label="Abrir o menu" aria-expanded="false" aria-controls="menuLateral"><span></span><span></span><span></span></button>
+    <span class="barra-menu__titulo" id="barraSecao">Visão geral</span>
+  </div>
+  <div class="menu-fundo" id="menuFundo" hidden></div>
+
   <!-- ============ MENU LATERAL ============ -->
-  <aside class="menu">
+  <aside class="menu" id="menuLateral">
+    <button class="btn-icone menu__fechar" id="fecharMenu" aria-label="Fechar o menu"><i data-icone="fechar"></i></button>
     <div class="menu__logo" id="logo"></div>
 
     <div class="menu__loja">
