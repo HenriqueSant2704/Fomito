@@ -176,3 +176,35 @@ Fomito.linkMapa = (loja) => {
   const iniciar = () => { todas(); new MutationObserver(todas).observe(document.body, { childList: true, subtree: true }); };
   if (document.body) iniciar(); else document.addEventListener("DOMContentLoaded", iniciar);
 })();
+
+/* ---------- Máscaras: telefone e CPF em todos os campos ----------
+   Telefone: (00) 00000-0000 (ou (00) 0000-0000 no fixo), no máximo 11 números.
+   CPF: 000.000.000-00, no máximo 11 números. O sistema guarda só os números.
+   Vale para qualquer campo com inputmode="tel"/type="tel" ou data-mascara="telefone"|"cpf". */
+(() => {
+  const so = (v) => String(v || "").replace(/\D/g, "").slice(0, 11);
+  Fomito.mascaraTelefone = (v) => {
+    const d = so(v);
+    if (!d) return "";
+    if (d.length <= 2) return `(${d}`;
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  };
+  Fomito.mascaraCpf = (v) => {
+    const d = so(v);
+    return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join(".") + (d.length > 9 ? `-${d.slice(9)}` : "");
+  };
+  const TEL = 'input[inputmode="tel"], input[type="tel"], input[data-mascara="telefone"]';
+  const CPF = 'input[data-mascara="cpf"]';
+  const aplicar = (el) => {
+    const mascara = el.matches(CPF) ? Fomito.mascaraCpf : el.matches(TEL) ? Fomito.mascaraTelefone : null;
+    if (!mascara) return;
+    el.maxLength = el.matches(CPF) ? 14 : 15;
+    const novo = mascara(el.value);
+    if (novo !== el.value) el.value = novo;
+  };
+  /* Na fase de captura: as telas já leem o valor formatado */
+  document.addEventListener("input", (e) => { if (e.target.matches?.(`${TEL}, ${CPF}`)) aplicar(e.target); }, true);
+  document.addEventListener("focusin", (e) => { if (e.target.matches?.(`${TEL}, ${CPF}`)) aplicar(e.target); });
+})();

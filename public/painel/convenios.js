@@ -91,7 +91,7 @@ async function janelaConvenio(telefone) {
         <div class="campo"><label for="cvNome">Nome</label><input class="input" id="cvNome" maxlength="80" placeholder="Se ainda não tem cadastro"></div>
       </div>`}
       <div class="form-grade">
-        <div class="campo"><label for="cvCpf">CPF do titular</label><input class="input" id="cvCpf" inputmode="numeric" placeholder="${atual ? `Atual: ${atual.cpfFinal}` : "000.000.000-00"}"><span class="pequeno fraco">O cliente digita no cardápio para confirmar.</span></div>
+        <div class="campo"><label for="cvCpf">CPF do titular</label><input class="input" id="cvCpf" inputmode="numeric" data-mascara="cpf" maxlength="14" placeholder="${atual ? `Atual: ${atual.cpfFinal}` : "000.000.000-00"}"><span class="pequeno fraco">O cliente digita no cardápio para confirmar.</span></div>
         <div class="campo"><label for="cvEmpresa">Empresa <span class="fraco">(opcional)</span></label><input class="input" id="cvEmpresa" maxlength="80" value="${escConv(atual?.empresa || "")}" placeholder="Ex.: Metalúrgica Silva"></div>
         <div class="campo"><label for="cvLimite">Limite <span class="fraco">(0 = sem limite)</span></label><div class="campo-moeda"><span>R$</span><input class="input" id="cvLimite" inputmode="decimal" value="${atual?.limite ? String(atual.limite).replace(".", ",") : "0,00"}"></div></div>
         <div class="campo"><label for="cvDia">Dia do fechamento</label><select class="input" id="cvDia">${Array.from({ length: 28 }, (_, i) => `<option ${(atual?.diaFechamento || 5) === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select></div>

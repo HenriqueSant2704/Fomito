@@ -28,7 +28,7 @@ window.Fomito = window.Fomito || {};
 
   /** "11988887777" → "(11) 98888-7777" (vai formatando enquanto digita) */
   const formatarTelefone = (texto) => {
-    const d = soDigitos(texto);
+    const d = soDigitos(texto).slice(0, 11);
     if (d.length <= 2) return d ? `(${d}` : "";
     if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
     if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;

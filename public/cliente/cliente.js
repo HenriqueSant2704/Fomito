@@ -728,7 +728,7 @@ function blocoConvenio() {
       <span class="opcao__radio"></span>
     </button>
     ${estado.pagamento === "convenio" ? `
-      <div class="campo"><label for="cpfConvenio">CPF do titular do convênio</label><input id="cpfConvenio" class="input" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" value="${formatarCpf(estado.cpfConvenio)}"><span class="pequeno fraco">Para confirmar que é você. Não pagamos nada agora: o valor entra na sua conta.</span></div>` : ""}`;
+      <div class="campo"><label for="cpfConvenio">CPF do titular do convênio</label><input id="cpfConvenio" class="input" inputmode="numeric" data-mascara="cpf" maxlength="14" autocomplete="off" placeholder="000.000.000-00" value="${formatarCpf(estado.cpfConvenio)}"><span class="pequeno fraco">Para confirmar que é você. Não pagamos nada agora: o valor entra na sua conta.</span></div>` : ""}`;
 }
 
 function blocoPagamento() {
