@@ -93,7 +93,7 @@ window.Fomito = window.Fomito || {};
   let iniciado = false;
   function aplicar(novo) {
     const e = Fomito.estado;
-    ["sessao", "versao", "mesaQR", "pedidos", "comandas", "caixa", "clientes", "usuarios", "mesas", "relatorio", "maisPedidos"]
+    ["sessao", "versao", "mesaQR", "pedidos", "comandas", "caixa", "clientes", "usuarios", "mesas", "relatorio", "maisPedidos", "loja"]
       .forEach((k) => { if (k in novo) e[k] = novo[k]; });
     if (novo.config) e.config = novo.config;
     if (novo.cardapio) {

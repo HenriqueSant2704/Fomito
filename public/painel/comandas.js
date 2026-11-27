@@ -240,6 +240,11 @@ function abrirComandaFechada(numero) {
           </div>`).join("")}</div>
         <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(f.total)}</span></div>
       </div>
+      ${(f.cancelamentos || []).length ? `
+      <div class="detalhe-bloco">
+        <span class="rotulo">Tirados da conta</span>
+        ${f.cancelamentos.map((x) => `<div class="entre pequeno"><span><s>${x.item.qtd}× ${nomeItem(x.item)}</s><br><span class="fraco">${x.por} às ${cmd.hora(x.em)} · ${String(x.motivo).replace(/</g, "&lt;")}</span></span><span class="num fraco">− ${moeda(valorItem(x.item))}</span></div>`).join("")}
+      </div>` : ""}
 
       <div class="detalhe-bloco">
         <div class="entre"><span class="rotulo">Pagamento</span><span class="tag tag--roxo">${divisao > 1 ? `Dividida em ${divisao} pessoas` : "Sem divisão"}</span></div>

@@ -41,48 +41,13 @@ const somaItens = (itens) => arred(itens.reduce((s, i) => s + i.preco * i.qtd, 0
 /* ---------- Caixa ---------- */
 const VENDAS = ['comanda', 'entrega', 'balcao'];
 
-/** Mesma conta do protótipo: o que deveria ter na gaveta. */
-/**
- * Bolsa de cada motoboy, separada da gaveta do balcão:
- * troco inicial + dinheiro das entregas dele (o cliente deu − o troco devolvido).
- */
-function bolsasMotoboys(caixa) {
-  const bolsas = {};
-  const bolsa = (nome) => (bolsas[nome] ||= { fundo: 0, recebido: 0, troco: 0, dinheiro: 0, entregas: 0 });
-  for (const [nome, b] of Object.entries(caixa.motoboys || {})) Object.assign(bolsa(nome), { fundo: b.fundo || 0, fechamento: b.fechamento || null });
-  for (const m of caixa.movimentos) {
-    if (m.tipo !== 'entrega') continue;
-    const b = bolsa(m.por);
-    b.entregas++;
-    if (m.forma === 'dinheiro') { b.dinheiro += m.valor; b.recebido += m.recebido ?? m.valor; b.troco += m.troco || 0; }
-  }
-  for (const b of Object.values(bolsas)) b.esperado = arred(b.fundo + b.dinheiro);
-  return bolsas;
-}
-
-function resumoCaixa(caixa) {
-  const r = { vendas: 0, porForma: { dinheiro: 0, pix: 0, credito: 0, debito: 0 }, recebidoDinheiro: 0, troco: 0, sangrias: 0, suprimentos: 0, qtdVendas: 0 };
-  for (const m of caixa.movimentos) {
-    if (VENDAS.includes(m.tipo)) {
-      r.vendas += m.valor;
-      r.qtdVendas++;
-      r.porForma[m.forma] = (r.porForma[m.forma] || 0) + m.valor;
-      r.troco += m.troco || 0;
-      if (m.forma === 'dinheiro') r.recebidoDinheiro += m.recebido ?? m.valor;
-    }
-    /* Cliente pagou o convênio: não é venda nova (a venda já contou no dia da compra) */
-    if (m.tipo === 'convenio') { r.recebidoConvenio = arred((r.recebidoConvenio || 0) + m.valor); if (m.forma === 'dinheiro') r.convenioDinheiro = arred((r.convenioDinheiro || 0) + m.valor); }
-    if (m.tipo === 'sangria') r.sangrias += m.valor;
-    if (m.tipo === 'suprimento') r.suprimentos += m.valor;
-  }
-  /* Gaveta do balcão: o dinheiro das entregas fica na bolsa do motoboy, não aqui */
-  const dinheiroEntregas = caixa.movimentos.filter((m) => m.tipo === 'entrega' && m.forma === 'dinheiro').reduce((s, m) => s + m.valor, 0);
-  r.dinheiroEntregas = arred(dinheiroEntregas);
-  r.esperado = arred(caixa.fundo + r.porForma.dinheiro - dinheiroEntregas - r.sangrias + r.suprimentos + (r.convenioDinheiro || 0));
-  r.bolsas = bolsasMotoboys(caixa);
-  r.vendas = arred(r.vendas);
-  return r;
-}
+/* A conta do caixa (gaveta, maquininha e bolsas de motoboys e garçons) fica num arquivo só,
+   usado aqui e no painel: public/compartilhado/js/contas-caixa.js */
+const contasCaixa = require('../public/compartilhado/js/contas-caixa.js');
+const resumoCaixa = (caixa) => contasCaixa.resumo(caixa);
+/** Bolsas de um tipo: 'motoboy' (padrão) ou 'garcom' */
+const bolsasDe = (caixa, tipo = 'motoboy') => { const r = contasCaixa.resumo(caixa); return tipo === 'garcom' ? r.bolsasGarcons : r.bolsas; };
+const bolsasMotoboys = (caixa) => bolsasDe(caixa, 'motoboy');
 
 const FORMAS = ['dinheiro', 'pix', 'credito', 'debito'];
 
@@ -100,4 +65,4 @@ function conferirPagamento({ forma, valor, recebido }) {
   return { forma, valor: v, recebido: deu, troco: arred(deu - v) };
 }
 
-module.exports = { adicionaisDo, bolsasMotoboys, montarItem, montarItens, somaItens, resumoCaixa, conferirPagamento, FORMAS, VENDAS };
+module.exports = { adicionaisDo, bolsasMotoboys, bolsasDe, montarItem, montarItens, somaItens, resumoCaixa, conferirPagamento, FORMAS, VENDAS };

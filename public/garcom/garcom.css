@@ -167,3 +167,24 @@ body { background: var(--fundo); min-height: 100vh; }
 body.embutido .barra, body.embutido .mesas, body.embutido .comanda__fechar-painel, body.embutido #avisoNotificacao { display: none !important; }
 body.embutido .layout { display: block; }
 body.embutido .comanda { position: static; display: flex; height: 100vh; height: 100dvh; border: 0; }
+
+/* Tirar item da conta (atendente e administrador) */
+.tirar-item { color: var(--texto-fraco, #8B8499); flex-shrink: 0; }
+.tirar-item:hover { color: var(--vermelho, #EF4444); background: var(--vermelho-claro, #FEE2E2); }
+.tirar-folha { gap: 14px; max-width: 440px; }
+.tirar-item__resumo { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: var(--raio-md, 12px); background: var(--fundo-suave, #F6F4FA); }
+.tirar-item__resumo strong { font-size: 17px; }
+.tirar-item__qtd .qtd { display: flex; align-items: center; gap: 12px; }
+.tirar-item__qtd .qtd button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--borda, #E5E7EB); background: var(--superficie, #fff); display: grid; place-items: center; cursor: pointer; }
+.motivos-tirar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.motivo-tirar { border: 1px solid var(--borda, #E5E7EB); background: var(--superficie, #fff); color: inherit; border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.motivo-tirar.ativo { background: var(--vermelho-claro, #FEE2E2); border-color: var(--vermelho, #EF4444); color: var(--vermelho-escuro, #B91C1C); }
+.tirar-item__valor { padding: 12px 16px; border-radius: var(--raio-md, 12px); background: var(--vermelho-claro, #FEE2E2); color: var(--vermelho-escuro, #B91C1C); }
+
+/* Bolsa do garçom (quando ele trabalha com pochete e maquininha própria) */
+.minha-bolsa { display: flex; flex-direction: column; gap: 10px; margin: 0 0 14px; padding: 14px 16px; border-radius: var(--raio-lg, 16px); background: var(--superficie, #fff); border: 1px solid var(--borda, #E5E7EB); box-shadow: var(--sombra-sm, 0 1px 2px rgba(0,0,0,.04)); }
+.minha-bolsa__numeros { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.minha-bolsa__numeros > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--raio-md, 12px); background: var(--superficie-2, #F6F4FA); min-width: 0; }
+.minha-bolsa__numeros span { display: inline-flex; align-items: center; gap: 5px; }
+.minha-bolsa__numeros strong { font-size: 18px; font-family: Nunito, Inter, system-ui, sans-serif; }
+#minhaBolsa:empty { display: none; }

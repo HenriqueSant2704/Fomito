@@ -182,4 +182,38 @@ async function mesaDoCodigo(codigo) {
   return rows[0]?.numero || null;
 }
 
-module.exports = { carregar, obter, salvarConfig, salvarCardapio, definirAberta, definirMesas, marcarWhatsApp, configPublica, mesas, mesaDoCodigo, mesclar };
+/* ---------- Funcionamento: aberto agora? ----------
+   A loja fecha sozinha fora dos dias e do horário cadastrados (Configurações → Loja).
+   "Recebendo pedidos" desligado no painel pausa mesmo dentro do horário.
+   Horário que passa da meia-noite (ex.: 18:00 às 02:00) vale como o mesmo expediente. */
+const DIAS_NOME = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const minutos = (hhmm) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+const horaTexto = (min) => `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, '0') : ''}`;
+function funcionamento(l = atual?.cardapio?.lanchonete || {}, agora = new Date()) {
+  const abre = minutos(l.abre);
+  const fecha = minutos(l.fecha);
+  const dias = Array.isArray(l.dias) && l.dias.length ? l.dias.map(Number) : [0, 1, 2, 3, 4, 5, 6];
+  const pausada = l.aberta === false;
+  let noHorario = true;
+  let abreEm = '';
+  if (abre != null && fecha != null && abre !== fecha) {
+    const hoje = agora.getDay();
+    const t = agora.getHours() * 60 + agora.getMinutes();
+    const virada = fecha < abre; // fecha depois da meia-noite
+    noHorario = virada
+      ? (dias.includes(hoje) && t >= abre) || (dias.includes((hoje + 6) % 7) && t < fecha)
+      : dias.includes(hoje) && t >= abre && t < fecha;
+    if (!noHorario) {
+      /* Próxima abertura: hoje mais tarde ou o próximo dia de funcionamento */
+      for (let i = 0; i < 8; i++) {
+        const d = (hoje + i) % 7;
+        if (!dias.includes(d) || (i === 0 && t >= abre)) continue;
+        abreEm = `${i === 0 ? 'hoje' : i === 1 ? 'amanhã' : DIAS_NOME[d]} às ${horaTexto(abre)}`;
+        break;
+      }
+    }
+  }
+  return { aberta: !pausada && noHorario, pausada, foraDoHorario: !noHorario, abreEm };
+}
+
+module.exports = { funcionamento, carregar, obter, salvarConfig, salvarCardapio, definirAberta, definirMesas, marcarWhatsApp, configPublica, mesas, mesaDoCodigo, mesclar };

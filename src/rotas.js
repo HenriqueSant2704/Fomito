@@ -97,6 +97,16 @@ r.put('/usuarios/:usuario', admin, ok(async (req) => {
       if (err.code === '23505') falhar(409, 'Já existe alguém com esse usuário.');
       throw err;
     }
+    /* Garçom com bolsa mudou de nome: a bolsa e as mesas dele no caixa aberto acompanham o nome novo */
+    if (u.perfil === 'garcom' && u.nome !== n) {
+      const { rows: cx } = await c.query('SELECT id, dados FROM caixas WHERE aberto FOR UPDATE');
+      const d = cx[0]?.dados;
+      if (d?.garcons?.[u.nome] && !d.garcons[n]) {
+        d.garcons[n] = d.garcons[u.nome]; delete d.garcons[u.nome];
+        (d.movimentos || []).forEach((m) => { if (m.tipo === 'comanda' && m.por === u.nome) m.por = n; });
+        await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [cx[0].id, d]);
+      }
+    }
     /* Motoboy mudou de nome: as entregas em rota e a bolsa do caixa aberto acompanham o nome novo */
     if (u.perfil === 'motoboy' && u.nome !== n) {
       await c.query("UPDATE pedidos SET dados = jsonb_set(dados, '{motoboy}', to_jsonb($2::text)) WHERE status = 'rota' AND dados->>'motoboy' = $1", [u.nome, n]);
@@ -224,6 +234,7 @@ r.post('/comandas/conta', ok(async (req) => {
   const equipe = ehSalao(req);
   return s.pedirConta(equipe ? req.body.mesa : await mesaDoCliente(req), req.body.sim !== false);
 }));
+r.post('/comandas/:mesa/rodadas/:i/itens/:j/tirar', balcao, ok((req) => s.tirarItemComanda(req.params.mesa, req.params.i, req.params.j, req.body || {}, nome(req))));
 r.post('/comandas/:mesa/fechar', garcom, ok((req) => s.fecharComanda(req.params.mesa, req.body, nome(req))));
 
 /* ---------- Caixa (administrador e atendente) ---------- */
@@ -241,8 +252,11 @@ r.post('/caixa/abrir', balcao, ok((req) => s.abrirCaixa(req.body, nome(req))));
 r.post('/caixa/movimento', balcao, ok((req) => s.movimentoCaixa(req.body, nome(req))));
 r.post('/caixa/corrigir', balcao, ok((req) => s.corrigirMovimento(String(req.body.id), req.body.novo || {}, req.body, nome(req))));
 r.post('/caixa/redividir', balcao, ok((req) => s.redividirComanda(req.body.comanda, req.body, nome(req))));
-r.post('/caixa/motoboy', balcao, ok((req) => s.trocoMotoboy(req.body, nome(req))));
-r.post('/caixa/motoboy/fechar', balcao, ok((req) => s.fecharBolsa(req.body, nome(req))));
+r.post('/caixa/motoboy', balcao, ok((req) => s.trocoBolsa({ ...req.body, tipo: 'motoboy' }, nome(req))));
+r.post('/caixa/motoboy/fechar', balcao, ok((req) => s.fecharBolsa({ ...req.body, tipo: 'motoboy' }, nome(req))));
+/* Bolsa do garçom (pochete + maquininha própria): mesmo funcionamento da bolsa do motoboy */
+r.post('/caixa/garcom', balcao, ok((req) => s.trocoBolsa({ ...req.body, tipo: 'garcom' }, nome(req))));
+r.post('/caixa/garcom/fechar', balcao, ok((req) => s.fecharBolsa({ ...req.body, tipo: 'garcom' }, nome(req))));
 r.post('/caixa/fechar', balcao, ok((req) => s.fecharCaixa(req.body, nome(req))));
 
 r.use((req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));

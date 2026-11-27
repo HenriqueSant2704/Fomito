@@ -914,8 +914,15 @@ function ligarEventosTroco() {
   atualizarResultadoTroco();
 }
 
+/* Aberto agora? Vem do servidor: dias e horário cadastrados + "Recebendo pedidos" do painel */
+const lojaAgora = () => Fomito.estado.loja || { aberta: dados.lanchonete.aberta !== false, pausada: dados.lanchonete.aberta === false };
+/* Fora do horário quem já tem a comanda da mesa aberta ainda pode pedir mais */
+const podePedirAgora = () => lojaAgora().aberta || (estado.modo === "local" && !!minhaComanda() && !lojaAgora().pausada);
+const avisoFechada = () => (lojaAgora().pausada ? "A loja não está recebendo pedidos agora."
+  : `A loja está fechada agora${lojaAgora().abreEm ? `. Abre ${lojaAgora().abreEm}` : ""}.`);
+
 function podeConfirmar() {
-  if (dados.lanchonete.aberta === false) return false;
+  if (!podePedirAgora()) return false;
   if (estado.modo === "local") return !!minhaComanda() || (!!estado.mesaQR && estado.nomeLocal.trim().length > 1);
   if (estado.modo === "retirada") { if (estado.retNome.trim().length < 2 || !clientes.telefoneValido(estado.retTel)) return false; }
   else if (!estado.cliente || estado.novoEndereco || estado.editandoEndereco != null) return false;
@@ -937,7 +944,7 @@ function renderRodapeCheckout() {
   }
   $("#rodapeCheckout").innerHTML = `
     ${linhasResumo()}
-    ${dados.lanchonete.aberta === false ? `<span class="troco__erro" style="text-align:center">A loja não está recebendo pedidos agora.</span>` : ""}
+    ${!podePedirAgora() ? `<span class="troco__erro" style="text-align:center">${avisoFechada()}</span>` : ""}
     <button class="btn btn--primario btn--bloco" id="confirmar" ${podeConfirmar() ? "" : "disabled"}>
       ${estado.modo === "entrega" ? "Confirmar pedido" : estado.modo === "retirada" ? "Confirmar pedido para retirar" : minhaComanda() ? "Adicionar à comanda" : "Abrir comanda e enviar para a cozinha"}
     </button>`;
@@ -1430,10 +1437,15 @@ function renderLoja() {
   $("#rodapeNome").textContent = marca.nome;
   $("#rodapeEndereco").textContent = loja.endereco;
   $("#rodapeHorario").textContent = funcionamento;
-  const aberta = loja.aberta !== false;
-  $("#statusLoja").textContent = aberta ? "Aberto" : "Fechado agora";
-  $("#statusLoja").className = `tag tag--${aberta ? "verde" : "cinza"}`;
+  atualizarStatusAberto();
 }
+/* "Aberto" / "Fechado · abre quarta às 18h": confere a cada atualização (a hora muda sozinha) */
+function atualizarStatusAberto() {
+  const f = lojaAgora();
+  $("#statusLoja").textContent = f.aberta ? "Aberto" : f.pausada ? "Fechado agora" : `Fechado${f.abreEm ? ` · abre ${f.abreEm}` : ""}`;
+  $("#statusLoja").className = `tag tag--${f.aberta ? "verde" : "cinza"}`;
+}
+document.addEventListener("fomito:estado", atualizarStatusAberto);
 
 /* O dono mudou o cardápio ou a marca no painel: redesenha sem perder a sacola */
 document.addEventListener("fomito:loja", () => {

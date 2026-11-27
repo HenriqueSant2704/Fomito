@@ -192,6 +192,7 @@ function abaFeitas() {
         <div class="entre pequeno"><span>Troco que você deu</span><span class="num">− ${moeda(b.troco)}</span></div>
       </div>
       <div class="acerto__destaque"><div class="pilha" style="gap:0"><span class="forte">Deve ter na bolsa</span><span class="pequeno">${b.fechamento ? "Bolsa já conferida no caixa" : "Confira no caixa ao fim do turno"}</span></div><strong>${moeda(b.esperado)}</strong></div>
+      ${(b.credito || 0) + (b.debito || 0) ? `<div class="bolsa"><div class="entre pequeno"><span>Maquininha: crédito</span><span class="num">${moeda(b.credito || 0)}</span></div><div class="entre pequeno"><span>Maquininha: débito</span><span class="num">${moeda(b.debito || 0)}</span></div><div class="entre pequeno forte"><span>Deve sair no extrato</span><span class="num">${moeda((b.credito || 0) + (b.debito || 0))}</span></div></div>` : ""}
       <span class="pequeno suave">Toque numa entrega para ver o pedido.</span>
       <div>
         ${lista.map((p) => `

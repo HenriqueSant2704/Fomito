@@ -47,25 +47,29 @@ function renderCaixa() {
   $('[data-secao="caixa"].secao').innerHTML = `
     ${aberto ? caixaAberto(aberto) : caixaFechado(fechamentos[0])}
     <div class="card painel-card">
-      <div class="painel-card__topo"><h3>Fechamentos anteriores</h3><span class="pequeno fraco">Conferência do dinheiro na gaveta</span></div>
+      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Fechamentos anteriores</h3><span class="pequeno suave">Total de vendas soma todas as formas. Na conferência entram o dinheiro da gaveta e a maquininha do caixa; o Pix fica só de registro.</span></div></div>
       <div class="tabela-rolagem">
-        <table class="tabela">
-          <thead><tr><th>Dia</th><th>Período</th><th class="dir">Vendas</th><th class="dir">Deveria ter</th><th class="dir">Contado</th><th>Resultado</th><th>Fechado por</th></tr></thead>
+        <table class="tabela tabela--fechamentos">
+          <thead><tr><th>Dia</th><th class="dir">Total de vendas<br><span class="fraco">todas as formas</span></th><th>Dinheiro na gaveta</th><th>Maquininha do caixa</th><th class="dir">Pix<br><span class="fraco">só registro</span></th><th>Fechado por</th></tr></thead>
           <tbody>
             ${fechamentos.map((f) => `
               <tr>
-                <td class="forte" style="text-transform:capitalize">${dataCaixa(f.abertoEm)}</td>
-                <td class="num suave">${horaCaixa(f.abertoEm)} – ${horaCaixa(f.fechadoEm)}</td>
-                <td class="dir num">${moeda(f.vendas)}</td>
-                <td class="dir num">${moeda(f.esperado)}</td>
-                <td class="dir num">${moeda(f.contado)}</td>
-                <td>${tagDiferenca(f.contado, f.esperado)}${f.correcoes ? ` <span class="tag tag--amarelo">${f.correcoes} ${f.correcoes > 1 ? "correções" : "correção"}</span>` : ""}${f.obs ? `<div class="pequeno fraco">${f.obs}</div>` : ""}</td>
-                <td class="suave">${f.por}</td>
-              </tr>`).join("") || `<tr><td colspan="7" class="suave" style="text-align:center;padding:24px">Nenhum fechamento ainda.</td></tr>`}
+                <td><span class="forte" style="text-transform:capitalize">${dataCaixa(f.abertoEm)}</span><br><span class="num pequeno suave">${horaCaixa(f.abertoEm)} – ${horaCaixa(f.fechadoEm)}</span></td>
+                <td class="dir num forte">${moeda(f.vendas)}</td>
+                <td>${linhaConferida(f.esperado, f.contado, "na gaveta")}</td>
+                <td>${f.cartao ? linhaConferida(f.cartao.esperado.credito + f.cartao.esperado.debito, f.cartao.contado.credito + f.cartao.contado.debito, "no extrato") : `<span class="pequeno fraco">Não conferida</span>`}</td>
+                <td class="dir num suave">${moeda(f.pix ?? f.porForma?.pix ?? 0)}</td>
+                <td class="suave">${f.fechadoPor || f.por}${f.correcoes ? `<br><span class="tag tag--amarelo">${f.correcoes} ${f.correcoes > 1 ? "correções" : "correção"}</span>` : ""}${f.obs ? `<div class="pequeno fraco">“${f.obs}”</div>` : ""}</td>
+              </tr>`).join("") || `<tr><td colspan="6" class="suave" style="text-align:center;padding:24px">Nenhum fechamento ainda.</td></tr>`}
           </tbody>
         </table>
       </div>
     </div>`;
+}
+
+/* "Deveria ter R$ 220,65 · Contado R$ 220,65 [Bateu]" numa célula */
+function linhaConferida(esperado, contado, onde) {
+  return `<div class="conferida"><span class="pequeno"><span class="fraco">Deveria ter</span> <b class="num">${moeda(esperado)}</b></span><span class="pequeno"><span class="fraco">Contado ${onde}</span> <b class="num">${moeda(contado)}</b></span>${tagDiferenca(contado, esperado)}</div>`;
 }
 
 /* Iniciais para o círculo do nome: "João Pereira" → "JP" */
@@ -74,116 +78,153 @@ const escAttr = (t) => String(t).replace(/"/g, "&quot;");
 const ICONE_FORMA = { dinheiro: "dinheiro", pix: "pix", credito: "cartao", debito: "cartao", convenio: "conta" };
 const CURTAS = { dinheiro: "Dinheiro", pix: "Pix", credito: "Crédito", debito: "Débito", convenio: "Convênio" };
 
-/* Bolsa de cada motoboy: separada da gaveta do balcão (troco + dinheiro das entregas) */
-function blocoBolsas(r, cx) {
-  const motoboys = Fomito.sessao.usuarios().filter((u) => u.perfil === "motoboy").map((u) => u.nome);
-  const nomes = [...new Set([...motoboys, ...Object.keys(r.bolsas || {})])];
-  if (!nomes.length) return "";
+/* ---------- Bolsas: motoboys e garçons ----------
+   Cada um com o seu dinheiro (troco + o que recebeu) e a sua maquininha, separados da gaveta.
+   O garçom só tem bolsa se a loja quiser: sem bolsa, as mesas dele entram no caixa. */
+const TIPO_BOLSA = {
+  motoboy: { titulo: "Bolsas dos motoboys", perfil: "motoboy", icone: "entrega", texto: "O troco, o dinheiro e a maquininha das entregas ficam com cada motoboy, separados da gaveta.", unidade: ["entrega", "entregas"] },
+  garcom: { titulo: "Bolsas dos garçons", perfil: "garcom", icone: "mesa", texto: "Garçom com pochete e maquininha própria: as mesas que ele fecha ficam na bolsa dele. Sem bolsa, entram no caixa.", unidade: ["mesa", "mesas"] },
+};
+const doTipo = (r, tipo) => (tipo === "garcom" ? r.bolsasGarcons : r.bolsas) || {};
+const chaveBolsa = (tipo, nome) => escAttr(`${tipo}|${nome}`);
+
+function cartaoBolsa(tipo, nome, b) {
+  const t = TIPO_BOLSA[tipo];
+  const chave = chaveBolsa(tipo, nome);
+  if (!b) return `
+    <div class="bolsa-card bolsa-card--vazia">
+      <div class="bolsa-card__topo"><span class="avatar-mini">${iniciaisCaixa(nome)}</span><div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${nome}</span><span class="pequeno fraco">${tipo === "garcom" ? "Sem bolsa: as mesas dele entram no caixa" : "Sem bolsa hoje"}</span></div></div>
+      <button class="btn btn--contorno btn--sm btn--bloco" data-troco-bolsa="${chave}">${icone("mais", "ic--sm")} ${tipo === "garcom" ? "Dar bolsa própria" : "Abrir bolsa com troco"}</button>
+    </div>`;
+  const f = b.fechamento;
+  const cartoes = b.credito + b.debito;
+  const status = !b.pendente && f
+    ? (Math.abs(f.contado - f.esperado) < 0.005 && (!f.cartao || Math.abs(f.cartao.contado.credito + f.cartao.contado.debito - f.cartao.esperado.credito - f.cartao.esperado.debito) < 0.005)
+      ? `<span class="tag tag--verde">Conferida</span>` : `<span class="tag tag--amarelo">Conferida com diferença</span>`)
+    : f ? `<span class="tag tag--laranja">Recebeu depois</span>` : `<span class="tag tag--cinza">A conferir</span>`;
   return `
-    <div class="card painel-card">
-      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Bolsas dos motoboys</h3><span class="pequeno suave">O troco e o dinheiro das entregas ficam com cada motoboy, separados da gaveta do balcão.</span></div></div>
-      <div class="bolsas">
-        ${nomes.map((nome) => {
-          const b = r.bolsas?.[nome];
-          const n = escAttr(nome);
-          if (!b) return `
-            <div class="bolsa-card bolsa-card--vazia">
-              <div class="bolsa-card__topo"><span class="avatar-mini">${iniciaisCaixa(nome)}</span><div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${nome}</span><span class="pequeno fraco">Sem bolsa hoje</span></div></div>
-              <button class="btn btn--contorno btn--sm btn--bloco" data-troco-motoboy="${n}">${icone("mais", "ic--sm")} Abrir bolsa com troco</button>
-            </div>`;
-          const emDinheiro = cx.movimentos.filter((m) => m.tipo === "entrega" && m.por === nome && m.forma === "dinheiro").length;
-          const f = b.fechamento;
-          return `
-            <div class="bolsa-card">
-              <div class="bolsa-card__topo">
-                <span class="avatar-mini">${iniciaisCaixa(nome)}</span>
-                <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${nome}</span><span class="pequeno fraco">${b.entregas} entrega${b.entregas === 1 ? "" : "s"} · ${emDinheiro} em dinheiro</span></div>
-                ${f ? tagDiferenca(f.contado, f.esperado) : `<span class="tag tag--cinza">A conferir</span>`}
-              </div>
-              <div class="conferencia">
-                <div class="entre"><span>Troco inicial</span><span class="num">${moeda(b.fundo)}</span></div>
-                <div class="entre"><span>+ Notas que os clientes deram</span><span class="num">${moeda(b.recebido)}</span></div>
-                <div class="entre"><span>− Troco devolvido</span><span class="num valor-saida">${moeda(b.troco)}</span></div>
-                <div class="entre conferencia__total"><span>Deve ter na bolsa</span><span class="num">${moeda(b.esperado)}</span></div>
-              </div>
-              ${f ? `
-                <div class="conferencia conferencia--feita">
-                  <div class="entre"><span>Contado</span><span class="num">${moeda(f.contado)}</span></div>
-                  <div class="entre"><span>Ficou de troco para amanhã</span><span class="num">${moeda(f.ficaParaAmanha || 0)}</span></div>
-                  <div class="entre forte"><span>Entregou no caixa</span><span class="num">${moeda(f.contado - (f.ficaParaAmanha || 0))}</span></div>
-                </div>
-                <span class="pequeno fraco">Conferida por ${f.por} às ${horaCaixa(f.em)}${f.obs ? ` · “${f.obs}”` : ""}</span>`
-              : `<div class="linha" style="gap:8px"><button class="btn btn--contorno btn--sm" data-troco-motoboy="${n}">Ajustar troco</button><button class="btn btn--primario btn--sm" style="flex:1" data-conferir-bolsa="${n}">${icone("check", "ic--sm")} Conferir bolsa</button></div>`}
-            </div>`;
-        }).join("")}
+    <div class="bolsa-card ${b.pendente ? "bolsa-card--pendente" : ""}">
+      <div class="bolsa-card__topo">
+        <span class="avatar-mini">${iniciaisCaixa(nome)}</span>
+        <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${nome}</span><span class="pequeno fraco">${b.qtd} ${t.unidade[b.qtd === 1 ? 0 : 1]}</span></div>
+        ${status}
       </div>
+      <div class="bolsa-card__duas">
+        <div class="bolsa-mini"><span class="bolsa-mini__rotulo">${icone("dinheiro", "ic--sm")} Dinheiro</span><strong class="num">${moeda(b.esperado)}</strong><span class="pequeno fraco">troco ${moeda(b.fundo)}<br>recebido ${moeda(b.dinheiro)}</span></div>
+        <div class="bolsa-mini"><span class="bolsa-mini__rotulo">${icone("cartao", "ic--sm")} Maquininha</span><strong class="num">${moeda(cartoes)}</strong><span class="pequeno fraco">crédito ${moeda(b.credito)}<br>débito ${moeda(b.debito)}</span></div>
+      </div>
+      ${b.pix ? `<span class="pequeno fraco">${icone("pix", "ic--sm")} Pix ${moeda(b.pix)}: caiu direto na conta</span>` : ""}
+      ${f ? `<span class="pequeno fraco">Conferida por ${f.por} às ${horaCaixa(f.em)}: dinheiro ${moeda(f.contado)}${f.cartao ? ` · maquininha ${moeda(f.cartao.contado.credito + f.cartao.contado.debito)}` : ""}${f.ficaParaAmanha ? ` · ficou ${moeda(f.ficaParaAmanha)} de troco` : ""}${f.obs ? ` · “${f.obs}”` : ""}</span>` : ""}
+      ${b.pendente ? `<div class="linha" style="gap:8px">${!f ? `<button class="btn btn--contorno btn--sm" data-troco-bolsa="${chave}">Ajustar troco</button>` : ""}<button class="btn btn--primario btn--sm" style="flex:1" data-conferir-bolsa="${chave}">${icone("check", "ic--sm")} Conferir bolsa</button></div>` : ""}
     </div>`;
 }
 
-async function janelaTrocoMotoboy(nome) {
-  const atual = Fomito.caixa.resumo(Fomito.caixa.aberto()).bolsas?.[nome]?.fundo || 0;
-  const r = await Fomito.dialogo({
-    titulo: `Troco do ${nome}`,
-    texto: "Quanto em dinheiro o motoboy leva na bolsa para dar troco. Sai separado da gaveta do balcão.",
-    campos: [{ id: "fundo", rotulo: "Troco na bolsa (R$)", tipo: "moeda", valor: String(atual).replace(".", ","), obrigatorio: true }],
-    confirmar: "Salvar troco",
-  });
-  if (!r) return;
-  await Fomito.acao("POST", "/caixa/motoboy", { nome, fundo: formatoDinheiro(r.fundo) });
-  renderCaixa();
-  toast(`Troco do ${nome}: ${moeda(formatoDinheiro(r.fundo))}`, "dinheiro");
+function blocoBolsas(r, cx, tipo = "motoboy") {
+  const t = TIPO_BOLSA[tipo];
+  const daEquipe = Fomito.sessao.usuarios().filter((u) => u.perfil === t.perfil).map((u) => u.nome);
+  const bolsas = doTipo(r, tipo);
+  const nomes = [...new Set([...daEquipe, ...Object.keys(bolsas)])];
+  if (!nomes.length) return "";
+  const pendentes = nomes.filter((n) => bolsas[n]?.pendente).length;
+  return `
+    <div class="card painel-card">
+      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>${t.titulo}</h3><span class="pequeno suave">${t.texto}</span></div>${pendentes ? `<span class="tag tag--cinza">${pendentes} a conferir</span>` : ""}</div>
+      <div class="bolsas">${nomes.map((n) => cartaoBolsa(tipo, n, bolsas[n])).join("")}</div>
+    </div>`;
 }
 
-/* Conferência da bolsa: a mesma organização da gaveta, com as entregas em dinheiro e a diferença na hora */
-function janelaConferirBolsa(nome) {
-  const cx = Fomito.caixa.aberto();
-  const b = Fomito.caixa.resumo(cx).bolsas?.[nome] || { esperado: 0, fundo: 0, recebido: 0, troco: 0 };
-  const entregas = cx.movimentos.filter((m) => m.tipo === "entrega" && m.por === nome && m.forma === "dinheiro");
-  const outras = cx.movimentos.filter((m) => m.tipo === "entrega" && m.por === nome && m.forma !== "dinheiro");
-  const resultado = (c) => {
-    const campo = $("#contadoBolsa", c);
-    if (campo.value.trim() === "") return `<div class="troco-painel">${icone("info", "ic--sm")} Conte o dinheiro da bolsa e digite o valor.</div>`;
-    const contado = formatoDinheiro(campo.value);
-    const fica = Math.min(contado, formatoDinheiro($("#ficaBolsa", c).value));
-    const d = Math.round((contado - b.esperado) * 100) / 100;
-    return `${Math.abs(d) < 0.005
-      ? `<div class="diferenca diferenca--ok"><span>Bateu certinho</span><strong>${moeda(0)}</strong></div>`
-      : `<div class="diferenca ${d < 0 ? "diferenca--falta" : "diferenca--sobra"}"><span>${d < 0 ? "Está faltando" : "Está sobrando"}</span><strong>${moeda(Math.abs(d))}</strong></div>`}
-      <div class="conferencia"><div class="entre forte"><span>Entrega no caixa agora</span><span class="num">${moeda(contado - fica)}</span></div>${fica ? `<div class="entre pequeno suave"><span>Fica com ele de troco</span><span class="num">${moeda(fica)}</span></div>` : ""}</div>`;
-  };
-  janelaCaixa(`Conferir a bolsa do ${nome}`, `
-    <div class="conferencia">
-      <div class="entre"><span>Troco inicial</span><span class="num">${moeda(b.fundo)}</span></div>
-      <div class="entre"><span>+ Notas que os clientes deram</span><span class="num">${moeda(b.recebido)}</span></div>
-      <div class="entre"><span>− Troco devolvido</span><span class="num valor-saida">${moeda(b.troco)}</span></div>
-      <div class="entre conferencia__total"><span>Deve ter na bolsa</span><span class="num">${moeda(b.esperado)}</span></div>
+async function janelaTrocoBolsa(tipo, nome) {
+  const atual = doTipo(Fomito.caixa.resumo(Fomito.caixa.aberto()), tipo)[nome];
+  const garcom = tipo === "garcom";
+  const r = await Fomito.dialogo({
+    titulo: garcom && !atual ? `Bolsa própria para ${nome}` : `Troco do ${nome}`,
+    texto: garcom
+      ? "O garçom anda com pochete e maquininha próprias. Dagora em diante, as mesas que ele fechar ficam na bolsa dele (não na gaveta) e ele confere no fim do dia, como o motoboy."
+      : "Quanto em dinheiro o motoboy leva na bolsa para dar troco. Sai separado da gaveta do balcão.",
+    campos: [{ id: "fundo", rotulo: "Troco na bolsa (R$)", tipo: "moeda", valor: String(atual?.fundo || 0).replace(".", ","), obrigatorio: true }],
+    confirmar: garcom && !atual ? "Abrir bolsa" : "Salvar troco",
+  });
+  if (!r) return;
+  await Fomito.acao("POST", `/caixa/${tipo}`, { nome, fundo: formatoDinheiro(r.fundo) });
+  renderCaixa();
+  toast(`Bolsa do ${nome}: ${moeda(formatoDinheiro(r.fundo))} de troco`, "dinheiro");
+}
+
+/* Diferença entre o contado e o esperado, na hora em que digita */
+function blocoDiferenca(contado, esperado, vazio) {
+  if (contado == null) return `<div class="troco-painel">${icone("info", "ic--sm")} ${vazio}</div>`;
+  const d = Math.round((contado - esperado) * 100) / 100;
+  return Math.abs(d) < 0.005
+    ? `<div class="diferenca diferenca--ok"><span>Bateu certinho</span><strong>${moeda(0)}</strong></div>`
+    : `<div class="diferenca ${d < 0 ? "diferenca--falta" : "diferenca--sobra"}"><span>${d < 0 ? "Está faltando" : "Está sobrando"}</span><strong>${moeda(Math.abs(d))}</strong></div>`;
+}
+const valorCampo = (el) => (el && el.value.trim() !== "" ? formatoDinheiro(el.value) : null);
+
+/* Bloco "Maquininha": crédito e débito do extrato, comparados com o que o sistema registrou */
+const blocoMaquininha = (esp, prefixo, titulo) => `
+  <div class="conferir-bloco">
+    <div class="entre"><span class="conferir-bloco__titulo">${icone("cartao", "ic--sm")} ${titulo}</span><span class="pequeno suave">deveria ter ${moeda(esp.credito + esp.debito)}</span></div>
+    <div class="duas-entradas">
+      <div class="campo"><label for="${prefixo}Credito">Crédito no extrato <span class="fraco">(deveria ${moeda(esp.credito)})</span></label><div class="campo-moeda"><span>R$</span><input id="${prefixo}Credito" class="input" inputmode="decimal" placeholder="0,00"></div></div>
+      <div class="campo"><label for="${prefixo}Debito">Débito no extrato <span class="fraco">(deveria ${moeda(esp.debito)})</span></label><div class="campo-moeda"><span>R$</span><input id="${prefixo}Debito" class="input" inputmode="decimal" placeholder="0,00"></div></div>
     </div>
-    ${entregas.length ? `
-      <div class="pilha" style="gap:6px">
-        <span class="rotulo">Entregas em dinheiro (${entregas.length})</span>
-        <div class="lista-bolsa lista-rolagem">
-          ${entregas.map((m) => `
-            <div class="entre pequeno"><span><b>${m.ref.split(" · ")[0]}</b> <span class="fraco">${horaCaixa(m.hora)}</span><br><span class="fraco">deu ${moeda(m.recebido ?? m.valor)} · troco ${moeda(m.troco || 0)}</span></span><span class="num forte">${moeda(m.valor)}</span></div>`).join("")}
-        </div>
-      </div>` : ""}
-    ${outras.length ? `<p class="pequeno fraco">${outras.length} entrega${outras.length > 1 ? "s" : ""} no Pix ou cartão (${moeda(outras.reduce((s, m) => s + m.valor, 0))}) não passa${outras.length > 1 ? "m" : ""} pela bolsa.</p>` : ""}
-    <div class="campo"><label for="contadoBolsa">Dinheiro contado na bolsa <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="contadoBolsa" class="input" inputmode="decimal" placeholder="0,00"></div></div>
-    <div class="campo"><label for="ficaBolsa">Fica com ele de troco para amanhã</label><div class="campo-moeda"><span>R$</span><input id="ficaBolsa" class="input" inputmode="decimal" value="0,00"></div></div>
-    <div id="resultadoBolsa" class="pilha" style="gap:8px">${`<div class="troco-painel">${icone("info", "ic--sm")} Conte o dinheiro da bolsa e digite o valor.</div>`}</div>
-    <div class="campo"><label for="obsBolsa">Observação <span class="fraco">(obrigatória se não bater)</span></label><input id="obsBolsa" class="input" maxlength="300" placeholder="Ex.: troco errado no pedido #1004"></div>
+    <div id="${prefixo}DifCartao"></div>
+  </div>`;
+function diferencaMaquininha(c, esp, prefixo) {
+  const cr = valorCampo($(`#${prefixo}Credito`, c)), db = valorCampo($(`#${prefixo}Debito`, c));
+  if (cr == null && db == null) return blocoDiferenca(null, 0, "Tire o extrato da maquininha e digite o crédito e o débito.");
+  return blocoDiferenca((cr || 0) + (db || 0), esp.credito + esp.debito);
+}
+
+/* Conferência da bolsa: o dinheiro e a maquininha, com a diferença na hora */
+function janelaConferirBolsa(tipo, nome) {
+  const cx = Fomito.caixa.aberto();
+  const b = doTipo(Fomito.caixa.resumo(cx), tipo)[nome];
+  if (!b) return;
+  const meus = cx.movimentos.filter((m) => { const d = Fomito.contasCaixa.destino(cx, m); return d && d.tipo === tipo && d.nome === nome; });
+  const emDinheiro = meus.filter((m) => m.forma === "dinheiro");
+  const temCartao = b.credito + b.debito > 0;
+  const esp = { credito: b.credito, debito: b.debito };
+  janelaCaixa(`Conferir a bolsa do ${nome}`, `
+    <div class="conferir-bloco">
+      <div class="entre"><span class="conferir-bloco__titulo">${icone("dinheiro", "ic--sm")} Dinheiro na bolsa</span></div>
+      <div class="conferencia">
+        <div class="entre"><span>Troco inicial</span><span class="num">${moeda(b.fundo)}</span></div>
+        <div class="entre"><span>+ Notas que os clientes deram</span><span class="num">${moeda(b.recebido)}</span></div>
+        <div class="entre"><span>− Troco devolvido</span><span class="num valor-saida">${moeda(b.troco)}</span></div>
+        <div class="entre conferencia__total"><span>Deveria ter na bolsa</span><span class="num">${moeda(b.esperado)}</span></div>
+      </div>
+      ${emDinheiro.length ? `<details class="lista-det"><summary class="pequeno">${emDinheiro.length > 1 ? `Ver os ${emDinheiro.length} recebimentos em dinheiro` : "Ver o recebimento em dinheiro"}</summary><div class="lista-bolsa lista-rolagem">${emDinheiro.map((m) => `
+        <div class="entre pequeno"><span><b>${m.ref.split(" · ")[0]}</b> <span class="fraco">${horaCaixa(m.hora)}</span><br><span class="fraco">deu ${moeda(m.recebido ?? m.valor)} · troco ${moeda(m.troco || 0)}</span></span><span class="num forte">${moeda(m.valor)}</span></div>`).join("")}</div></details>` : ""}
+      <div class="duas-entradas">
+        <div class="campo"><label for="contadoBolsa">Contado na bolsa <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="contadoBolsa" class="input" inputmode="decimal" placeholder="0,00"></div></div>
+        <div class="campo"><label for="ficaBolsa">Fica de troco para amanhã</label><div class="campo-moeda"><span>R$</span><input id="ficaBolsa" class="input" inputmode="decimal" value="0,00"></div></div>
+      </div>
+      <div id="resultadoBolsa" class="pilha" style="gap:8px">${blocoDiferenca(null, 0, "Conte o dinheiro da bolsa e digite o valor.")}</div>
+    </div>
+    ${temCartao ? blocoMaquininha(esp, "bolsa", `Maquininha do ${nome.split(" ")[0]}`) : `<p class="pequeno fraco">${icone("cartao", "ic--sm")} Nenhum cartão na maquininha dele hoje.</p>`}
+    ${b.pix ? `<p class="pequeno fraco">${icone("pix", "ic--sm")} Pix ${moeda(b.pix)}: caiu direto na conta (só registro).</p>` : ""}
+    <div class="campo"><label for="obsBolsa">Observação <span class="fraco">(obrigatória se algo não bater)</span></label><input id="obsBolsa" class="input" maxlength="300" placeholder="Ex.: troco errado no pedido #1004"></div>
     <p class="form-erro" id="erroCaixa" hidden></p>
     <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Conferir bolsa</button>`,
   async (c) => {
     const erro = (t) => { $("#erroCaixa", c).textContent = t; $("#erroCaixa", c).hidden = false; return false; };
-    if ($("#contadoBolsa", c).value.trim() === "") return erro("Informe quanto dinheiro tem na bolsa.");
-    const contado = formatoDinheiro($("#contadoBolsa", c).value);
+    const contado = valorCampo($("#contadoBolsa", c));
+    if (contado == null) return erro("Informe quanto dinheiro tem na bolsa.");
+    const credito = temCartao ? valorCampo($("#bolsaCredito", c)) : 0;
+    const debito = temCartao ? valorCampo($("#bolsaDebito", c)) : 0;
+    if (temCartao && (credito == null || debito == null)) return erro("Digite o crédito e o débito do extrato da maquininha (pode ser 0,00).");
     const obs = $("#obsBolsa", c).value.trim();
-    if (Math.abs(contado - b.esperado) >= 0.005 && !obs) return erro("O valor não bateu: escreva uma observação.");
-    try { await Fomito.acao("POST", "/caixa/motoboy/fechar", { nome, contado, fica: formatoDinheiro($("#ficaBolsa", c).value), obs }); }
+    const bateu = Math.abs(contado - b.esperado) < 0.005 && Math.abs(credito - b.credito) < 0.005 && Math.abs(debito - b.debito) < 0.005;
+    if (!bateu && !obs) return erro("Algo não bateu: escreva uma observação.");
+    try { await Fomito.acao("POST", `/caixa/${tipo}/fechar`, { nome, contado, credito, debito, fica: formatoDinheiro($("#ficaBolsa", c).value), obs }); }
     catch (err) { return erro(err.message); }
-    toast(Math.abs(contado - b.esperado) < 0.005 ? `Bolsa do ${nome} bateu` : `Bolsa do ${nome} conferida com diferença`, "check");
+    toast(bateu ? `Bolsa do ${nome} bateu` : `Bolsa do ${nome} conferida com diferença`, "check");
   },
-  (c) => { $("#resultadoBolsa", c).innerHTML = resultado(c); });
+  (c) => {
+    $("#resultadoBolsa", c).innerHTML = blocoDiferenca(valorCampo($("#contadoBolsa", c)), b.esperado, "Conte o dinheiro da bolsa e digite o valor.");
+    if (temCartao) $("#bolsaDifCartao", c).innerHTML = diferencaMaquininha(c, esp, "bolsa");
+  });
 }
 
 /* ---------- Movimentações agrupadas ----------
@@ -216,7 +257,9 @@ function gruposMovimentos(movimentos) {
     g.corrigido = g.movs.some((m) => m.correcoes?.length);
     g.formas = [...new Set(g.movs.map((m) => m.forma))];
     /* O que esse cartão mudou na gaveta do balcão */
-    g.gaveta = g.movs.reduce((s, m) => s + (m.tipo === "sangria" ? -m.valor : m.tipo === "suprimento" ? m.valor : m.forma === "dinheiro" && m.tipo !== "entrega" ? m.valor : 0), 0);
+    const cx = Fomito.caixa.aberto() || { garcons: {} };
+    g.gaveta = g.movs.reduce((s, m) => s + (m.tipo === "sangria" ? -m.valor : m.tipo === "suprimento" ? m.valor : m.forma === "dinheiro" && !Fomito.contasCaixa.destino(cx, m) ? m.valor : 0), 0);
+    g.bolsa = Fomito.contasCaixa.destino(cx, g.movs[0]); // entrega → motoboy; mesa de garçom com bolsa → garçom
   });
   return grupos.sort((a, b) => b.hora - a.hora);
 }
@@ -238,7 +281,7 @@ function efeitoGrupo(g) {
   if (g.tipo === "sangria") return `<span class="valor-saida">− ${moeda(g.total)} da gaveta</span>`;
   if (g.tipo === "suprimento") return `<span class="valor-entrada">+ ${moeda(g.total)} na gaveta</span>`;
   if (g.formas.every((f) => f === "convenio")) return "no convênio do cliente";
-  if (g.tipo === "entrega" && g.formas.includes("dinheiro")) return `na bolsa do ${String(m.por).split(" ")[0]}`;
+  if (g.bolsa && g.formas.some((f) => f !== "pix")) return `na bolsa do ${String(g.bolsa.nome).split(" ")[0]}`;
   if (g.gaveta) return `<span class="valor-entrada">+ ${moeda(g.gaveta)} na gaveta</span>`;
   return "cai na conta";
 }
@@ -350,12 +393,13 @@ function caixaAberto(cx) {
   const filtrosTipo = [["todas", "Tudo"], ["comanda", "Mesas"], ["entrega", "Entregas"], ["balcao", "Balcão"], ["gaveta", "Tirado e colocado"], ["corrigidos", "Corrigidos"]].filter(([id]) => id === "todas" || conta(id));
   const filtrosForma = [["todas", "Todas as formas"], ["dinheiro", "Dinheiro"], ["pix", "Pix"], ["cartao", "Cartões"]];
   const abertas = Fomito.comandas.abertas();
-  const vendasBolsas = r.dinheiroEntregas || 0;
-  const bolsaRec = Object.values(r.bolsas || {}).reduce((s, b) => s + b.recebido, 0);
-  const bolsaTroco = Object.values(r.bolsas || {}).reduce((s, b) => s + b.troco, 0);
-  const qtdBolsas = cx.movimentos.filter((m) => m.tipo === "entrega" && m.forma === "dinheiro").length;
+  const todasBolsas = [...Object.values(r.bolsas || {}), ...Object.values(r.bolsasGarcons || {})];
+  const dinheiroBolsas = todasBolsas.reduce((s, b) => s + b.dinheiro, 0);
+  const cartoesBolsas = todasBolsas.reduce((s, b) => s + b.credito + b.debito, 0);
+  const pixTotal = r.gaveta.pix + todasBolsas.reduce((s, b) => s + b.pix, 0);
   const salao = cx.movimentos.filter((m) => m.tipo === "comanda" || m.tipo === "balcao").reduce((s, m) => s + m.valor, 0);
   const entregas = cx.movimentos.filter((m) => m.tipo === "entrega").reduce((s, m) => s + m.valor, 0);
+  const maquininha = r.cartoesEsperado.credito + r.cartoesEsperado.debito;
 
   return `
     <div class="card caixa-status">
@@ -371,29 +415,41 @@ function caixaAberto(cx) {
       </div>
     </div>
 
-    ${blocoBolsas(r, cx)}
+    ${blocoBolsas(r, cx, "motoboy")}
+    ${blocoBolsas(r, cx, "garcom")}
 
     <div class="kpis kpis--caixa">
-      <div class="card kpi"><div class="kpi__rotulo">Vendas do dia${icone("moeda")}</div><div class="kpi__valor">${moeda(r.vendas)}</div><span class="variacao">salão e balcão ${moeda(salao)} · entregas ${moeda(entregas)}</span></div>
-      <div class="card kpi kpi--destaque"><div class="kpi__rotulo">Dinheiro na gaveta${icone("dinheiro")}</div><div class="kpi__valor">${moeda(r.esperado)}</div><span class="variacao">é o que deveria ter agora</span></div>
-      <div class="card kpi"><div class="kpi__rotulo">Vendas nas bolsas${icone("entrega")}</div><div class="kpi__valor">${moeda(vendasBolsas)}</div><span class="variacao">${qtdBolsas} entrega${qtdBolsas === 1 ? "" : "s"} em dinheiro, com os motoboys</span></div>
-      <div class="card kpi"><div class="kpi__rotulo">Pix${icone("pix")}</div><div class="kpi__valor">${moeda(r.porForma.pix)}</div><span class="variacao">cai direto na conta</span></div>
-      <div class="card kpi"><div class="kpi__rotulo">Cartões${icone("cartao")}</div><div class="kpi__valor">${moeda(cartoes)}</div><span class="variacao">crédito ${moeda(r.porForma.credito)} · débito ${moeda(r.porForma.debito)}</span></div>
+      <div class="card kpi"><div class="kpi__rotulo">Total de vendas${icone("moeda")}</div><div class="kpi__valor">${moeda(r.vendas)}</div><span class="variacao">todas as formas · salão e balcão ${moeda(salao)} · entregas ${moeda(entregas)}</span></div>
+      <div class="card kpi kpi--destaque"><div class="kpi__rotulo">Deveria ter na gaveta${icone("dinheiro")}</div><div class="kpi__valor">${moeda(r.esperado)}</div><span class="variacao">dinheiro do caixa agora</span></div>
+      <div class="card kpi kpi--destaque"><div class="kpi__rotulo">Maquininha do caixa${icone("cartao")}</div><div class="kpi__valor">${moeda(maquininha)}</div><span class="variacao">crédito ${moeda(r.cartoesEsperado.credito)} · débito ${moeda(r.cartoesEsperado.debito)}</span></div>
+      <div class="card kpi"><div class="kpi__rotulo">Nas bolsas${icone("entrega")}</div><div class="kpi__valor">${moeda(dinheiroBolsas + cartoesBolsas)}</div><span class="variacao">dinheiro ${moeda(dinheiroBolsas)} · maquininhas ${moeda(cartoesBolsas)}</span></div>
+      <div class="card kpi"><div class="kpi__rotulo">Pix${icone("pix")}</div><div class="kpi__valor">${moeda(pixTotal)}</div><span class="variacao">cai direto na conta · só registro</span></div>
     </div>
 
     <div class="grade-caixa">
         <div class="card painel-card">
-          <div class="pilha" style="gap:2px"><h3>Dinheiro na gaveta</h3><span class="pequeno suave">Como o sistema chega no valor que deveria ter</span></div>
-          <div class="conferencia">
-            <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
-            <div class="entre"><span>+ Notas que os clientes deram</span><span class="num">${moeda(r.recebidoDinheiro - bolsaRec)}</span></div>
-            <div class="entre"><span>− Troco devolvido</span><span class="num valor-saida">${moeda(r.troco - bolsaTroco)}</span></div>
-            ${r.convenioDinheiro ? `<div class="entre"><span>+ Convênios recebidos em dinheiro</span><span class="num">${moeda(r.convenioDinheiro)}</span></div>` : ""}
-            <div class="entre"><span>+ Dinheiro colocado</span><span class="num">${moeda(r.suprimentos)}</span></div>
-            <div class="entre"><span>− Dinheiro tirado</span><span class="num valor-saida">${moeda(r.sangrias)}</span></div>
-            <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
+          <div class="pilha" style="gap:2px"><h3>O que conferir no caixa</h3><span class="pequeno suave">Como o sistema chega nos valores. As bolsas conferem à parte.</span></div>
+          <div class="conferir-bloco">
+            <span class="conferir-bloco__titulo">${icone("dinheiro", "ic--sm")} Dinheiro na gaveta</span>
+            <div class="conferencia">
+              <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
+              <div class="entre"><span>+ Notas que os clientes deram</span><span class="num">${moeda(r.gaveta.recebido)}</span></div>
+              <div class="entre"><span>− Troco devolvido</span><span class="num valor-saida">${moeda(r.gaveta.troco)}</span></div>
+              ${r.convenioDinheiro ? `<div class="entre"><span>+ Convênios recebidos em dinheiro</span><span class="num">${moeda(r.convenioDinheiro)}</span></div>` : ""}
+              <div class="entre"><span>+ Dinheiro colocado</span><span class="num">${moeda(r.suprimentos)}</span></div>
+              <div class="entre"><span>− Dinheiro tirado</span><span class="num valor-saida">${moeda(r.sangrias)}</span></div>
+              <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
+            </div>
           </div>
-          <p class="pequeno fraco">Ex.: pedido de R$ 100 pago com uma nota de R$ 200. Entram R$ 200, saem R$ 100 de troco e a gaveta fica com +R$ 100. Pix e cartão caem na conta, e o dinheiro das entregas fica na bolsa do motoboy.</p>
+          <div class="conferir-bloco">
+            <span class="conferir-bloco__titulo">${icone("cartao", "ic--sm")} Maquininha do caixa</span>
+            <div class="conferencia">
+              <div class="entre"><span>Crédito</span><span class="num">${moeda(r.cartoesEsperado.credito)}</span></div>
+              <div class="entre"><span>Débito</span><span class="num">${moeda(r.cartoesEsperado.debito)}</span></div>
+              <div class="entre conferencia__total"><span>Deveria sair no extrato</span><span class="num">${moeda(maquininha)}</span></div>
+            </div>
+          </div>
+          <p class="pequeno fraco">Ex.: pedido de R$ 100 pago com uma nota de R$ 200. Entram R$ 200, saem R$ 100 de troco e a gaveta fica com +R$ 100. O Pix cai na conta, e o que os motoboys e os garçons com bolsa recebem fica com eles até a conferência da bolsa.</p>
         </div>
         <div class="card painel-card">
           <h3>Por forma de pagamento</h3>
@@ -453,6 +509,7 @@ function janelaCaixa(titulo, conteudo, aoConfirmar, aoDigitar) {
 function janelaAbrir() {
   /* Abre a gaveta e, junto, a bolsa de cada motoboy que vai sair hoje (ex.: Leonardo R$ 200, Kaique R$ 200) */
   const motoboys = Fomito.sessao.usuarios().filter((u) => u.perfil === "motoboy").map((u) => u.nome);
+  const garcons = Fomito.sessao.usuarios().filter((u) => u.perfil === "garcom").map((u) => u.nome);
   const linhaBolsa = (nome = "") => `
     <div class="bolsa-linha">
       <select class="input" data-bolsa-nome aria-label="Motoboy"><option value="">Escolha o motoboy</option>${motoboys.map((m) => `<option ${m === nome ? "selected" : ""}>${m}</option>`).join("")}</select>
@@ -472,11 +529,21 @@ function janelaAbrir() {
       <div id="bolsasAbrir" class="pilha" style="gap:8px">${linhaBolsa(motoboys.length === 1 ? motoboys[0] : "")}</div>
       <button class="btn btn--contorno btn--sm" data-mais-bolsa style="align-self:flex-start">${icone("mais", "ic--sm")} Abrir bolsa de outro motoboy</button>
     </div>` : ""}
+    ${garcons.length ? `
+    <div class="abrir-bloco">
+      <span class="abrir-bloco__titulo">${icone("mesa", "ic--sm")} Garçons com bolsa própria</span>
+      <p class="suave pequeno">Marque só quem anda com pochete e maquininha própria. Quem não for marcado recebe as mesas no caixa.</p>
+      <div class="pilha" style="gap:8px">${garcons.map((g) => `
+        <label class="garcom-linha"><input type="checkbox" data-garcom-bolsa="${escAttr(g)}"><span class="forte">${g}</span>
+          <div class="campo-moeda"><span>R$</span><input class="input" inputmode="decimal" data-garcom-valor="${escAttr(g)}" value="0,00" aria-label="Troco do ${escAttr(g)}" disabled></div></label>`).join("")}</div>
+    </div>` : ""}
     <p class="form-erro" id="erroCaixa" hidden></p>
     <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Abrir caixa</button>`,
   async (c) => {
     const erro = (t) => { $("#erroCaixa", c).textContent = t; $("#erroCaixa", c).hidden = false; return false; };
     const fundo = formatoDinheiro($("#fundo", c).value);
+    const bolsasGarcons = {};
+    c.querySelectorAll("[data-garcom-bolsa]").forEach((x) => { if (x.checked) bolsasGarcons[x.dataset.garcomBolsa] = formatoDinheiro(c.querySelector(`[data-garcom-valor="${CSS.escape(x.dataset.garcomBolsa)}"]`).value); });
     if ($("#fundo", c).value.trim() === "") return erro("Informe o dinheiro inicial (pode ser R$ 0,00).");
     const bolsas = {};
     for (const linha of c.querySelectorAll(".bolsa-linha")) {
@@ -486,8 +553,8 @@ function janelaAbrir() {
       if (bolsas[nome] != null) return erro(`${nome} está em duas linhas. Deixe uma só.`);
       bolsas[nome] = valor;
     }
-    await Fomito.caixa.abrir({ fundo, motoboys: bolsas });
-    const qtd = Object.keys(bolsas).length;
+    await Fomito.caixa.abrir({ fundo, motoboys: bolsas, garcons: bolsasGarcons });
+    const qtd = Object.keys(bolsas).length + Object.keys(bolsasGarcons).length;
     toast(`Caixa aberto com ${moeda(fundo)} na gaveta${qtd ? ` e ${qtd} bolsa${qtd > 1 ? "s" : ""}` : ""}`, "dinheiro");
   });
   camada.addEventListener("click", (e) => {
@@ -499,6 +566,10 @@ function janelaAbrir() {
     }
     const tirar = e.target.closest("[data-tirar-bolsa]");
     if (tirar) tirar.closest(".bolsa-linha").remove();
+  });
+  camada.addEventListener("change", (e) => {
+    const g = e.target.closest("[data-garcom-bolsa]");
+    if (g) camada.querySelector(`[data-garcom-valor="${CSS.escape(g.dataset.garcomBolsa)}"]`).disabled = !g.checked;
   });
 }
 
@@ -607,42 +678,67 @@ function janelaHistorico(id) {
 function janelaFechar() {
   const cx = Fomito.caixa.aberto();
   const r = Fomito.caixa.resumo(cx);
-  const diferenca = (c) => {
-    const campo = $("#contado", c);
-    if (campo.value.trim() === "") return `<div class="troco-painel">${icone("info", "ic--sm")} Conte o dinheiro da gaveta e digite o valor.</div>`;
-    const d = Math.round((formatoDinheiro(campo.value) - r.esperado) * 100) / 100;
-    return Math.abs(d) < 0.005
-      ? `<div class="diferenca diferenca--ok"><span>Bateu certinho</span><strong>${moeda(0)}</strong></div>`
-      : `<div class="diferenca ${d < 0 ? "diferenca--falta" : "diferenca--sobra"}"><span>${d < 0 ? "Está faltando" : "Está sobrando"}</span><strong>${moeda(Math.abs(d))}</strong></div>`;
-  };
+  /* Primeiro as bolsas: cada motoboy e garçom com bolsa confere antes de fechar o caixa */
+  if (r.bolsasPendentes.length) {
+    janelaCaixa("Fechar caixa", `
+      <div class="aviso aviso--bolsas">${icone("info", "ic--sm")}<span><b>Antes de fechar, confira ${r.bolsasPendentes.length > 1 ? "as bolsas" : "a bolsa"}.</b> O dinheiro e a maquininha de quem trabalhou com bolsa precisam ser conferidos primeiro.</span></div>
+      <div class="pilha" style="gap:8px">${r.bolsasPendentes.map(({ tipo, nome }) => {
+        const b = doTipo(r, tipo)[nome];
+        return `<div class="pendente-linha"><span class="avatar-mini">${iniciaisCaixa(nome)}</span><div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${nome}</span><span class="pequeno fraco">${tipo === "garcom" ? "Garçom" : "Motoboy"} · dinheiro ${moeda(b.esperado)} · maquininha ${moeda(b.credito + b.debito)}</span></div><button class="btn btn--primario btn--sm" data-conferir-agora="${chaveBolsa(tipo, nome)}">Conferir</button></div>`;
+      }).join("")}</div>
+      <button class="btn btn--primario btn--bloco" disabled>${icone("cadeado", "ic--sm")} Fechar caixa</button>`, () => false)
+      .addEventListener("click", (e) => {
+        const k = e.target.closest("[data-conferir-agora]");
+        if (!k) return;
+        e.target.closest(".sobreposicao").remove();
+        const [tipo, ...nome] = k.dataset.conferirAgora.split("|");
+        janelaConferirBolsa(tipo, nome.join("|"));
+      });
+    return;
+  }
+  const esp = r.cartoesEsperado;
+  const temCartao = esp.credito + esp.debito > 0;
+  const pixTotal = r.gaveta.pix;
   janelaCaixa("Fechar caixa", `
     <div class="conferencia">
       ${Object.entries(r.porForma).map(([f, v]) => `<div class="entre"><span>${Fomito.caixa.FORMAS_TODAS[f] || f}</span><span class="num">${moeda(v)}</span></div>`).join("")}
-      <div class="entre conferencia__total"><span>Total de vendas</span><span class="num">${moeda(r.vendas)}</span></div>
+      <div class="entre conferencia__total"><span>Total de vendas <span class="fraco pequeno">(todas as formas)</span></span><span class="num">${moeda(r.vendas)}</span></div>
     </div>
-    <div class="conferencia">
-      <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
-      <div class="entre"><span>+ Vendas em dinheiro no balcão e mesas</span><span class="num">${moeda(r.porForma.dinheiro - (r.dinheiroEntregas || 0))}</span></div>
-      ${r.convenioDinheiro ? `<div class="entre"><span>+ Convênios recebidos em dinheiro</span><span class="num">${moeda(r.convenioDinheiro)}</span></div>` : ""}
-      <div class="entre"><span>+ Colocado − tirado</span><span class="num">${moeda(r.suprimentos - r.sangrias)}</span></div>
-      <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
+    <div class="conferir-bloco">
+      <span class="conferir-bloco__titulo">${icone("dinheiro", "ic--sm")} Dinheiro na gaveta</span>
+      <div class="conferencia">
+        <div class="entre"><span>Dinheiro inicial</span><span class="num">${moeda(cx.fundo)}</span></div>
+        <div class="entre"><span>+ Vendas em dinheiro do caixa</span><span class="num">${moeda(r.gaveta.dinheiro)}</span></div>
+        ${r.convenioDinheiro ? `<div class="entre"><span>+ Convênios recebidos em dinheiro</span><span class="num">${moeda(r.convenioDinheiro)}</span></div>` : ""}
+        <div class="entre"><span>+ Colocado − tirado</span><span class="num">${moeda(r.suprimentos - r.sangrias)}</span></div>
+        <div class="entre conferencia__total"><span>Deveria ter na gaveta</span><span class="num">${moeda(r.esperado)}</span></div>
+      </div>
+      <div class="campo"><label for="contado">Contado na gaveta <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="contado" class="input" inputmode="decimal" placeholder="0,00"></div></div>
+      <div id="diferencaCaixa">${blocoDiferenca(null, 0, "Conte o dinheiro da gaveta e digite o valor.")}</div>
     </div>
-    <div class="campo"><label for="contado">Dinheiro contado na gaveta <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="contado" class="input" inputmode="decimal" placeholder="0,00"></div></div>
-    <div id="diferencaCaixa">${`<div class="troco-painel">${icone("info", "ic--sm")} Conte o dinheiro da gaveta e digite o valor.</div>`}</div>
-    <div class="campo"><label for="obsCaixa">Observação <span class="fraco">(obrigatória se não bater)</span></label><input id="obsCaixa" class="input" placeholder="Ex.: troco errado na mesa 5"></div>
+    ${temCartao ? blocoMaquininha(esp, "caixa", "Maquininha do caixa") : `<p class="pequeno fraco">${icone("cartao", "ic--sm")} Nenhum cartão na maquininha do caixa hoje.</p>`}
+    ${pixTotal ? `<p class="pequeno fraco">${icone("pix", "ic--sm")} Pix no caixa: ${moeda(pixTotal)}. Cai direto na conta, fica só de registro.</p>` : ""}
+    <div class="campo"><label for="obsCaixa">Observação <span class="fraco">(obrigatória se algo não bater)</span></label><input id="obsCaixa" class="input" placeholder="Ex.: troco errado na mesa 5"></div>
     <p class="form-erro" id="erroCaixa" hidden></p>
     <button class="btn btn--primario btn--bloco" data-ok>${icone("cadeado", "ic--sm")} Fechar caixa</button>`,
   async (c) => {
-    const campo = $("#contado", c);
     const erro = (t) => { $("#erroCaixa", c).textContent = t; $("#erroCaixa", c).hidden = false; return false; };
-    if (campo.value.trim() === "") return erro("Informe quanto dinheiro tem na gaveta.");
-    const contado = formatoDinheiro(campo.value);
+    const contado = valorCampo($("#contado", c));
+    if (contado == null) return erro("Informe quanto dinheiro tem na gaveta.");
+    const credito = temCartao ? valorCampo($("#caixaCredito", c)) : 0;
+    const debito = temCartao ? valorCampo($("#caixaDebito", c)) : 0;
+    if (temCartao && (credito == null || debito == null)) return erro("Digite o crédito e o débito do extrato da maquininha (pode ser 0,00).");
     const obs = $("#obsCaixa", c).value.trim();
-    if (Math.abs(contado - r.esperado) >= 0.005 && !obs) return erro("O valor não bateu: escreva uma observação.");
-    await Fomito.caixa.fechar({ contado, obs });
+    const bateu = Math.abs(contado - r.esperado) < 0.005 && Math.abs(credito - esp.credito) < 0.005 && Math.abs(debito - esp.debito) < 0.005;
+    if (!bateu && !obs) return erro("Algo não bateu: escreva uma observação.");
+    try { await Fomito.caixa.fechar({ contado, credito, debito, obs }); } catch (err) { return erro(err.message); }
     toast("Caixa fechado. Relatório do dia salvo.", "cadeado");
   },
-  (c) => { $("#diferencaCaixa", c).innerHTML = diferenca(c); $("#erroCaixa", c).hidden = true; });
+  (c) => {
+    $("#diferencaCaixa", c).innerHTML = blocoDiferenca(valorCampo($("#contado", c)), r.esperado, "Conte o dinheiro da gaveta e digite o valor.");
+    if (temCartao) $("#caixaDifCartao", c).innerHTML = diferencaMaquininha(c, esp, "caixa");
+    $("#erroCaixa", c).hidden = true;
+  });
 }
 
 /* Refazer a divisão de uma comanda paga (ex.: dividiram por 3, mas eram 4). Só pelo caixa, com motivo. */
@@ -678,10 +774,11 @@ document.addEventListener("click", (e) => {
   if (verComanda) return abrirComandaFechada(Number(verComanda.dataset.verComanda));
   if (e.target.closest("[data-abrir-caixa]")) return janelaAbrir();
   if (e.target.closest("[data-fechar-caixa]")) return janelaFechar();
-  const trocoMoto = e.target.closest("[data-troco-motoboy]");
-  if (trocoMoto) return janelaTrocoMotoboy(trocoMoto.dataset.trocoMotoboy);
+  /* data-troco-bolsa / data-conferir-bolsa = "motoboy|Nome" ou "garcom|Nome" */
+  const troco = e.target.closest("[data-troco-bolsa]");
+  if (troco) { const [tipo, ...n] = troco.dataset.trocoBolsa.split("|"); return janelaTrocoBolsa(tipo, n.join("|")); }
   const bolsa = e.target.closest("[data-conferir-bolsa]");
-  if (bolsa) return janelaConferirBolsa(bolsa.dataset.conferirBolsa);
+  if (bolsa) { const [tipo, ...n] = bolsa.dataset.conferirBolsa.split("|"); return janelaConferirBolsa(tipo, n.join("|")); }
   const redividir = e.target.closest("[data-redividir]");
   if (redividir) return janelaRedividir(Number(redividir.dataset.redividir));
   const corrigir = e.target.closest("[data-corrigir]");

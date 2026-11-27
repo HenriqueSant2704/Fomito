@@ -104,8 +104,12 @@ $("#menu").addEventListener("click", (e) => {
 function atualizarStatusLoja() {
   const aberta = dados.lanchonete.aberta !== false;
   $("#lojaAberta").checked = aberta;
-  $("#textoLoja").textContent = aberta ? "Recebendo pedidos" : "Pedidos pausados";
+  const f = Fomito.estado.loja || {};
+  /* Fora dos dias/horário a loja fecha sozinha: o botão continua servindo para pausar */
+  $("#textoLoja").textContent = !aberta ? "Pedidos pausados" : f.foraDoHorario ? `Fora do horário${f.abreEm ? ` · abre ${f.abreEm}` : ""}` : "Recebendo pedidos";
+  $("#textoLoja").title = f.foraDoHorario ? "O cardápio não aceita pedidos fora dos dias e do horário de Configurações → Loja. Pelo painel você ainda lança pedidos." : "";
 }
+document.addEventListener("fomito:estado", () => atualizarStatusLoja());
 $("#lojaAberta").addEventListener("change", async (e) => {
   const aberta = e.target.checked;
   try { await Fomito.acao("POST", "/loja/aberta", { aberta }); } finally { atualizarStatusLoja(); }

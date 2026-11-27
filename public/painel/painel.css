@@ -787,3 +787,30 @@ button.tag { cursor: pointer; }
 .troco-caixa.erro { background: var(--vermelho-claro); color: var(--vermelho-escuro); }
 .troco-caixa.aviso-campo { background: var(--creme); color: var(--laranja-escuro); justify-content: flex-start; gap: 8px; font-size: 13px; align-items: center; }
 .aviso--convenio { background: var(--roxo-claro); color: var(--roxo); }
+
+/* ---------- Ajuste 53: conferência do dinheiro e da maquininha, bolsas de motoboys e garçons ---------- */
+.conferir-bloco { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.conferir-bloco__titulo { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--roxo); }
+.conferir-bloco .campo { margin: 0; }
+.duas-entradas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.duas-entradas label { font-size: 12.5px; }
+.grade-caixa .conferir-bloco + .conferir-bloco { margin-top: 10px; }
+.grade-caixa .card > .conferir-bloco:first-of-type { margin-top: 12px; }
+.bolsa-card__duas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bolsa-mini { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--raio-md); background: var(--superficie-2); min-width: 0; }
+.bolsa-mini__rotulo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto-suave); }
+.bolsa-mini strong { font-size: 17px; }
+.bolsa-card--pendente { border-color: color-mix(in srgb, var(--roxo) 35%, var(--borda)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--roxo) 7%, transparent); }
+.pendente-linha { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.aviso--bolsas { background: var(--amarelo-claro); color: var(--amarelo-escuro); }
+.garcom-linha { display: grid; grid-template-columns: auto minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--borda); border-radius: var(--raio-md); cursor: pointer; }
+.garcom-linha input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--roxo); }
+.garcom-linha .campo-moeda input:disabled { opacity: .45; }
+.conferida { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.conferida .tag { margin-top: 4px; }
+.tabela--fechamentos td { vertical-align: top; }
+.tabela--fechamentos th .fraco { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.lista-det summary { cursor: pointer; color: var(--roxo); }
+.lista-det .lista-bolsa { margin-top: 8px; }
+@media (max-width: 560px) { .duas-entradas, .bolsa-card__duas { grid-template-columns: 1fr; } .garcom-linha { grid-template-columns: auto 1fr; } .garcom-linha .campo-moeda { grid-column: 1 / -1; } }
+.bolsas { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }

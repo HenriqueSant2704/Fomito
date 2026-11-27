@@ -60,7 +60,24 @@ function renderFiltros() {
   $("#resumoMesas").textContent = `${ocupadas} de ${mesas.length} mesas em atendimento`;
 }
 
+/* Garçom com bolsa própria: o que deve ter na pochete e na maquininha (confere no caixa no fim do turno) */
+function renderMinhaBolsa() {
+  const b = Fomito.estado.caixa?.bolsa;
+  const el = $("#minhaBolsa");
+  if (!el) return;
+  if (!b || usuarioLogado.perfil !== "garcom") { el.innerHTML = ""; return; }
+  el.innerHTML = `
+    <section class="minha-bolsa">
+      <div class="entre"><span class="rotulo">Sua bolsa</span><span class="tag tag--${b.pendente ? "cinza" : "verde"}">${b.pendente ? "Confira no caixa ao fim do turno" : "Conferida"}</span></div>
+      <div class="minha-bolsa__numeros">
+        <div><span class="pequeno suave">${icone("dinheiro", "ic--sm")} Dinheiro</span><strong>${moeda(b.esperado)}</strong><span class="pequeno fraco">troco ${moeda(b.fundo)} + recebido ${moeda(b.dinheiro)}</span></div>
+        <div><span class="pequeno suave">${icone("cartao", "ic--sm")} Maquininha</span><strong>${moeda(b.credito + b.debito)}</strong><span class="pequeno fraco">crédito ${moeda(b.credito)} · débito ${moeda(b.debito)}</span></div>
+      </div>
+    </section>`;
+}
+
 function renderMesas() {
+  renderMinhaBolsa();
   $("#grade").innerHTML = mesas
     .filter((m) => estado.filtro === "todas" || m.status === estado.filtro)
     .map((m) => `
@@ -131,6 +148,61 @@ $("#grade").addEventListener("click", (e) => {
 /* ---------- 3. COMANDA ----------
    Os itens aparecem por rodada (cada vez que a mesa pediu), dizendo se
    veio do QR Code da mesa ou do garçom e em que pé está na cozinha. */
+/* Tirar item da conta: só atendente e administrador (o garçom pede para eles) */
+const podeTirar = ["admin", "atendente"].includes(usuarioLogado.perfil);
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const MOTIVOS_TIRAR = ["Lançado errado", "Cliente desistiu", "Acabou na cozinha", "Veio errado", "Cortesia da casa"];
+
+function abrirTirarItem(mesa, ri, ii) {
+  const item = mesa.comanda?.rodadas[ri]?.itens[ii];
+  if (!item) return;
+  const nomeItem = Fomito.produto(item.id)?.nome || item.nome;
+  const escolha = { qtd: item.qtd, motivo: "" };
+  const camada = document.createElement("div");
+  camada.className = "sobreposicao sobreposicao--centro";
+  document.body.appendChild(camada);
+  const fechar = () => camada.remove();
+  const render = () => {
+    const valor = Math.round(item.preco * escolha.qtd * 100) / 100;
+    camada.innerHTML = `
+      <div class="folha tirar-folha" role="dialog" aria-label="Tirar item da conta">
+        <div class="folha__topo"><h2>Tirar da conta</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+        <div class="tirar-item__resumo">
+          <span class="rotulo">Mesa ${String(mesa.numero).padStart(2, "0")} · ${ri + 1}º pedido</span>
+          <strong>${item.qtd}× ${esc(nomeItem)}</strong>
+          ${item.obs ? `<span class="pequeno suave">Obs.: ${esc(item.obs)}</span>` : ""}
+        </div>
+        ${item.qtd > 1 ? `
+          <div class="entre tirar-item__qtd"><span>Quantos tirar?</span>
+            <div class="qtd"><button data-q="-1" aria-label="Menos">${icone("menos", "ic--sm")}</button><b>${escolha.qtd}</b><button data-q="1" aria-label="Mais">${icone("mais", "ic--sm")}</button></div>
+          </div>` : ""}
+        <div class="campo"><label for="motivoTirar">Motivo <span class="obrigatorio">*</span></label>
+          <div class="motivos-tirar">${MOTIVOS_TIRAR.map((t) => `<button class="motivo-tirar ${escolha.motivo === t ? "ativo" : ""}" data-motivo="${t}">${t}</button>`).join("")}</div>
+          <input id="motivoTirar" class="input" placeholder="Ou escreva o motivo" value="${esc(escolha.motivo)}" maxlength="200">
+        </div>
+        <div class="tirar-item__valor entre"><span>Sai da conta</span><strong class="num">− ${moeda(valor)}</strong></div>
+        <p class="pequeno fraco">Fica registrado quem tirou, a hora e o motivo.</p>
+        <button class="btn btn--perigo btn--bloco" data-ok ${escolha.motivo.trim() ? "" : "disabled"}>${icone("lixo", "ic--sm")} Tirar ${escolha.qtd > 1 ? `${escolha.qtd} itens` : "o item"}</button>
+      </div>`;
+    const campo = $("#motivoTirar", camada);
+    campo.oninput = () => { escolha.motivo = campo.value; $("[data-ok]", camada).disabled = !campo.value.trim(); };
+  };
+  render();
+  camada.addEventListener("click", async (e) => {
+    if (e.target === camada || e.target.closest("[data-fechar]")) return fechar();
+    const q = e.target.closest("[data-q]");
+    if (q) { escolha.qtd = Math.min(item.qtd, Math.max(1, escolha.qtd + Number(q.dataset.q))); return render(); }
+    const mot = e.target.closest("[data-motivo]");
+    if (mot) { escolha.motivo = mot.dataset.motivo; return render(); }
+    if (e.target.closest("[data-ok]")) {
+      const r = await Fomito.acao("POST", `/comandas/${mesa.numero}/rodadas/${ri}/itens/${ii}/tirar`, { qtd: escolha.qtd, motivo: escolha.motivo.trim() });
+      fechar();
+      atualizarTudo();
+      toast(r?.liberada ? `Mesa ${mesa.numero} liberada: não sobrou nada na conta` : `${nomeItem} saiu da conta da mesa ${mesa.numero}`, "check");
+    }
+  });
+}
+
 function renderComanda() {
   const m = mesas[estado.mesaAtual - 1];
   const c = m.comanda;
@@ -146,13 +218,14 @@ function renderComanda() {
               <span class="forte pequeno">${i + 1}º pedido · ${comandas.hora(r.hora)}</span>
               <span class="linha" style="gap:6px"><span class="tag tag--cinza">${r.por === "qr" ? "QR da mesa" : "Garçom"}</span><span class="tag tag--${st.cor}">${st.nome}</span></span>
             </div>
-            ${r.itens.map((item) => {
-              const p = Fomito.produto(item.id);
+            ${r.itens.map((item, j) => {
+              const p = Fomito.produto(item.id) || { nome: item.nome, fotos: [] };
               return `
                 <div class="linha-item">
                   ${Fomito.foto(p, 40)}
                   <div class="linha-item__info"><div class="forte">${item.qtd}× ${p.nome}</div>${item.obs ? `<span class="pequeno suave">Obs.: ${item.obs}</span>` : ""}</div>
                   <span class="preco">${moeda(comandas.precoItem(item))}</span>
+                  ${podeTirar ? `<button class="btn-icone btn-icone--sm tirar-item" data-tirar-item="${i}:${j}" aria-label="Tirar ${esc(p.nome)} da conta" title="Tirar da conta">${icone("lixo", "ic--sm")}</button>` : ""}
                 </div>`;
             }).join("")}
             ${r.status === "pronto" ? `<button class="btn btn--sucesso btn--sm" data-servir="${i}">${icone("check", "ic--sm")} Marcar como servido</button>` : ""}
@@ -184,6 +257,8 @@ function renderComanda() {
   $("#btnFechar").onclick = () => abrirFechamento(m);
   $("#voltarMesas").onclick = () => painel.classList.remove("aberta");
   painel.onclick = async (e) => {
+    const tirar = e.target.closest("[data-tirar-item]");
+    if (tirar) { const [ri, ii] = tirar.dataset.tirarItem.split(":").map(Number); return abrirTirarItem(m, ri, ii); }
     const servir = e.target.closest("[data-servir]");
     if (!servir) return;
     await comandas.statusRodada(m.numero, Number(servir.dataset.servir), "servido");

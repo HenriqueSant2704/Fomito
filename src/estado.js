@@ -8,21 +8,22 @@ const db = require('./db');
 const loja = require('./loja');
 const { pedidoDaLinha, comandaDaLinha } = require('./servicos');
 const { inicioDoDia, dispositivoDe, arred, separarNumero } = require('./util');
-const { bolsasMotoboys } = require('./regras');
+const { bolsasDe } = require('./regras');
 
 const PEDIDOS_DO_DIA = `status <> 'cancelado' AND (criado_em >= $1 OR status <> 'concluido')`;
 
-async function caixaResumido(motoboy) {
+async function caixaResumido(nome, tipo = 'motoboy') {
   const { rows } = await db.query('SELECT dados FROM caixas WHERE aberto');
   const r = { aberto: rows[0] ? { abertoEm: rows[0].dados.abertoEm, fundo: 0, movimentos: [] } : null, fechamentos: [] };
   /* O motoboy vê a própria bolsa: troco inicial, dinheiro recebido, troco dado e quanto deve ter */
-  if (motoboy && rows[0]) r.bolsa = bolsasMotoboys(rows[0].dados)[motoboy] || { fundo: 0, recebido: 0, troco: 0, dinheiro: 0, entregas: 0, esperado: 0 };
+  if (nome && rows[0]) r.bolsa = bolsasDe(rows[0].dados, tipo)[nome] || (tipo === 'motoboy' ? { fundo: 0, recebido: 0, troco: 0, dinheiro: 0, credito: 0, debito: 0, entregas: 0, esperado: 0 } : null);
+  /* Garçom com bolsa própria também vê a dele (sem bolsa, o dinheiro vai para o caixa) */
   return r;
 }
 
 async function comandasDoDia() {
   const { rows: abertas } = await db.query('SELECT * FROM comandas WHERE aberta ORDER BY mesa');
-  const { rows: fechadas } = await db.query('SELECT * FROM comandas WHERE NOT aberta AND fechada_em >= $1 ORDER BY fechada_em DESC', [inicioDoDia()]);
+  const { rows: fechadas } = await db.query("SELECT * FROM comandas WHERE NOT aberta AND NOT (dados ? 'cancelada') AND fechada_em >= $1 ORDER BY fechada_em DESC", [inicioDoDia()]);
   return { abertas: abertas.map(comandaDaLinha), fechadas: fechadas.map(comandaDaLinha) };
 }
 
@@ -89,7 +90,7 @@ async function calcularClientes() {
 async function relatorio(cardapio) {
   const inicio = inicioDoDia(7);
   const { rows: pedidos } = await db.query(`SELECT dados, total, status, modo, criado_em FROM pedidos WHERE status <> 'cancelado' AND criado_em >= $1`, [inicio]);
-  const { rows: comandas } = await db.query('SELECT dados, total, aberta, aberta_em, fechada_em FROM comandas WHERE fechada_em >= $1 OR aberta', [inicio]);
+  const { rows: comandas } = await db.query('SELECT dados, total, aberta, aberta_em, fechada_em FROM comandas WHERE (fechada_em >= $1 AND NOT (dados ? \'cancelada\')) OR aberta', [inicio]);
   const dia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
   const hoje = inicioDoDia().getTime();
   const ontem = inicioDoDia(1).getTime();
@@ -183,6 +184,7 @@ async function estado(req, res) {
     r.cardapio = atual.cardapio;
   }
   r.maisPedidos = await maisPedidos();
+  r.loja = loja.funcionamento(); // aberto agora? (horário + "Recebendo pedidos")
 
   const hoje = inicioDoDia();
   // Mesa do QR Code (?m=código). Vale também para a equipe testar o cardápio como cliente.
@@ -199,7 +201,7 @@ async function estado(req, res) {
     }
     const { rows: abertas } = await db.query(`SELECT * FROM comandas WHERE aberta AND ((dados->'dispositivos') ? $1 OR mesa = $2)`, [disp || '-', mesaQR || 0]);
     const { rows: fechadas } = disp
-      ? await db.query(`SELECT * FROM comandas WHERE NOT aberta AND (dados->'dispositivos') ? $1 AND fechada_em > now() - interval '90 days' ORDER BY fechada_em DESC LIMIT 20`, [disp])
+      ? await db.query(`SELECT * FROM comandas WHERE NOT aberta AND NOT (dados ? 'cancelada') AND (dados->'dispositivos') ? $1 AND fechada_em > now() - interval '90 days' ORDER BY fechada_em DESC LIMIT 20`, [disp])
       : { rows: [] };
     r.comandas = { abertas: abertas.map(comandaDaLinha), fechadas: fechadas.map(comandaDaLinha) };
     return res.json(r);
@@ -207,7 +209,7 @@ async function estado(req, res) {
 
   if (u.perfil === 'garcom') {
     r.comandas = await comandasDoDia();
-    r.caixa = await caixaResumido();
+    r.caixa = await caixaResumido(u.nome, 'garcom');
     return res.json(r);
   }
 
