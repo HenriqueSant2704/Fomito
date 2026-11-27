@@ -146,3 +146,8 @@ body { background: var(--fundo); min-height: 100vh; padding-bottom: 96px; }
 
 /* Espaço para a barra "Sair com X pedidos" + barra de gestos do iPhone */
 body { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+
+/* Bolsa do motoboy e entregas clicáveis */
+.bolsa { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--raio-md); background: var(--superficie-2); }
+.feita[data-ver-entrega] { cursor: pointer; }
+.feita[data-ver-entrega]:active { background: var(--superficie-2); }

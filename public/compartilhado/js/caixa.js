@@ -39,7 +39,19 @@ window.Fomito = window.Fomito || {};
       if (m.tipo === "sangria") r.sangrias += m.valor;
       if (m.tipo === "suprimento") r.suprimentos += m.valor;
     });
-    r.esperado = caixa.fundo + r.porForma.dinheiro - r.sangrias + r.suprimentos;
+    /* O dinheiro das entregas fica na bolsa de cada motoboy, não na gaveta do balcão */
+    const bolsas = {};
+    const bolsa = (nome) => (bolsas[nome] ||= { fundo: 0, recebido: 0, troco: 0, dinheiro: 0, entregas: 0 });
+    Object.entries(caixa.motoboys || {}).forEach(([nome, b]) => Object.assign(bolsa(nome), { fundo: b.fundo || 0, fechamento: b.fechamento || null }));
+    caixa.movimentos.filter((m) => m.tipo === "entrega").forEach((m) => {
+      const b = bolsa(m.por);
+      b.entregas++;
+      if (m.forma === "dinheiro") { b.dinheiro += m.valor; b.recebido += m.recebido ?? m.valor; b.troco += m.troco || 0; }
+    });
+    Object.values(bolsas).forEach((b) => { b.esperado = Math.round((b.fundo + b.dinheiro) * 100) / 100; });
+    r.bolsas = bolsas;
+    r.dinheiroEntregas = Object.values(bolsas).reduce((s, b) => s + b.dinheiro, 0);
+    r.esperado = caixa.fundo + r.porForma.dinheiro - r.dinheiroEntregas - r.sangrias + r.suprimentos;
     return r;
   };
 
@@ -48,7 +60,7 @@ window.Fomito = window.Fomito || {};
   const aberto = () => estado().aberto;
 
   /* ---------- Ações (administrador) ---------- */
-  const abrir = ({ fundo }) => Fomito.acao("POST", "/caixa/abrir", { fundo });
+  const abrir = ({ fundo, motoboys = {} }) => Fomito.acao("POST", "/caixa/abrir", { fundo, motoboys });
 
   /** Tirar dinheiro (sangria) ou colocar dinheiro (suprimento) */
   const registrar = ({ tipo, ref, valor }) => Fomito.acao("POST", "/caixa/movimento", { tipo, ref, valor });

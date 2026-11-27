@@ -67,7 +67,9 @@ Fomito.dialogo = ({ titulo, texto = "", topo = "", campos = [], confirmar = "Con
         ${campos.map((c) => `
           <div class="campo">
             <label for="dlg-${c.id}">${c.rotulo}${c.obrigatorio ? ` <span class="obrigatorio">*</span>` : ""}</label>
-            ${c.tipo === "textarea"
+            ${c.tipo === "select"
+              ? `<select id="dlg-${c.id}" class="input" data-campo-dialogo="${c.id}">${(c.opcoes || []).map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(c.valor) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`
+              : c.tipo === "textarea"
               ? `<textarea id="dlg-${c.id}" class="input" rows="2" data-campo-dialogo="${c.id}" placeholder="${esc(c.placeholder)}" maxlength="${c.max || 200}">${esc(c.valor)}</textarea>`
               : `<input id="dlg-${c.id}" class="input" data-campo-dialogo="${c.id}" value="${esc(c.valor)}" placeholder="${esc(c.placeholder)}" maxlength="${c.max || 120}" ${c.tipo === "moeda" ? `inputmode="decimal"` : ""} autocomplete="off">`}
             ${c.ajuda ? `<span class="pequeno fraco">${c.ajuda}</span>` : ""}

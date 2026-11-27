@@ -24,7 +24,15 @@ window.Fomito = window.Fomito || {};
   } catch { dispositivo = crypto.randomUUID ? crypto.randomUUID() : `d${Date.now()}${String(Math.random()).slice(2, 10)}`; }
 
   /* Código da mesa vindo do QR Code (?m=abc123) */
-  const codigoMesa = new URLSearchParams(location.search).get("m") || "";
+  /* Fica lembrado por 6 horas: se o cliente recarregar ou abrir sem o ?m=, continua na mesma mesa */
+  const codigoMesa = (() => {
+    const daUrl = new URLSearchParams(location.search).get("m") || "";
+    try {
+      if (daUrl) { localStorage.setItem("fomito.mesaQR", JSON.stringify({ codigo: daUrl, em: Date.now() })); return daUrl; }
+      const salvo = JSON.parse(localStorage.getItem("fomito.mesaQR"));
+      return salvo && Date.now() - salvo.em < 6 * 3600 * 1000 ? salvo.codigo : "";
+    } catch { return daUrl; }
+  })();
 
   Fomito.estado = {
     sessao: null, versao: null, config: null, cardapio: null, mesaQR: null,
@@ -57,7 +65,7 @@ window.Fomito = window.Fomito || {};
   let iniciado = false;
   function aplicar(novo) {
     const e = Fomito.estado;
-    ["sessao", "versao", "mesaQR", "pedidos", "comandas", "caixa", "clientes", "usuarios", "mesas", "relatorio"]
+    ["sessao", "versao", "mesaQR", "pedidos", "comandas", "caixa", "clientes", "usuarios", "mesas", "relatorio", "maisPedidos"]
       .forEach((k) => { if (k in novo) e[k] = novo[k]; });
     if (novo.config) e.config = novo.config;
     if (novo.cardapio) {

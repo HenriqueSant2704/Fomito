@@ -181,14 +181,21 @@ function abaFeitas() {
   const lista = minhasEntregues();
   if (!lista.length) return `<div class="vazio-moto"><span class="vazio-moto__icone">${icone("check", "ic--lg")}</span><strong>Nenhuma entrega finalizada hoje</strong></div>`;
   const total = lista.reduce((s, p) => s + p.total, 0);
-  const dinheiro = lista.filter((p) => p.pagoCom === "dinheiro").reduce((s, p) => s + p.total, 0);
+  /* Bolsa: troco que saiu da loja + notas que os clientes deram − troco devolvido */
+  const b = Fomito.estado.caixa?.bolsa || { fundo: 0, recebido: 0, troco: 0, esperado: 0 };
   return `
     <section class="acerto">
       <div class="entre"><span class="rotulo">Seu dia</span><span class="pequeno suave">${lista.length} ${lista.length > 1 ? "entregas" : "entrega"} · ${moeda(total)}</span></div>
-      <div class="acerto__destaque"><div class="pilha" style="gap:0"><span class="forte">Dinheiro com você</span><span class="pequeno">Entregue no caixa ao fim do turno</span></div><strong>${moeda(dinheiro)}</strong></div>
+      <div class="bolsa">
+        <div class="entre pequeno"><span>Troco que você levou</span><span class="num">${moeda(b.fundo)}</span></div>
+        <div class="entre pequeno"><span>Notas recebidas dos clientes</span><span class="num">+ ${moeda(b.recebido)}</span></div>
+        <div class="entre pequeno"><span>Troco que você deu</span><span class="num">− ${moeda(b.troco)}</span></div>
+      </div>
+      <div class="acerto__destaque"><div class="pilha" style="gap:0"><span class="forte">Deve ter na bolsa</span><span class="pequeno">${b.fechamento ? "Bolsa já conferida no caixa" : "Confira no caixa ao fim do turno"}</span></div><strong>${moeda(b.esperado)}</strong></div>
+      <span class="pequeno suave">Toque numa entrega para ver o pedido.</span>
       <div>
         ${lista.map((p) => `
-          <div class="feita">
+          <div class="feita" data-ver-entrega="${p.num}" role="button" tabindex="0">
             <span class="feita__icone">${icone("check", "ic--sm")}</span>
             <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte corta">#${p.num} · ${p.bairro}</span><span class="pequeno suave corta">${p.rua} · ${pedidos.hora(p.entregueEm)}</span></div>
             <div class="pilha" style="gap:0;align-items:flex-end"><span class="num forte">${moeda(p.total)}</span><span class="pequeno suave">${forma(p.pagoCom)?.nome || "-"}${p.trocoDado ? ` · troco ${moeda(p.trocoDado)}` : ""}</span></div>
@@ -196,6 +203,34 @@ function abaFeitas() {
       </div>
     </section>`;
 }
+
+/* Detalhe de uma entrega feita: para responder o cliente, o gerente ou o restaurante */
+function abrirDetalheEntrega(num) {
+  const p = pedidos.doNumero(num);
+  if (!p) return;
+  const camada = document.createElement("div");
+  camada.className = "sobreposicao";
+  camada.innerHTML = `
+    <div class="folha" style="display:flex;flex-direction:column;gap:12px">
+      <div class="folha__topo"><h2>Pedido #${p.num}</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+      <div class="pilha" style="gap:2px"><span class="forte">${p.cliente}</span><span class="pequeno suave">${p.telefone || ""}</span><span class="pequeno">${p.endereco}${p.ref ? ` · Ref.: ${p.ref}` : ""}</span></div>
+      <div class="pilha" style="gap:6px;border-top:1px solid var(--borda);padding-top:10px">
+        ${p.itens.map((it) => `<div class="entre pequeno"><span>${it[1]}× ${it[5] || Fomito.produto(it[0]).nome}${it[3] ? `<br><span class="fraco">${it[3]}</span>` : ""}</span><span class="num">${moeda(pedidos.precoItem(it))}</span></div>`).join("")}
+        <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(p.total)}</span></div>
+      </div>
+      <div class="pilha" style="gap:2px;border-top:1px solid var(--borda);padding-top:10px">
+        <span class="pequeno">Pago com <b>${forma(p.pagoCom)?.nome || "-"}</b>${p.recebido ? ` · cliente deu ${moeda(p.recebido)}, troco ${moeda(p.trocoDado || 0)}` : ""}</span>
+        <span class="pequeno suave">Saiu às ${pedidos.hora(p.saiuEm)} · entregue às ${pedidos.hora(p.entregueEm)}</span>
+      </div>
+      <button class="btn btn--contorno btn--bloco" data-fechar>Fechar</button>
+    </div>`;
+  document.body.appendChild(camada);
+  camada.addEventListener("click", (e) => { if (e.target === camada || e.target.closest("[data-fechar]")) camada.remove(); });
+}
+document.addEventListener("click", (e) => {
+  const v = e.target.closest("[data-ver-entrega]");
+  if (v) abrirDetalheEntrega(Number(v.dataset.verEntrega));
+});
 
 function render() {
   /* Tira da seleção o que não está mais pronto (outro motoboy levou) */

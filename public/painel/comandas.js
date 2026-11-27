@@ -98,7 +98,8 @@ function renderComandas() {
 
   $('[data-secao="comandas"].secao').innerHTML = `
     <div class="kpis">
-      <div class="card kpi"><div class="kpi__rotulo">Mesas ocupadas${icone("mesa")}</div><div class="kpi__valor">${abertas.length} de ${cmd.totalMesas()}</div></div>
+      <div class="card kpi"><div class="kpi__rotulo">Mesas ocupadas${icone("mesa")}</div><div class="kpi__valor">${abertas.length} de ${cmd.totalMesas()}</div>
+        <div class="qtd-mesas"><span class="pequeno suave">Mesas no salão</span><div class="qtd"><button data-mesas="-1" aria-label="Menos mesas">${icone("menos", "ic--sm")}</button><span>${cmd.totalMesas()}</span><button data-mesas="1" aria-label="Mais mesas">${icone("mais", "ic--sm")}</button></div></div></div>
       <div class="card kpi"><div class="kpi__rotulo">Pediram a conta${icone("conta")}</div><div class="kpi__valor">${conta}</div></div>
       <div class="card kpi"><div class="kpi__rotulo">Em aberto no salão${icone("moeda")}</div><div class="kpi__valor">${moeda(emAberto)}</div></div>
       <div class="card kpi"><div class="kpi__rotulo">Fechadas hoje${icone("check")}</div><div class="kpi__valor">${moeda(fechadas.reduce((s, f) => s + f.total, 0))}</div></div>
@@ -109,7 +110,7 @@ function renderComandas() {
         const c = cmd.daMesa(i + 1);
         const s = !c ? "livre" : c.pediuConta ? "conta" : "ocupada";
         return `
-          <button class="card mini-mesa ${s}" ${c ? `data-abrir-mesa="${c.mesa}"` : "disabled"}>
+          <button class="card mini-mesa ${s}" data-abrir-mesa="${i + 1}" title="${c ? "Ver a comanda" : "Mesa livre: toque para lançar itens"}">
             <div class="entre"><span class="pequeno fraco">Mesa</span><span class="tag tag--${cor[s]}">${texto[s]}</span></div>
             <strong>${String(i + 1).padStart(2, "0")}</strong>
             <span class="preco pequeno">${c ? moeda(cmd.total(c)) : "—"}</span>
@@ -145,10 +146,7 @@ function renderComandas() {
       </div>
     </div>
 
-    <div class="entre" style="flex-wrap:wrap">
-      <p class="pequeno fraco">Os garçons lançam itens e fecham a conta pela tela de comandas.</p>
-      <a class="btn btn--contorno btn--sm" href="../garcom/">${icone("mesa", "ic--sm")} Abrir tela de comandas</a>
-    </div>`;
+    <p class="pequeno fraco">Toque numa mesa para ver os pedidos, lançar itens ou fechar a conta (ex.: o cliente veio pagar no balcão).</p>`;
 }
 
 /* QR Code de verdade de cada mesa: leva um código difícil de adivinhar (?m=abc123),
@@ -171,6 +169,19 @@ function blocoQrMesa() {
       </div>
     </div>`;
 }
+/* Número de mesas do salão (aqui nas Comandas): muda na hora, com os QR Codes de cada mesa */
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-mesas]");
+  if (!b) return;
+  const novo = Fomito.comandas.totalMesas() + Number(b.dataset.mesas);
+  if (novo < 1) return;
+  const ocupada = Fomito.comandas.abertas().find((c) => c.mesa > novo);
+  if (ocupada) return toast(`A ${Fomito.comandas.mesaTexto(ocupada.mesa)} está com comanda aberta: feche antes de tirar a mesa.`, "info");
+  await Fomito.acao("POST", "/loja/mesas", { mesas: novo });
+  renderComandas();
+  toast(`Salão com ${novo} mesas`, "mesa");
+});
+
 document.addEventListener("change", (e) => {
   if (e.target.id !== "qrMesa") return;
   qrMesa = Number(e.target.value);
@@ -179,37 +190,19 @@ document.addEventListener("change", (e) => {
 
 /* ---------- 3. FICHA DA COMANDA ---------- */
 function abrirComandaPainel(mesa) {
-  const cmd = Fomito.comandas;
-  const c = cmd.daMesa(mesa);
-  if (!c) return;
+  /* A mesa abre aqui mesmo, igual à tela do garçom: pedidos, Lançar itens e Fechar conta */
   const camada = document.createElement("div");
-  camada.className = "sobreposicao sobreposicao--lado";
+  camada.className = "sobreposicao sobreposicao--centro";
   camada.innerHTML = `
-    <div class="folha folha--lado">
-      <div class="folha__topo">
-        <div class="pilha" style="gap:4px"><h2>${cmd.mesaTexto(c.mesa)}</h2>
-          <span class="linha" style="gap:6px"><span class="tag tag--${c.pediuConta ? "laranja" : "roxo"}">${c.pediuConta ? "Pediu a conta" : "Comanda aberta"}</span><span class="pequeno fraco">desde ${cmd.hora(c.abertaEm)}${c.nome ? ` · ${c.nome}` : ""}</span></span></div>
-        <button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button>
-      </div>
-      ${c.rodadas.map((r, i) => {
-        const st = cmd.STATUS[r.status];
-        return `
-          <div class="ficha-bloco">
-            <div class="entre"><span class="rotulo">${i + 1}º pedido · ${cmd.hora(r.hora)} · ${r.por === "qr" ? "QR da mesa" : `garçom${r.quem ? ` ${r.quem}` : ""}`}</span>
-              <span class="linha" style="gap:6px"><button class="btn-icone btn-icone--sm" data-cupom-rodada="${c.mesa},${i}" aria-label="Imprimir este pedido" title="Imprimir para a cozinha">${icone("impressora", "ic--sm")}</button><span class="tag tag--${st.cor}">${st.nome}</span></span></div>
-            ${r.itens.map((it) => `<div class="entre pequeno"><span>${it.qtd}× ${it.nome || Fomito.produto(it.id).nome}</span><span class="num">${moeda(cmd.precoItem(it))}</span></div>`).join("")}
-          </div>`;
-      }).join("")}
-      <div class="ficha-bloco">
-        <div class="entre"><span class="forte">Total da comanda</span><span class="preco">${moeda(cmd.total(c))}</span></div>
-        <span class="pequeno fraco">+ serviço de 10% (opcional): ${moeda(cmd.total(c) * 0.1)}</span>
-      </div>
-      <div class="acoes-pedido"><a class="btn btn--primario" style="flex:1" href="../garcom/">${icone("mesa", "ic--sm")} Abrir nas comandas para fechar</a></div>
+    <div class="folha folha--mesa">
+      <div class="folha__topo"><h2>${Fomito.comandas.mesaTexto(mesa)}</h2><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+      <iframe class="mesa-embutida" src="../garcom/?embutido=1&mesa=${mesa}" title="Comanda da ${Fomito.comandas.mesaTexto(mesa)}"></iframe>
     </div>`;
   document.body.appendChild(camada);
-  camada.addEventListener("click", (e) => {
-    if (e.target === camada || e.target.closest("[data-fechar]")) camada.remove();
-  });
+  const fechar = () => { camada.remove(); document.removeEventListener("keydown", tecla); };
+  const tecla = (e) => e.key === "Escape" && fechar();
+  document.addEventListener("keydown", tecla);
+  camada.addEventListener("click", (e) => { if (e.target === camada || e.target.closest("[data-fechar]")) fechar(); });
 }
 
 /* O cliente pede pelo celular, o garçom serve e o motoboy entrega em outros

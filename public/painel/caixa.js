@@ -68,6 +68,67 @@ function renderCaixa() {
     </div>`;
 }
 
+/* Bolsa de cada motoboy: separada da gaveta do balcão (troco + dinheiro das entregas) */
+function blocoBolsas(r) {
+  const motoboys = Fomito.sessao.usuarios().filter((u) => u.perfil === "motoboy").map((u) => u.nome);
+  const nomes = [...new Set([...motoboys, ...Object.keys(r.bolsas || {})])];
+  if (!nomes.length) return "";
+  return `
+    <div class="card painel-card">
+      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Bolsas dos motoboys</h3><span class="pequeno suave">O troco e o dinheiro das entregas ficam com cada motoboy, separados da gaveta do balcão.</span></div></div>
+      <div class="tabela-rolagem"><table class="tabela">
+        <thead><tr><th>Motoboy</th><th class="dir">Troco inicial</th><th class="dir">Recebeu (notas)</th><th class="dir">Troco dado</th><th class="dir">Deve ter na bolsa</th><th>Conferência</th><th></th></tr></thead>
+        <tbody>${nomes.map((nome) => {
+          const b = r.bolsas?.[nome] || { fundo: 0, recebido: 0, troco: 0, esperado: 0, entregas: 0 };
+          const f = b.fechamento;
+          const nomeEsc = nome.replace(/"/g, "&quot;");
+          return `<tr>
+            <td><span class="forte">${nome}</span><div class="pequeno fraco">${b.entregas || 0} entrega${b.entregas === 1 ? "" : "s"}</div></td>
+            <td class="dir num">${moeda(b.fundo)}</td>
+            <td class="dir num">${moeda(b.recebido)}</td>
+            <td class="dir num">${b.troco ? `− ${moeda(b.troco)}` : moeda(0)}</td>
+            <td class="dir num forte">${moeda(b.esperado)}</td>
+            <td>${f ? `${tagDiferenca(f.contado, f.esperado)}${f.ficaParaAmanha ? `<div class="pequeno fraco">${moeda(f.ficaParaAmanha)} ficou de troco</div>` : ""}` : `<span class="tag tag--cinza">A conferir</span>`}</td>
+            <td class="dir" style="white-space:nowrap">${f ? "" : `<button class="btn btn--contorno btn--sm" data-troco-motoboy="${nomeEsc}">Troco</button> <button class="btn btn--primario btn--sm" data-conferir-bolsa="${nomeEsc}">Conferir</button>`}</td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table></div>
+    </div>`;
+}
+
+async function janelaTrocoMotoboy(nome) {
+  const atual = Fomito.caixa.resumo(Fomito.caixa.aberto()).bolsas?.[nome]?.fundo || 0;
+  const r = await Fomito.dialogo({
+    titulo: `Troco do ${nome}`,
+    texto: "Quanto em dinheiro o motoboy leva na bolsa para dar troco. Sai separado da gaveta do balcão.",
+    campos: [{ id: "fundo", rotulo: "Troco na bolsa (R$)", tipo: "moeda", valor: String(atual).replace(".", ","), obrigatorio: true }],
+    confirmar: "Salvar troco",
+  });
+  if (!r) return;
+  await Fomito.acao("POST", "/caixa/motoboy", { nome, fundo: formatoDinheiro(r.fundo) });
+  renderCaixa();
+  toast(`Troco do ${nome}: ${moeda(formatoDinheiro(r.fundo))}`, "dinheiro");
+}
+
+async function janelaConferirBolsa(nome) {
+  const b = Fomito.caixa.resumo(Fomito.caixa.aberto()).bolsas?.[nome] || { esperado: 0, fundo: 0, recebido: 0, troco: 0 };
+  const r = await Fomito.dialogo({
+    titulo: `Conferir a bolsa do ${nome}`,
+    texto: `Troco inicial ${moeda(b.fundo)} + notas recebidas ${moeda(b.recebido)} − troco dado ${moeda(b.troco)} = deve ter <b>${moeda(b.esperado)}</b>.`,
+    campos: [
+      { id: "contado", rotulo: "Quanto tem na bolsa (R$)", tipo: "moeda", obrigatorio: true },
+      { id: "fica", rotulo: "Fica com ele de troco para amanhã (R$)", tipo: "moeda", valor: "0,00", ajuda: "O resto ele entrega no caixa." },
+      { id: "obs", rotulo: "Observação (obrigatória se não bater)", max: 300 },
+    ],
+    confirmar: "Conferir bolsa",
+  });
+  if (!r) return;
+  const contado = formatoDinheiro(r.contado);
+  await Fomito.acao("POST", "/caixa/motoboy/fechar", { nome, contado, fica: formatoDinheiro(r.fica), obs: r.obs });
+  renderCaixa();
+  toast(Math.abs(contado - b.esperado) < 0.005 ? `Bolsa do ${nome} bateu` : `Bolsa do ${nome} conferida com diferença`, "check");
+}
+
 function caixaAberto(cx) {
   const r = Fomito.caixa.resumo(cx);
   const nomes = { ...Fomito.caixa.FORMAS };
@@ -96,6 +157,8 @@ function caixaAberto(cx) {
         <button class="btn btn--primario btn--sm" data-fechar-caixa>${icone("cadeado", "ic--sm")} Fechar caixa</button>
       </div>
     </div>
+
+    ${blocoBolsas(r)}
 
     <div class="kpis">
       <div class="card kpi"><div class="kpi__rotulo">Vendas no caixa${icone("moeda")}</div><div class="kpi__valor">${moeda(r.vendas)}</div><span class="variacao">${r.qtdVendas} pagamentos recebidos</span></div>
@@ -139,7 +202,8 @@ function caixaAberto(cx) {
                 const entradaGaveta = m.tipo === "suprimento";
                 const tipo = { comanda: ["Mesa", "roxo"], entrega: ["Entrega", "cinza"], sangria: ["Tirado", "vermelho"], suprimento: ["Colocado", "amarelo"], balcao: ["Balcão", "cinza"] }[m.tipo];
                 /* Quanto mudou na gaveta: dinheiro entra (já sem o troco), Pix e cartão não */
-                const gaveta = saida ? `<span class="valor-saida">− ${moeda(m.valor)}</span>`
+                const gaveta = m.tipo === "entrega" && m.forma === "dinheiro" ? `<span class="fraco pequeno">bolsa do ${String(m.por).split(" ")[0]}</span>`
+                  : saida ? `<span class="valor-saida">− ${moeda(m.valor)}</span>`
                   : entradaGaveta || m.forma === "dinheiro" ? `<span class="valor-entrada">+ ${moeda(m.valor)}</span>`
                   : `<span class="fraco pequeno">na conta</span>`;
                 return `
@@ -152,7 +216,7 @@ function caixaAberto(cx) {
                     <td class="dir num suave">${m.recebido ? moeda(m.recebido) : m.forma === "dinheiro" && !saida && !entradaGaveta ? moeda(m.valor) : "-"}</td>
                     <td class="dir num suave">${m.troco ? moeda(m.troco) : "-"}</td>
                     <td class="dir num forte" style="white-space:nowrap">${gaveta}</td>
-                    <td class="dir"><button class="btn-icone btn-icone--sm" data-corrigir="${m.id}" aria-label="Corrigir ${m.ref}" title="Corrigir">${icone("editar", "ic--sm")}</button></td>
+                    <td class="dir" style="white-space:nowrap">${m.tipo === "comanda" && m.comanda ? `<button class="btn-icone btn-icone--sm" data-redividir="${m.comanda}" aria-label="Refazer a divisão da comanda ${m.comanda}" title="Refazer a divisão (${m.divisao || 1} pessoa${(m.divisao || 1) > 1 ? "s" : ""})">${icone("equipe", "ic--sm")}</button>` : ""}<button class="btn-icone btn-icone--sm" data-corrigir="${m.id}" aria-label="Corrigir ${m.ref}" title="Corrigir">${icone("editar", "ic--sm")}</button></td>
                   </tr>`;
               }).join("") || `<tr><td colspan="8" class="suave" style="text-align:center;padding:24px">Nenhuma movimentação neste filtro.</td></tr>`}
             </tbody>
@@ -219,12 +283,15 @@ function janelaAbrir() {
   janelaCaixa("Abrir caixa", `
     <p class="suave pequeno">Conte o dinheiro que já está na gaveta para dar troco. O sistema começa daqui e vai somando cada pagamento em dinheiro, já descontando o troco.</p>
     <div class="campo"><label for="fundo">Dinheiro inicial na gaveta <span class="obrigatorio">*</span></label><div class="campo-moeda"><span>R$</span><input id="fundo" class="input" inputmode="decimal" value="150,00"></div></div>
+    ${Fomito.sessao.usuarios().filter((u) => u.perfil === "motoboy").map((u, i) => `
+      <div class="campo"><label for="trocoMoto${i}">Troco na bolsa do ${u.nome}</label><div class="campo-moeda"><span>R$</span><input id="trocoMoto${i}" class="input" inputmode="decimal" data-troco-nome="${u.nome.replace(/"/g, "&quot;")}" value="0,00"></div></div>`).join("")}
     <p class="form-erro" id="erroCaixa" hidden></p>
     <button class="btn btn--primario btn--bloco" data-ok>${icone("check", "ic--sm")} Abrir caixa</button>`,
   async (c) => {
     const fundo = formatoDinheiro($("#fundo", c).value);
     if ($("#fundo", c).value.trim() === "") { $("#erroCaixa", c).textContent = "Informe o dinheiro inicial (pode ser R$ 0,00)."; $("#erroCaixa", c).hidden = false; return false; }
-    await Fomito.caixa.abrir({ fundo });
+    const motoboys = Object.fromEntries([...c.querySelectorAll("[data-troco-nome]")].map((i) => [i.dataset.trocoNome, formatoDinheiro(i.value)]));
+    await Fomito.caixa.abrir({ fundo, motoboys });
     toast(`Caixa aberto com ${moeda(fundo)} na gaveta`, "dinheiro");
   });
 }
@@ -371,6 +438,28 @@ function janelaFechar() {
   (c) => { $("#diferencaCaixa", c).innerHTML = diferenca(c); $("#erroCaixa", c).hidden = true; });
 }
 
+/* Refazer a divisão de uma comanda paga (ex.: dividiram por 3, mas eram 4). Só pelo caixa, com motivo. */
+async function janelaRedividir(numero) {
+  const movs = Fomito.caixa.aberto().movimentos.filter((m) => m.tipo === "comanda" && m.comanda === numero);
+  const total = movs.reduce((s, m) => s + m.valor, 0);
+  const atual = movs[0]?.divisao || movs.length;
+  const r = await Fomito.dialogo({
+    titulo: `Refazer a divisão · comanda #${numero}`,
+    texto: `Total de <b>${moeda(total)}</b>, dividido hoje por <b>${atual}</b>: ${movs.map((m) => `${Fomito.caixa.FORMAS[m.forma]} ${moeda(m.valor)}`).join(" · ")}. Cada pagamento passa a ser a parte nova; quem entrar na divisão vira um pagamento novo.`,
+    campos: [
+      { id: "pessoas", rotulo: "Dividir por quantas pessoas", valor: String(atual + 1), tipo: "moeda", obrigatorio: true, max: 2,
+        validar: (v) => (Number(v) >= movs.length ? null : `Precisa ser pelo menos ${movs.length} (já há ${movs.length} pagamento${movs.length > 1 ? "s" : ""}).`) },
+      { id: "forma", rotulo: "Como pagou quem entrou na divisão", tipo: "select", valor: "pix", opcoes: Object.entries(Fomito.caixa.FORMAS) },
+      { id: "motivo", rotulo: "Motivo", obrigatorio: true, placeholder: "Ex.: chegou mais uma pessoa para dividir", max: 200 },
+    ],
+    confirmar: "Refazer a divisão",
+  });
+  if (!r) return;
+  const feito = await Fomito.acao("POST", "/caixa/redividir", { comanda: numero, pessoas: Number(r.pessoas), forma: r.forma, motivo: r.motivo });
+  renderCaixa();
+  toast(`Comanda #${numero} dividida por ${feito.divisao}: ${feito.valores.map(moeda).join(" + ")}`, "check");
+}
+
 /* ---------- 3. CLIQUES ---------- */
 document.addEventListener("click", (e) => {
   if (!$('[data-secao="caixa"].secao')?.contains(e.target)) return;
@@ -378,6 +467,12 @@ document.addEventListener("click", (e) => {
   if (filtro) { filtroCaixa = filtro.dataset.filtroCaixa; return renderCaixa(); }
   if (e.target.closest("[data-abrir-caixa]")) return janelaAbrir();
   if (e.target.closest("[data-fechar-caixa]")) return janelaFechar();
+  const trocoMoto = e.target.closest("[data-troco-motoboy]");
+  if (trocoMoto) return janelaTrocoMotoboy(trocoMoto.dataset.trocoMotoboy);
+  const bolsa = e.target.closest("[data-conferir-bolsa]");
+  if (bolsa) return janelaConferirBolsa(bolsa.dataset.conferirBolsa);
+  const redividir = e.target.closest("[data-redividir]");
+  if (redividir) return janelaRedividir(Number(redividir.dataset.redividir));
   const corrigir = e.target.closest("[data-corrigir]");
   if (corrigir) return janelaCorrigir(corrigir.dataset.corrigir);
   const historico = e.target.closest("[data-historico]");

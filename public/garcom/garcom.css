@@ -162,3 +162,8 @@ body { background: var(--fundo); min-height: 100vh; }
   .comanda { height: 100vh; height: 100dvh; }
   .comanda__rodape { padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* Dentro do painel: só a comanda da mesa, ocupando tudo */
+body.embutido .barra, body.embutido .mesas, body.embutido .comanda__fechar-painel, body.embutido #avisoNotificacao { display: none !important; }
+body.embutido .layout { display: block; }
+body.embutido .comanda { position: static; display: flex; height: 100vh; height: 100dvh; border: 0; }

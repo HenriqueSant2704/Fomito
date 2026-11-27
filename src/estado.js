@@ -8,12 +8,16 @@ const db = require('./db');
 const loja = require('./loja');
 const { pedidoDaLinha, comandaDaLinha } = require('./servicos');
 const { inicioDoDia, dispositivoDe, arred, separarNumero } = require('./util');
+const { bolsasMotoboys } = require('./regras');
 
 const PEDIDOS_DO_DIA = `status <> 'cancelado' AND (criado_em >= $1 OR status <> 'concluido')`;
 
-async function caixaResumido() {
+async function caixaResumido(motoboy) {
   const { rows } = await db.query('SELECT dados FROM caixas WHERE aberto');
-  return { aberto: rows[0] ? { abertoEm: rows[0].dados.abertoEm, fundo: 0, movimentos: [] } : null, fechamentos: [] };
+  const r = { aberto: rows[0] ? { abertoEm: rows[0].dados.abertoEm, fundo: 0, movimentos: [] } : null, fechamentos: [] };
+  /* O motoboy vê a própria bolsa: troco inicial, dinheiro recebido, troco dado e quanto deve ter */
+  if (motoboy && rows[0]) r.bolsa = bolsasMotoboys(rows[0].dados)[motoboy] || { fundo: 0, recebido: 0, troco: 0, dinheiro: 0, entregas: 0, esperado: 0 };
+  return r;
 }
 
 async function comandasDoDia() {
@@ -103,6 +107,27 @@ async function relatorio(cardapio) {
   };
 }
 
+/* "Os mais pedidos" do cardápio: os 5 produtos mais vendidos nos últimos 30 dias
+   (entrega, balcão e mesas). Recalcula a cada 5 minutos. */
+let cacheMaisPedidos = { em: 0, ids: [] };
+async function maisPedidos() {
+  if (Date.now() - cacheMaisPedidos.em < 5 * 60 * 1000) return cacheMaisPedidos.ids;
+  const { rows } = await db.query(`
+    SELECT (item->>0)::int AS id, sum((item->>1)::int) AS qtd
+      FROM pedidos, jsonb_array_elements(dados->'itens') AS item
+     WHERE status <> 'cancelado' AND criado_em > now() - interval '30 days'
+     GROUP BY 1
+    UNION ALL
+    SELECT (item->>'id')::int, sum((item->>'qtd')::int)
+      FROM comandas, jsonb_array_elements(dados->'rodadas') AS rodada, jsonb_array_elements(rodada->'itens') AS item
+     WHERE aberta_em > now() - interval '30 days'
+     GROUP BY 1`);
+  const soma = {};
+  rows.forEach((x) => { soma[x.id] = (soma[x.id] || 0) + Number(x.qtd); });
+  cacheMaisPedidos = { em: Date.now(), ids: Object.entries(soma).sort((a, b) => b[1] - a[1]).map(([id]) => Number(id)) };
+  return cacheMaisPedidos.ids;
+}
+
 async function estado(req, res) {
   const u = req.usuario;
   const atual = loja.obter();
@@ -112,6 +137,7 @@ async function estado(req, res) {
     r.config = u?.perfil === 'admin' ? atual.config : loja.configPublica(atual.config);
     r.cardapio = atual.cardapio;
   }
+  r.maisPedidos = await maisPedidos();
 
   const hoje = inicioDoDia();
   // Mesa do QR Code (?m=código). Vale também para a equipe testar o cardápio como cliente.
@@ -143,7 +169,7 @@ async function estado(req, res) {
   if (u.perfil === 'motoboy') {
     const { rows } = await db.query(`SELECT * FROM pedidos WHERE modo = 'entrega' AND ${PEDIDOS_DO_DIA} ORDER BY criado_em DESC LIMIT 300`, [hoje]);
     r.pedidos = rows.map(pedidoDaLinha);
-    r.caixa = await caixaResumido();
+    r.caixa = await caixaResumido(u.nome);
     return res.json(r);
   }
 

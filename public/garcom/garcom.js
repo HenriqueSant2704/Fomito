@@ -276,13 +276,14 @@ const arred = (n) => Math.round(n * 100) / 100;
 const numero = (texto) => parseFloat(String(texto).replace(/\./g, "").replace(",", ".")) || 0;
 
 function abrirFechamento(mesa) {
-  const conta = { pessoas: 1, taxaServico: true, pagamentos: [], forma: "dinheiro", valor: "", recebido: "" };
+  /* Sem taxa de serviço (decisão do restaurante): a conta é só o consumo */
+  const conta = { pessoas: 1, pagamentos: [], forma: "dinheiro", valor: "", recebido: "" };
 
   const camada = document.createElement("div");
   camada.className = "sobreposicao sobreposicao--centro";
   document.body.appendChild(camada);
 
-  const totalFinal = () => arred(totalMesa(mesa) * (conta.taxaServico ? 1.1 : 1));
+  const totalFinal = () => arred(totalMesa(mesa));
   const pago = () => arred(conta.pagamentos.reduce((s, p) => s + p.valor, 0));
   const restante = () => arred(totalFinal() - pago());
   /* Valor desta forma: o que o garçom digitou ou, por padrão, o que falta (ou a parte de cada pessoa) */
@@ -336,14 +337,12 @@ function abrirFechamento(mesa) {
         <div class="conta__total">
           <span class="rotulo">Total a pagar</span>
           <span class="preco">${moeda(totalFinal())}</span>
-          <span class="pequeno suave num">Consumo ${moeda(totalMesa(mesa))}${conta.taxaServico ? ` + serviço (10%) ${moeda(totalMesa(mesa) * 0.1)}` : ""}</span>
+          <span class="pequeno suave num">${comandas.qtdItens(mesa.comanda)} itens consumidos</span>
         </div>
 
-        <label class="check"><input type="checkbox" data-servico ${conta.taxaServico ? "checked" : ""} ${conta.pagamentos.length ? "disabled" : ""}> Incluir 10% de serviço</label>
-
         <div class="divisao card">
-          <div><div class="forte">Dividir a conta</div><div class="pequeno suave">${conta.pessoas > 1 ? `${moeda(totalFinal() / conta.pessoas)} por pessoa` : "Uma pessoa paga tudo"}</div></div>
-          <div class="qtd"><button data-p="-1" aria-label="Menos pessoas">${icone("menos", "ic--sm")}</button><span>${conta.pessoas}</span><button data-p="1" aria-label="Mais pessoas">${icone("mais", "ic--sm")}</button></div>
+          <div><div class="forte">Dividir a conta</div><div class="pequeno suave">${conta.pessoas > 1 ? `${moeda(totalFinal() / conta.pessoas)} por pessoa` : "Uma pessoa paga tudo"}${conta.pagamentos.length ? `<br>${icone("cadeado", "ic--sm")} Travado: já tem pagamento. Para mudar, peça no Caixa.` : ""}</div></div>
+          <div class="qtd"><button data-p="-1" aria-label="Menos pessoas" ${conta.pagamentos.length ? "disabled" : ""}>${icone("menos", "ic--sm")}</button><span>${conta.pessoas}</span><button data-p="1" aria-label="Mais pessoas" ${conta.pagamentos.length ? "disabled" : ""}>${icone("mais", "ic--sm")}</button></div>
         </div>
 
         ${conta.pagamentos.length ? `
@@ -405,7 +404,7 @@ function abrirFechamento(mesa) {
     /* Tudo pago: a comanda fecha, vira pedido antigo e os pagamentos vão para o caixa */
     const troco = conta.pagamentos.reduce((s, p) => s + (p.troco || 0), 0);
     try {
-      await comandas.fechar(mesa.numero, { pagamentos: conta.pagamentos, servico: Math.round((totalFinal() - totalMesa(mesa)) * 100) / 100 });
+      await comandas.fechar(mesa.numero, { pagamentos: conta.pagamentos, pessoas: conta.pessoas });
     } catch (err) {
       conta.pagamentos.pop(); // não deu certo: o último pagamento volta a ficar pendente
       render();
@@ -419,7 +418,11 @@ function abrirFechamento(mesa) {
   camada.addEventListener("click", (e) => {
     if (e.target === camada || e.target.closest("[data-fechar]")) return camada.remove();
     const p = e.target.closest("[data-p]");
-    if (p) { conta.pessoas = Math.max(1, conta.pessoas + Number(p.dataset.p)); conta.valor = ""; return render(); }
+    if (p) {
+      /* Depois do 1º pagamento a divisão trava: mudar agora faria quem já pagou pagar a mais ou a menos */
+      if (conta.pagamentos.length) return toast("A divisão travou porque já tem pagamento. A correção é feita no Caixa.", "info");
+      conta.pessoas = Math.max(1, conta.pessoas + Number(p.dataset.p)); conta.valor = ""; return render();
+    }
     const f = e.target.closest("[data-forma]");
     if (f) { conta.forma = f.dataset.forma; conta.recebido = ""; return render(); }
     const nota = e.target.closest("[data-nota]");
@@ -429,7 +432,6 @@ function abrirFechamento(mesa) {
     if (e.target.closest("[data-confirmar]")) confirmar();
   });
   camada.addEventListener("change", (e) => {
-    if (e.target.matches("[data-servico]")) { conta.taxaServico = e.target.checked; conta.valor = ""; render(); }
   });
   camada.addEventListener("input", (e) => {
     if (e.target.matches("[data-recebido]")) conta.recebido = e.target.value;
@@ -459,7 +461,13 @@ if (usuarioLogado) {
   $("#voltarPainel").hidden = !["admin", "atendente"].includes(usuarioLogado.perfil);
 }
 $("#btnSair").addEventListener("click", () => sessao.sair());
+/* Aberto de dentro do painel (Comandas → tocar na mesa): mostra só a comanda daquela mesa,
+   com os pedidos, Lançar itens e Fechar conta, igual ao garçom */
+const paramsTela = new URLSearchParams(location.search);
+if (paramsTela.get("embutido")) document.body.classList.add("embutido");
+if (Number(paramsTela.get("mesa")) > 0) estado.mesaAtual = Number(paramsTela.get("mesa"));
 atualizarTudo();
+if (estado.mesaAtual) renderComanda();
 
 /* ---------- 7. AVISOS ----------
    A cada 3 segundos confere as comandas (o cliente pede pelo QR e a

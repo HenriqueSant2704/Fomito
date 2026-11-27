@@ -4,7 +4,7 @@ const db = require('./db');
 const loja = require('./loja');
 const whatsapp = require('./whatsapp');
 const { falhar, arred, numero, texto, soDigitos, formatarTelefone, separarNumero } = require('./util');
-const { montarItens, somaItens, resumoCaixa, conferirPagamento } = require('./regras');
+const { montarItens, somaItens, resumoCaixa, conferirPagamento, bolsasMotoboys } = require('./regras');
 
 const mesaTexto = (n) => `Mesa ${String(n).padStart(2, '0')}`;
 
@@ -37,12 +37,18 @@ async function registrar(c, caixa, movimento) {
 
 const CAIXA_FECHADO = 'O caixa está fechado. Peça para abrir o caixa no painel.';
 
-async function abrirCaixa({ fundo }, por) {
+async function abrirCaixa({ fundo, motoboys = {} }, por) {
   const valor = numero(fundo);
   if (!(valor >= 0)) falhar(400, 'Informe o dinheiro inicial (pode ser R$ 0,00).');
+  /* Troco que cada motoboy leva na bolsa (separado da gaveta do balcão) */
+  const bolsas = {};
+  for (const [nome, f] of Object.entries(motoboys || {})) {
+    const v = numero(f);
+    if (v > 0) bolsas[texto(nome, 60)] = { fundo: v, definidoEm: Date.now(), por };
+  }
   return db.tx(async (c) => {
     if (await caixaAberto(c, true)) falhar(409, 'Já existe um caixa aberto.');
-    const dados = { abertoEm: Date.now(), por, fundo: valor, movimentos: [] };
+    const dados = { abertoEm: Date.now(), por, fundo: valor, motoboys: bolsas, movimentos: [] };
     await c.query('INSERT INTO caixas (dados) VALUES ($1)', [dados]);
     return dados;
   });
@@ -66,6 +72,85 @@ async function movimentoCaixa({ tipo, ref, valor }, por) {
  * Corrige um pagamento lançado errado. Nada é apagado: guarda o antes,
  * o depois, quem corrigiu, quando e o motivo (igual ao protótipo).
  */
+/**
+ * Refaz a divisão de uma comanda já paga (ex.: o garçom dividiu por 3, mas eram 4).
+ * Só pelo caixa (administrador ou atendente), com motivo. Cada pagamento passa a ser a parte
+ * nova; quem entrar na divisão vira um pagamento novo. Tudo fica no registro de correções.
+ */
+async function redividirComanda(numero, { pessoas, forma = 'pix', motivo }, por) {
+  if (!texto(motivo)) falhar(400, 'Escreva o motivo da correção.');
+  return db.tx(async (c) => {
+    const caixa = await caixaAberto(c, true);
+    if (!caixa) falhar(409, 'Só dá para corrigir com o caixa aberto.');
+    const { rows } = await c.query('SELECT * FROM comandas WHERE numero = $1 FOR UPDATE', [Number(numero)]);
+    if (!rows[0]) falhar(404, 'Comanda não encontrada.');
+    const linha = rows[0];
+    const movs = caixa.dados.movimentos.filter((m) => m.tipo === 'comanda' && (m.comanda === Number(numero) || String(m.ref || '').endsWith(`comanda #${numero}`)));
+    if (!movs.length) falhar(404, 'Os pagamentos dessa comanda não estão no caixa aberto.');
+    const novas = parseInt(pessoas, 10);
+    if (!(novas >= movs.length && novas <= 50)) falhar(400, `Escolha de ${movs.length} a 50 pessoas (já há ${movs.length} pagamento${movs.length > 1 ? 's' : ''}).`);
+    const total = Number(linha.total);
+    const parte = arred(Math.floor((total / novas) * 100) / 100);
+    const valores = Array.from({ length: novas }, (_, i) => (i === novas - 1 ? arred(total - parte * (novas - 1)) : parte));
+    const agora = Date.now();
+    const registro = (antes, depois) => ({ em: agora, por, motivo: texto(motivo, 200), antes, depois });
+    movs.forEach((m, i) => {
+      const antes = Object.fromEntries(CAMPOS.map((k) => [k, m[k] ?? null]));
+      m.valor = valores[i];
+      if (m.forma === 'dinheiro') { m.recebido = Math.max(m.recebido ?? 0, m.valor); m.troco = arred(m.recebido - m.valor); }
+      m.divisao = novas;
+      (m.correcoes ||= []).push(registro(antes, Object.fromEntries(CAMPOS.map((k) => [k, m[k] ?? null]))));
+    });
+    const f = ['dinheiro', 'pix', 'credito', 'debito'].includes(forma) ? forma : 'pix';
+    for (let i = movs.length; i < novas; i++) {
+      const novo = { id: `m${agora}-${caixa.dados.movimentos.length}`, hora: agora, tipo: 'comanda', comanda: Number(numero), divisao: novas,
+        ref: `${mesaTexto(linha.mesa)} · comanda #${numero}`, forma: f, valor: valores[i], ...(f === 'dinheiro' ? { recebido: valores[i], troco: 0 } : {}), por };
+      novo.correcoes = [registro({ forma: null, valor: null, recebido: null, troco: null, ref: null }, Object.fromEntries(CAMPOS.map((k) => [k, novo[k] ?? null])))];
+      caixa.dados.movimentos.push(novo);
+    }
+    await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, caixa.dados]);
+    const d = linha.dados;
+    (d.historicoDivisao ||= []).push({ em: agora, por, de: d.divisao || movs.length, para: novas, motivo: texto(motivo, 200) });
+    d.divisao = novas;
+    d.pagamentos = caixa.dados.movimentos.filter((m) => m.tipo === 'comanda' && m.comanda === Number(numero)).map(({ forma: fm, valor, recebido, troco }) => ({ forma: fm, valor, recebido, troco }));
+    await c.query('UPDATE comandas SET dados = $2 WHERE id = $1', [linha.id, d]);
+    return { divisao: novas, valores };
+  });
+}
+
+/** Define (ou ajusta) o troco que o motoboy leva na bolsa, com o caixa aberto */
+async function trocoMotoboy({ nome, fundo }, por) {
+  const v = numero(fundo);
+  if (!(v >= 0) || !texto(nome)) falhar(400, 'Informe o motoboy e o troco.');
+  return db.tx(async (c) => {
+    const caixa = await caixaAberto(c, true);
+    if (!caixa) falhar(409, CAIXA_FECHADO);
+    const b = ((caixa.dados.motoboys ||= {})[texto(nome, 60)] ||= {});
+    if (b.fechamento) falhar(409, 'A bolsa desse motoboy já foi conferida hoje.');
+    Object.assign(b, { fundo: v, definidoEm: Date.now(), por });
+    await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, caixa.dados]);
+    return true;
+  });
+}
+
+/** Confere a bolsa do motoboy (separado da gaveta). O que sobrar pode ficar de troco para amanhã. */
+async function fecharBolsa({ nome, contado, obs = '', fica = 0 }, por) {
+  const v = numero(contado);
+  if (!(v >= 0)) falhar(400, 'Informe quanto dinheiro tem na bolsa.');
+  return db.tx(async (c) => {
+    const caixa = await caixaAberto(c, true);
+    if (!caixa) falhar(409, CAIXA_FECHADO);
+    const b = bolsasMotoboys(caixa.dados)[nome];
+    if (!b) falhar(404, 'Esse motoboy não tem bolsa hoje.');
+    if (Math.abs(v - b.esperado) >= 0.005 && !texto(obs)) falhar(400, 'O valor não bateu: escreva uma observação.');
+    const ficaV = Math.min(v, Math.max(0, numero(fica) || 0));
+    const reg = ((caixa.dados.motoboys ||= {})[nome] ||= { fundo: 0 });
+    reg.fechamento = { em: Date.now(), por, contado: v, esperado: b.esperado, obs: texto(obs, 300), ficaParaAmanha: ficaV };
+    await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, caixa.dados]);
+    return reg.fechamento;
+  });
+}
+
 const CAMPOS = ['forma', 'valor', 'recebido', 'troco', 'ref'];
 async function corrigirMovimento(id, novo, { motivo }, por) {
   if (!texto(motivo)) falhar(400, 'Escreva o motivo da correção.');
@@ -107,7 +192,7 @@ async function fecharCaixa({ contado, obs }, por) {
     const correcoes = caixa.dados.movimentos.reduce((s, m) => s + (m.correcoes?.length || 0), 0);
     const fechamento = {
       ...caixa.dados, fechadoEm: Date.now(), fechadoPor: por, vendas: r.vendas, dinheiro: r.porForma.dinheiro,
-      esperado: r.esperado, contado: v, obs: texto(obs, 300), porForma: r.porForma, correcoes,
+      esperado: r.esperado, contado: v, obs: texto(obs, 300), porForma: r.porForma, correcoes, bolsas: r.bolsas,
     };
     await c.query('UPDATE caixas SET aberto = false, fechado_em = now(), dados = $2 WHERE id = $1', [caixa.id, fechamento]);
     return fechamento;
@@ -329,28 +414,28 @@ async function pedirConta(mesa, sim = true) {
  * Fecha a conta: confere que os pagamentos cobrem o total (com ou sem os 10%),
  * a comanda vira um pedido antigo e cada pagamento entra no caixa.
  */
-async function fecharComanda(mesa, { pagamentos, servico = 0 }, por) {
+async function fecharComanda(mesa, { pagamentos, pessoas = 1 }, por) {
   if (!Array.isArray(pagamentos) || !pagamentos.length) falhar(400, 'Informe o pagamento.');
   return db.tx(async (c) => {
     const caixa = await caixaAberto(c, true);
     if (!caixa) falhar(409, CAIXA_FECHADO);
     const linha = await comandaAberta(c, Number(mesa));
     if (!linha) falhar(404, 'Essa comanda já foi fechada.');
-    const base = Number(linha.total);
-    const taxa = numero(servico) || 0;
-    if (taxa < 0 || taxa > arred(base * 0.2) + 0.01) falhar(400, 'Taxa de serviço inválida.');
-    const totalFinal = arred(base + taxa);
+    /* Sem taxa de serviço: a conta é só o consumo */
+    const totalFinal = arred(Number(linha.total));
+    const taxa = 0;
     const conferidos = pagamentos.map(conferirPagamento);
     const pago = arred(conferidos.reduce((s, p) => s + p.valor, 0));
     if (Math.abs(pago - totalFinal) > 0.02) falhar(400, `Os pagamentos somam ${pago.toFixed(2).replace('.', ',')}, mas a conta é ${totalFinal.toFixed(2).replace('.', ',')}.`);
 
     const { rows: [{ n }] } = await c.query("SELECT nextval('comandas_num')::int AS n");
     const forma = conferidos.length > 1 ? 'misto' : conferidos[0].forma;
-    const dados = { ...linha.dados, numero: n, fechadaEm: Date.now(), forma, pagamentos: conferidos, servico: taxa, por, pediuConta: false };
+    const divisao = Math.min(50, Math.max(1, parseInt(pessoas, 10) || 1)); // em quantas pessoas a conta foi dividida
+    const dados = { ...linha.dados, numero: n, fechadaEm: Date.now(), forma, pagamentos: conferidos, servico: taxa, divisao, por, pediuConta: false };
     const { rows } = await c.query(
       'UPDATE comandas SET aberta = false, numero = $2, fechada_em = now(), dados = $3, total = $4 WHERE id = $1 RETURNING *',
       [linha.id, n, dados, totalFinal]);
-    for (const p of conferidos) await registrar(c, caixa, { tipo: 'comanda', ref: `${mesaTexto(linha.mesa)} · comanda #${n}`, ...p, por });
+    for (const p of conferidos) await registrar(c, caixa, { tipo: 'comanda', comanda: n, divisao, ref: `${mesaTexto(linha.mesa)} · comanda #${n}`, ...p, por });
     const fechada = comandaDaLinha(rows[0]);
     /* Agradece no WhatsApp cada pessoa da mesa que pediu pelo QR e deixou o celular (uma vez cada) */
     const vistos = new Set();
@@ -436,7 +521,7 @@ async function salvarCliente({ telefone, nome, endereco, enderecoId }, dispositi
 
 module.exports = {
   mesaTexto, pedidoDaLinha, comandaDaLinha,
-  abrirCaixa, movimentoCaixa, corrigirMovimento, fecharCaixa,
+  abrirCaixa, movimentoCaixa, corrigirMovimento, redividirComanda, fecharCaixa, trocoMotoboy, fecharBolsa,
   criarPedido, avancarPedido, cancelarPedido, sairParaEntrega, concluirEntrega,
   lancarNaComanda, statusRodada, pedirConta, fecharComanda,
   buscarCliente, salvarCliente,

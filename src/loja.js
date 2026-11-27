@@ -78,6 +78,15 @@ async function salvarConfig(recebida) {
 }
 
 /** Marca a conexão do WhatsApp (chamado pelo servidor, quando a conexão abre ou cai). */
+/** Número de mesas do salão: cria o código do QR das mesas novas */
+async function definirMesas(qtd) {
+  const n = Math.min(200, Math.max(1, parseInt(qtd, 10) || 0));
+  if (!n) falhar(400, 'Número de mesas inválido.');
+  await garantirMesas(n);
+  const cardapio = { ...atual.cardapio, lanchonete: { ...atual.cardapio.lanchonete, mesas: n } };
+  return gravar({ cardapio });
+}
+
 /** Pausar ou voltar a receber pedidos (administrador ou atendente) */
 async function definirAberta(aberta) {
   const cardapio = { ...atual.cardapio, lanchonete: { ...atual.cardapio.lanchonete, aberta: !!aberta } };
@@ -158,4 +167,4 @@ async function mesaDoCodigo(codigo) {
   return rows[0]?.numero || null;
 }
 
-module.exports = { carregar, obter, salvarConfig, salvarCardapio, definirAberta, marcarWhatsApp, configPublica, mesas, mesaDoCodigo, mesclar };
+module.exports = { carregar, obter, salvarConfig, salvarCardapio, definirAberta, definirMesas, marcarWhatsApp, configPublica, mesas, mesaDoCodigo, mesclar };

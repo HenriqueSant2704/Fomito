@@ -57,7 +57,7 @@ window.Fomito = window.Fomito || {};
    * entra no caixa com o valor recebido e o troco.
    * pagamentos: [{ forma, valor, recebido? }]
    */
-  const fechar = (mesa, { pagamentos, servico = 0 }) => Fomito.acao("POST", `/comandas/${mesa}/fechar`, { pagamentos, servico });
+  const fechar = (mesa, { pagamentos, pessoas = 1 }) => Fomito.acao("POST", `/comandas/${mesa}/fechar`, { pagamentos, pessoas });
 
   const STATUS = {
     recebido: { nome: "Recebido", cor: "laranja", icone: "recebido" },

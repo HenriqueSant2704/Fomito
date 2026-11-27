@@ -141,7 +141,10 @@ function ligarCarrossel(trilho, pontos, total, intervalo = 0, aoMudar) {
 
 /* Carrossel "Os mais pedidos" */
 function renderDestaques() {
-  const destaques = dados.produtos.filter((p) => p.destaque && !p.esgotado);
+  /* Top 5: os mais vendidos de verdade (servidor) e, se faltar, os marcados como destaque no painel */
+  const disponiveis = dados.produtos.filter((p) => !p.esgotado);
+  const vendidos = (Fomito.estado.maisPedidos || []).map((id) => disponiveis.find((p) => p.id === id)).filter(Boolean);
+  const destaques = [...new Set([...vendidos, ...disponiveis.filter((p) => p.destaque), ...disponiveis])].slice(0, 5);
   $("#blocoDestaques").hidden = !destaques.length || !!estado.busca;
   $("#destaques").innerHTML = destaques.map((p) => `
     <button class="destaque" data-produto="${p.id}">
@@ -199,11 +202,16 @@ function linhaProduto(p) {
     </button>`;
 }
 
+/* Busca que perdoa: sem acento, maiúscula, traço, ponto ou espaço, e "cheese" vale "X"
+   ("cheeseburger", "x burger" e "xburguer" acham o X-Burguer) */
+const paraBusca = (texto) => String(texto || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  .replace(/cheese|chis/g, "x").replace(/burguer/g, "burger").replace(/[^a-z0-9]/g, "");
+
 function renderProdutos() {
-  const termo = estado.busca.toLowerCase();
+  const termo = paraBusca(estado.busca);
   const html = dados.categorias
     .map((c) => {
-      const itens = dados.produtos.filter((p) => p.cat === c.id && p.nome.toLowerCase().includes(termo));
+      const itens = dados.produtos.filter((p) => p.cat === c.id && (!termo || paraBusca(`${p.nome} ${p.desc || ""}`).includes(termo)));
       if (!itens.length) return "";
       return `<section class="secao" data-sec="${c.id}" id="sec-${c.id}"><h3 class="secao__titulo">${icone(c.icone || "cardapio", "ic--sm")}${c.nome}<span class="secao__qtd">${itens.length}</span></h3><div class="secao__lista">${itens.map(linhaProduto).join("")}</div></section>`;
     })
@@ -925,9 +933,19 @@ let anteriores = recuperar(CHAVE_ANTERIORES, []);
 
 /** A comanda aberta deste cliente (ou null se não tem / já foi fechada) */
 function minhaComanda() {
-  if (!minha) return null;
-  const c = comandas.daMesa(minha.mesa);
-  return c && c.abertaEm === minha.abertaEm ? c : null;
+  if (minha) {
+    const c = comandas.daMesa(minha.mesa);
+    if (c && c.abertaEm === minha.abertaEm) return c;
+  }
+  /* Mesa lida pelo QR já tem comanda aberta: é a comanda desta pessoa também
+     (não pede o nome de novo; o pedido entra direto nela) */
+  const daMesa = estado.mesaQR ? comandas.daMesa(estado.mesaQR) : null;
+  if (daMesa && (!minha || minha.mesa !== daMesa.mesa || minha.abertaEm !== daMesa.abertaEm)) {
+    if (minha && minha.mesa === daMesa.mesa) return null; // a minha fechou: verificarFechamento cuida dela primeiro
+    minha = { mesa: daMesa.mesa, abertaEm: daMesa.abertaEm };
+    guardar(CHAVE_MINHA, minha);
+  }
+  return daMesa;
 }
 
 /** Se o garçom fechou a conta, a comanda vira pedido antigo */
@@ -1078,7 +1096,6 @@ function renderAcompanhamento() {
 }
 
 function telaComanda(c) {
-  const servico = comandas.total(c) * 0.1;
   return `
     <div class="status">
       <span class="rotulo">Comanda · ${comandas.mesaTexto(c.mesa)}</span>
@@ -1095,7 +1112,6 @@ function telaComanda(c) {
           </div>`;
       }).join("")}
       <div class="entre resumo__total"><span class="forte">Total da comanda</span><span class="preco">${moeda(comandas.total(c))}</span></div>
-      <span class="pequeno fraco">Serviço de 10% (opcional) cobrado pelo garçom: ${moeda(servico)}</span>
     </div>
     ${c.pediuConta ? `
       <div class="aviso">${icone("conta", "ic--sm")}<span>Pague na mesa com dinheiro, Pix ou cartão. Se quiser, ainda dá para pedir mais.</span></div>` : ""}

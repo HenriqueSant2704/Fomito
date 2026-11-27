@@ -74,6 +74,8 @@ r.put('/config', admin, ok(async (req) => { await loja.salvarConfig(req.body); }
 r.put('/cardapio', admin, ok(async (req) => { await loja.salvarCardapio(req.body); }));
 
 /** Pausar ou voltar a receber pedidos (o atendente também pode) */
+/** Número de mesas do salão (tela de Comandas) */
+r.post('/loja/mesas', balcao, ok(async (req) => { await loja.definirMesas(req.body.mesas); }));
 r.post('/loja/aberta', balcao, ok(async (req) => { await loja.definirAberta(req.body.aberta !== false); }));
 
 r.get('/mesas/:numero/qr.svg', balcao, ok(async (req, res) => {
@@ -159,6 +161,9 @@ r.post('/comandas/:mesa/fechar', garcom, ok((req) => s.fecharComanda(req.params.
 r.post('/caixa/abrir', balcao, ok((req) => s.abrirCaixa(req.body, nome(req))));
 r.post('/caixa/movimento', balcao, ok((req) => s.movimentoCaixa(req.body, nome(req))));
 r.post('/caixa/corrigir', balcao, ok((req) => s.corrigirMovimento(String(req.body.id), req.body.novo || {}, req.body, nome(req))));
+r.post('/caixa/redividir', balcao, ok((req) => s.redividirComanda(req.body.comanda, req.body, nome(req))));
+r.post('/caixa/motoboy', balcao, ok((req) => s.trocoMotoboy(req.body, nome(req))));
+r.post('/caixa/motoboy/fechar', balcao, ok((req) => s.fecharBolsa(req.body, nome(req))));
 r.post('/caixa/fechar', balcao, ok((req) => s.fecharCaixa(req.body, nome(req))));
 
 r.use((req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
