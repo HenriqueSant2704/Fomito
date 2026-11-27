@@ -631,11 +631,18 @@ button.tag { cursor: pointer; }
 .cupom__rotulo:focus { background: #EFEAFB; border-bottom-style: solid; }
 .cupom__dado { color: #333; }
 
-/* Configurações › Impressora: pedido de teste editável da notinha */
-.pteste-item { display: grid; grid-template-columns: 64px minmax(0, 1fr) 120px 44px; gap: 8px 10px; align-items: end; padding: 12px; border: 1px solid var(--borda); border-radius: var(--raio-md); background: var(--superficie-2); }
-.pteste-item__largo { grid-column: 1 / -1; }
-.pteste-item__remover:disabled { opacity: .35; cursor: not-allowed; }
-@media (max-width: 560px) {
-  .pteste-item { grid-template-columns: 64px minmax(0, 1fr) 44px; }
-  .pteste-item > .campo:nth-child(3) { grid-column: 1 / 3; }
+/* Configurações › Impressora: dados do pedido de exemplo editáveis na prévia (em laranja) */
+.cupom__fixo .cupom__valor { color: #333; border-bottom: 1px dashed #E8A25A; border-radius: 2px; outline: none; cursor: text; padding: 0 1px; }
+.cupom__fixo .cupom__valor:hover { background: #FFF6EC; }
+.cupom__fixo .cupom__valor:focus { background: #FFEBD2; border-bottom-style: solid; }
+.cupom__fixo .cupom__select { -webkit-appearance: none; appearance: none; font: inherit; font-size: inherit; line-height: inherit; height: auto; min-height: 0; width: auto; color: #333; background: transparent; border: 0; border-bottom: 1px dashed #E8A25A; border-radius: 2px; padding: 0 1px; margin: 0; box-shadow: none; cursor: pointer; }
+.cupom__fixo .cupom__select:hover, .cupom__fixo .cupom__select:focus { background: #FFF6EC; outline: none; }
+.pteste-item { position: relative; }
+.pteste-acoes { display: flex; gap: 12px; padding-left: 3ch; white-space: normal; }
+.pteste-acoes .pteste-mais, .cupom__fixo-linha .pteste-mais { display: inline; margin: 0; opacity: .6; cursor: pointer; }
+.pteste-acoes .pteste-mais:hover, .cupom__fixo-linha .pteste-mais:hover { opacity: 1; }
+.pteste-item .cupom__ocultar { right: -14px; width: 13px; height: 13px; font-size: 10px; line-height: 13px; }
+/* No celular o sistema força 16px nos campos (para não dar zoom): encolhe para a letra da notinha */
+@media (max-width: 900px), (pointer: coarse) {
+  .cupom__fixo .cupom__select { zoom: .71875; }
 }
