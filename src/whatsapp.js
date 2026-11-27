@@ -198,7 +198,9 @@ async function avisar(pedido, tipo) {
       mesa: pedido.mesa || '',
       endereco: cardapio.lanchonete.endereco || 'nosso balcão',
       motivo: String(pedido.motivoCancelamento || '').replace(/[.!\s]+$/, ''), // o ponto final já está no texto
-      pagamento: forma ? forma.nome + (pedido.pag === 'dinheiro' && pedido.troco ? `, troco para ${moeda(pedido.troco)}` : '') : '-',
+      /* Convênio não está nas formas do cardápio: sem isto a mensagem saía "Pagamento na entrega: -" */
+      pagamento: pedido.pag === 'convenio' ? 'convênio (não precisa pagar na entrega)'
+        : forma ? forma.nome + (pedido.pag === 'dinheiro' && pedido.troco ? `, troco para ${moeda(pedido.troco)}` : '') : '-',
     });
     await enviar(pedido.telefone, texto);
     /* No pedido (entrega e balcão) fica marcada a última mensagem; a mesa não guarda */

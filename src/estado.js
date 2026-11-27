@@ -89,19 +89,26 @@ async function calcularClientes() {
 async function relatorio(cardapio) {
   const inicio = inicioDoDia(7);
   const { rows: pedidos } = await db.query(`SELECT dados, total, status, modo, criado_em FROM pedidos WHERE status <> 'cancelado' AND criado_em >= $1`, [inicio]);
-  const { rows: comandas } = await db.query('SELECT dados, total, aberta, aberta_em, fechada_em FROM comandas WHERE aberta_em >= $1 OR aberta', [inicio]);
+  const { rows: comandas } = await db.query('SELECT dados, total, aberta, aberta_em, fechada_em FROM comandas WHERE fechada_em >= $1 OR aberta', [inicio]);
   const dia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
   const hoje = inicioDoDia().getTime();
   const ontem = inicioDoDia(1).getTime();
 
+  /* Faturamento = o que já foi vendido e pago (pedido concluído, mesa fechada), igual ao caixa.
+     Antes entravam também pedidos ainda na cozinha ou na rua e mesas abertas, e a Visão geral
+     não batia com o Caixa. O tempo de preparo continua contando todos. */
   const vendas = []; // { dia, valor, canal, itens: [{id, qtd, valor}] }
   for (const p of pedidos) {
-    vendas.push({ dia: dia(p.criado_em), valor: Number(p.total), canal: p.modo === 'entrega' ? 'entrega' : 'local', concluido: p.status === 'concluido',
+    if (p.status !== 'concluido') {
+      if (p.dados.prontoEm) vendas.push({ dia: dia(p.criado_em), valor: 0, canal: null, concluido: false, preparo: (p.dados.prontoEm - p.dados.criadoEm) / 60000, itens: [], soPreparo: true });
+      continue;
+    }
+    vendas.push({ dia: dia(p.dados.entregueEm || p.criado_em), valor: Number(p.total), canal: p.modo === 'entrega' ? 'entrega' : 'local', concluido: true,
       preparo: p.dados.prontoEm ? (p.dados.prontoEm - p.dados.criadoEm) / 60000 : null,
       itens: p.dados.itens.map(([id, qtd, , , preco]) => ({ id, qtd, valor: (preco || 0) * qtd })) });
   }
   for (const c of comandas) {
-    vendas.push({ dia: dia(c.aberta_em), valor: Number(c.total), canal: 'local', concluido: !c.aberta,
+    if (!c.aberta) vendas.push({ dia: dia(c.fechada_em), valor: Number(c.total), canal: 'local', concluido: true,
       preparo: null, itens: c.dados.rodadas.flatMap((r) => r.itens.map((i) => ({ id: i.id, qtd: i.qtd, valor: i.preco * i.qtd }))) });
     c.dados.rodadas.forEach((r) => { if (r.prontoEm) vendas.push({ dia: dia(r.hora), valor: 0, canal: null, concluido: false, preparo: (r.prontoEm - r.hora) / 60000, itens: [], soPreparo: true }); });
   }

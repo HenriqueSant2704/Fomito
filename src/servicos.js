@@ -77,6 +77,13 @@ async function movimentoCaixa({ tipo, ref, valor }, por) {
  * Só pelo caixa (administrador ou atendente), com motivo. Cada pagamento passa a ser a parte
  * nova; quem entrar na divisão vira um pagamento novo. Tudo fica no registro de correções.
  */
+/* Pagamentos da comanda como estão no caixa. Mantém o telefone do convênio:
+   sem ele, o que o cliente deve sumia do extrato depois de uma correção. */
+const pagamentosDaComanda = (dadosCaixa, numero) => dadosCaixa.movimentos
+  .filter((m) => m.tipo === 'comanda' && m.comanda === numero)
+  .map(({ forma, valor, recebido, troco, telefone, cliente }) => Object.fromEntries(
+    Object.entries({ forma, valor, recebido, troco, telefone, cliente }).filter(([, v]) => v != null)));
+
 async function redividirComanda(numero, { pessoas, forma = 'pix', motivo }, por) {
   if (!texto(motivo)) falhar(400, 'Escreva o motivo da correção.');
   return db.tx(async (c) => {
@@ -112,7 +119,7 @@ async function redividirComanda(numero, { pessoas, forma = 'pix', motivo }, por)
     const d = linha.dados;
     (d.historicoDivisao ||= []).push({ em: agora, por, de: d.divisao || movs.length, para: novas, motivo: texto(motivo, 200) });
     d.divisao = novas;
-    d.pagamentos = caixa.dados.movimentos.filter((m) => m.tipo === 'comanda' && m.comanda === Number(numero)).map(({ forma: fm, valor, recebido, troco }) => ({ forma: fm, valor, recebido, troco }));
+    d.pagamentos = pagamentosDaComanda(caixa.dados, Number(numero));
     await c.query('UPDATE comandas SET dados = $2 WHERE id = $1', [linha.id, d]);
     return { divisao: novas, valores };
   });
@@ -173,6 +180,15 @@ async function corrigirMovimento(id, novo, { motivo }, por) {
     (m.correcoes ||= []).push({ em: Date.now(), por, motivo: texto(motivo, 200), antes, depois });
     await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, caixa.dados]);
 
+    /* Mesa: a comanda fechada também passa a mostrar a forma certa (Concluídos, detalhe e notinha) */
+    if (m.tipo === 'comanda' && m.comanda) {
+      const { rows: [cmd] } = await c.query('SELECT id, dados FROM comandas WHERE numero = $1 FOR UPDATE', [m.comanda]);
+      if (cmd) {
+        const pags = pagamentosDaComanda(caixa.dados, m.comanda);
+        const formas = [...new Set(pags.map((x) => x.forma))];
+        await c.query('UPDATE comandas SET dados = $2 WHERE id = $1', [cmd.id, { ...cmd.dados, pagamentos: pags, forma: pags.length > 1 ? 'misto' : formas[0] }]);
+      }
+    }
     /* Entrega e balcão: o pedido também passa a mostrar a forma certa (e o acerto do motoboy) */
     if (['entrega', 'balcao'].includes(m.tipo) && m.pedido) {
       await c.query(`UPDATE pedidos SET dados = dados || $2::jsonb, atualizado_em = now() WHERE num = $1`,
@@ -188,6 +204,9 @@ async function fecharCaixa({ contado, obs }, por) {
   return db.tx(async (c) => {
     const caixa = await caixaAberto(c, true);
     if (!caixa) falhar(409, 'Não há caixa aberto.');
+    /* Entrega na rua: com o caixa fechado o motoboy não consegue finalizar e o dinheiro ficaria fora da conta */
+    const { rows: naRua } = await c.query("SELECT num, dados->>'motoboy' AS motoboy FROM pedidos WHERE status = 'rota' ORDER BY num");
+    if (naRua.length) falhar(409, `Ainda tem entrega na rua (${naRua.map((p) => `#${p.num}${p.motoboy ? ` com ${p.motoboy}` : ''}`).join(', ')}). Espere o motoboy finalizar para fechar o caixa.`);
     const r = resumoCaixa(caixa.dados);
     if (Math.abs(v - r.esperado) >= 0.005 && !texto(obs)) falhar(400, 'O valor não bateu: escreva uma observação.');
     const correcoes = caixa.dados.movimentos.reduce((s, m) => s + (m.correcoes?.length || 0), 0);
@@ -274,6 +293,7 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
 
 /** Muda o pedido dentro de uma transação, com ele travado. */
 async function alterarPedido(c, num, fn) {
+  if (!Number.isInteger(Number(num))) falhar(404, 'Pedido não encontrado.');
   const { rows } = await c.query('SELECT * FROM pedidos WHERE num = $1 FOR UPDATE', [Number(num)]);
   if (!rows[0]) falhar(404, `Pedido #${num} não encontrado.`);
   const p = pedidoDaLinha(rows[0]);

@@ -27,8 +27,15 @@ const ehEquipeLoja = (req) => ['admin', 'atendente'].includes(req.usuario?.perfi
 const ehSalao = (req) => ['garcom', 'atendente', 'admin'].includes(req.usuario?.perfil);
 
 const limiteLogin = limitador(10, 10 * 60 * 1000);
-const limitePedidos = limitador(15, 60 * 60 * 1000);
-const limiteClientes = limitador(40, 60 * 60 * 1000);
+/* Limites contra trote: contam por APARELHO (cada celular tem o seu) e, com folga, pela rede.
+   Todo mundo no Wi-Fi da loja sai pelo mesmo IP: contar só pelo IP travava as mesas do salão
+   depois de 15 pedidos na hora (somando todas as mesas). */
+const porAparelhoPedidos = limitador(15, 60 * 60 * 1000);
+const porRedePedidos = limitador(300, 60 * 60 * 1000);
+const porAparelhoClientes = limitador(40, 60 * 60 * 1000);
+const porRedeClientes = limitador(600, 60 * 60 * 1000);
+const limitePedidos = (req) => { porAparelhoPedidos(dispositivoDe(req) || req.ip); porRedePedidos(req.ip); };
+const limiteClientes = (req) => { porAparelhoClientes(dispositivoDe(req) || req.ip); porRedeClientes(req.ip); };
 
 r.get('/estado', ok(estado));
 
@@ -150,11 +157,11 @@ r.post('/whatsapp/teste', admin, ok((req) => whatsapp.testar(req.body.numero)));
 /* ---------- Clientes: cadastro pelo telefone ---------- */
 const quemPede = (req) => (ehEquipeLoja(req) ? '*' : dispositivoDe(req) || falhar(400, 'Atualize a página e tente de novo.'));
 r.post('/clientes/buscar', ok(async (req) => {
-  limiteClientes(req.ip);
+  limiteClientes(req);
   return { cliente: await s.buscarCliente(req.body.telefone, quemPede(req)) };
 }));
 r.post('/clientes', ok(async (req) => {
-  limiteClientes(req.ip);
+  limiteClientes(req);
   return s.salvarCliente(req.body, quemPede(req));
 }));
 
@@ -181,7 +188,7 @@ r.post('/clientes/sumidos/enviar', admin, ok(async (req) => {
 /* ---------- Pedidos de entrega e balcão ---------- */
 r.post('/pedidos', ok(async (req) => {
   const equipe = ehEquipeLoja(req);
-  if (!equipe) limitePedidos(req.ip);
+  if (!equipe) limitePedidos(req);
   return s.criarPedido(req.body, { equipe, dispositivo: equipe ? null : dispositivoDe(req) });
 }));
 r.post('/pedidos/:num/avancar', balcao, ok((req) => s.avancarPedido(req.params.num, req.body || {}, nome(req))));
@@ -207,7 +214,7 @@ async function mesaDoCliente(req) {
 r.post('/comandas/lancar', ok(async (req) => {
   const equipe = ehSalao(req);
   if (equipe) return s.lancarNaComanda(req.body.mesa, req.body.itens, { nome: req.body.nome, por: 'garcom', quem: nome(req) });
-  limitePedidos(req.ip);
+  limitePedidos(req);
   return s.lancarNaComanda(await mesaDoCliente(req), req.body.itens, { nome: req.body.nome, por: 'qr', telefone: req.body.telefone, dispositivo: dispositivoDe(req) });
 }));
 r.post('/comandas/:mesa/rodadas/:i', garcom, ok((req) => s.statusRodada(req.params.mesa, req.params.i, req.body.status, req.usuario.perfil)));

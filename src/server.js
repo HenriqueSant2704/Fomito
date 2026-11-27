@@ -28,7 +28,8 @@ app.get('/saude', (req, res) => res.json({ ok: true }));
 const avisos = require('./avisos');
 app.get('/api/eventos', (req, res) => avisos.assinar(req, res));
 app.use('/api', (req, res, next) => {
-  if (req.method !== 'GET') res.on('finish', () => { if (res.statusCode < 400) avisos.avisarMudanca(); });
+  /* Algo mudou: a lista de clientes do painel é refeita na próxima busca (antes demorava até 1 minuto para aparecer) */
+  if (req.method !== 'GET') res.on('finish', () => { if (res.statusCode < 400) { require('./estado').limparCacheClientes(); avisos.avisarMudanca(); } });
   next();
 });
 
