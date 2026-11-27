@@ -91,7 +91,7 @@ async function janelaConvenio(telefone) {
         <div class="campo"><label for="cvNome">Nome</label><input class="input" id="cvNome" maxlength="80" placeholder="Se ainda não tem cadastro"></div>
       </div>`}
       <div class="form-grade">
-        <div class="campo"><label for="cvCpf">CPF do titular</label><input class="input" id="cvCpf" inputmode="numeric" data-mascara="cpf" maxlength="14" placeholder="${atual ? `Atual: ${atual.cpfFinal}` : "000.000.000-00"}"><span class="pequeno fraco">O cliente digita no cardápio para confirmar.</span></div>
+        <div class="campo"><label for="cvCpf">CPF ou CNPJ</label><input class="input" id="cvCpf" inputmode="numeric" data-mascara="documento" maxlength="18" placeholder="${atual ? `Atual: ${atual.cpfFinal}` : "CPF da pessoa ou CNPJ da empresa"}"><span class="pequeno fraco">O cliente digita este número no cardápio para confirmar.</span></div>
         <div class="campo"><label for="cvEmpresa">Empresa <span class="fraco">(opcional)</span></label><input class="input" id="cvEmpresa" maxlength="80" value="${escConv(atual?.empresa || "")}" placeholder="Ex.: Metalúrgica Silva"></div>
         <div class="campo"><label for="cvLimite">Limite <span class="fraco">(0 = sem limite)</span></label><div class="campo-moeda"><span>R$</span><input class="input" id="cvLimite" inputmode="decimal" value="${atual?.limite ? String(atual.limite).replace(".", ",") : "0,00"}"></div></div>
         <div class="campo"><label for="cvDia">Dia do fechamento</label><select class="input" id="cvDia">${Array.from({ length: 28 }, (_, i) => `<option ${(atual?.diaFechamento || 5) === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select></div>
@@ -112,7 +112,7 @@ async function janelaConvenio(telefone) {
     const ativo = atual ? $("#cvAtivo", camada).checked : true;
     const cpf = $("#cvCpf", camada).value.replace(/\D/g, "");
     if (!Fomito.clientes.telefoneValido(tel)) return erro("Digite o celular com DDD.");
-    if (ativo && cpf.length !== 11 && !(atual && !cpf)) return erro("Digite o CPF do titular (11 números).");
+    if (ativo && cpf.length !== 11 && cpf.length !== 14 && !(atual && !cpf)) return erro("Digite o CPF (11 números) ou o CNPJ (14 números).");
     try {
       await Fomito.api("PUT", `/convenios/${tel}`, {
         ativo, cpf: cpf || undefined, nome: $("#cvNome", camada)?.value || "",
@@ -182,7 +182,7 @@ async function abrirExtrato(telefone) {
             ${compras.map((c) => `
               <div class="extrato-linha">
                 <div class="pilha" style="gap:1px;min-width:0"><span class="forte">${escConv(c.descricao)}</span><span class="pequeno fraco">${dataCurta(c.em)} · ${escConv(c.itens.slice(0, 3).join(", "))}${c.itens.length > 3 ? "..." : ""}</span></div>
-                <span class="num forte">${moeda(c.valor)}</span>
+                <span class="linha" style="gap:6px"><span class="num forte">${moeda(c.valor)}</span>${ehAdmin && c.tipo === "pedido" ? `<button class="btn-icone btn-icone--sm btn-icone--perigo" data-estornar="${c.num}" title="Tirar do convênio" aria-label="Tirar o pedido #${c.num} do convênio">${icone("lixo", "ic--sm")}</button>` : ""}</span>
               </div>`).join("") || `<p class="pequeno fraco">Nenhuma compra neste mês.</p>`}
           </div>
         </div>
@@ -209,6 +209,23 @@ async function abrirExtrato(telefone) {
       return;
     }
     if (e.target.closest("[data-receber-extrato]")) { camada.remove(); return janelaReceberConvenio(x.telefone, x); }
+    const est = e.target.closest("[data-estornar]");
+    if (est) {
+      const r = await Fomito.dialogo({
+        titulo: `Tirar o pedido #${est.dataset.estornar} do convênio?`,
+        texto: "O pedido fica cancelado e sai do que o cliente deve. Use para pedido de teste ou lançado errado. Fica registrado com o seu nome.",
+        campos: [{ id: "motivo", rotulo: "Motivo", obrigatorio: true, max: 200, placeholder: "Ex.: pedido de teste" }],
+        confirmar: "Tirar do convênio", perigo: true,
+      });
+      if (!r) return;
+      try {
+        const novo = await Fomito.api("POST", `/convenios/${x.telefone}/estornar`, { num: Number(est.dataset.estornar), motivo: r.motivo });
+        Object.assign(x, { compras: novo.compras, pagos: novo.pagos, devido: novo.devido });
+        desenhar();
+        toast(`Pedido #${novo.num} tirado do convênio`, "lixo");
+        carregarConvenios();
+      } catch (err) { toast(err.message, "info"); }
+    }
   });
 }
 

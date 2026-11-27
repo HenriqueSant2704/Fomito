@@ -208,3 +208,20 @@ Fomito.linkMapa = (loja) => {
   document.addEventListener("input", (e) => { if (e.target.matches?.(`${TEL}, ${CPF}`)) aplicar(e.target); }, true);
   document.addEventListener("focusin", (e) => { if (e.target.matches?.(`${TEL}, ${CPF}`)) aplicar(e.target); });
 })();
+
+/* Documento do convênio: CPF (000.000.000-00) ou CNPJ (00.000.000/0000-00), pela quantidade de números */
+(() => {
+  Fomito.mascaraDocumento = (v) => {
+    const d = String(v || "").replace(/\D/g, "").slice(0, 14);
+    if (d.length <= 11) return Fomito.mascaraCpf(d);
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}${d.length > 12 ? `-${d.slice(12)}` : ""}`;
+  };
+  const DOC = 'input[data-mascara="documento"]';
+  const aplicar = (el) => {
+    el.maxLength = 18;
+    const novo = Fomito.mascaraDocumento(el.value);
+    if (novo !== el.value) el.value = novo;
+  };
+  document.addEventListener("input", (e) => { if (e.target.matches?.(DOC)) aplicar(e.target); }, true);
+  document.addEventListener("focusin", (e) => { if (e.target.matches?.(DOC)) aplicar(e.target); });
+})();

@@ -715,10 +715,8 @@ function blocoRetirada() {
 const temConvenio = () => (estado.modo === "retirada"
   ? estado.retConvenio?.tel === estado.retTel && estado.retConvenio.ok
   : !!estado.cliente?.convenio);
-const formatarCpf = (v) => {
-  const d = String(v).replace(/\D/g, "").slice(0, 11);
-  return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join(".") + (d.length > 9 ? `-${d.slice(9)}` : "");
-};
+/* CPF (11 números) ou CNPJ (14): a máscara muda sozinha pelo tamanho (compartilhado/js/utils.js) */
+const formatarCpf = (v) => Fomito.mascaraDocumento(v);
 function blocoConvenio() {
   const f = Fomito.FORMA_CONVENIO;
   return `
@@ -728,7 +726,7 @@ function blocoConvenio() {
       <span class="opcao__radio"></span>
     </button>
     ${estado.pagamento === "convenio" ? `
-      <div class="campo"><label for="cpfConvenio">CPF do titular do convênio</label><input id="cpfConvenio" class="input" inputmode="numeric" data-mascara="cpf" maxlength="14" autocomplete="off" placeholder="000.000.000-00" value="${formatarCpf(estado.cpfConvenio)}"><span class="pequeno fraco">Para confirmar que é você. Não pagamos nada agora: o valor entra na sua conta.</span></div>` : ""}`;
+      <div class="campo"><label for="cpfConvenio">CPF ou CNPJ do convênio</label><input id="cpfConvenio" class="input" inputmode="numeric" data-mascara="documento" maxlength="18" autocomplete="off" placeholder="CPF ou CNPJ cadastrado" value="${formatarCpf(estado.cpfConvenio)}"><span class="pequeno fraco">Para confirmar que é você. Não pagamos nada agora: o valor entra na sua conta.</span></div>` : ""}`;
 }
 
 function blocoPagamento() {
@@ -923,7 +921,7 @@ function podeConfirmar() {
   else if (!estado.cliente || estado.novoEndereco || estado.editandoEndereco != null) return false;
   else if (!estado.cliente.enderecos.find((e) => e.id === estado.enderecoId)?.numero) return false; // endereço sem número
   if (!estado.pagamento) return false;
-  if (estado.pagamento === "convenio") return estado.cpfConvenio.length === 11;
+  if (estado.pagamento === "convenio") return estado.cpfConvenio.length === 11 || estado.cpfConvenio.length === 14;
   if (estado.pagamento === "dinheiro") return estado.semTroco || valorTroco() >= total();
   return true;
 }

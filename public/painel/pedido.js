@@ -261,7 +261,7 @@ async function confirmarNovo() {
   } else {
     Object.assign(base, { cliente: `Balcão · ${novo.nome || "Retirada"}`, modo: "local", pag: null });
   }
-  const { num } = await Fomito.pedidos.criar(base);
+  const { num } = await Fomito.pedidos.criar({ ...base, painel: true });
   pedidosSincronizados();
   $("#lancarPedido").remove();
   renderPedidos();

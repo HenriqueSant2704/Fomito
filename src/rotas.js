@@ -225,6 +225,7 @@ r.get('/convenios/nomes', garcom, ok(async () => (await db.query("SELECT telefon
 r.get('/convenios/:telefone', balcao, ok((req) => s.extratoConvenio(req.params.telefone)));
 r.put('/convenios/:telefone', admin, ok((req) => s.definirConvenio(req.params.telefone, req.body, nome(req))));
 r.post('/convenios/:telefone/receber', balcao, ok((req) => s.receberConvenio(req.params.telefone, req.body, nome(req))));
+r.post('/convenios/:telefone/estornar', admin, ok((req) => s.estornarConvenio(req.params.telefone, req.body, nome(req))));
 r.post('/convenios/:telefone/enviar', balcao, ok((req) => s.enviarExtratoConvenio(req.params.telefone, req.body.texto)));
 
 r.post('/caixa/abrir', balcao, ok((req) => s.abrirCaixa(req.body, nome(req))));

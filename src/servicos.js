@@ -220,11 +220,14 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
   const total = arred(subtotal + taxa);
 
   const dados = { modo, criadoEm: Date.now(), itens: itens.map((i) => [i.id, i.qtd, i.extras, i.obs, i.preco, i.nome]), taxa };
-  /* Convênio: só para o cliente conveniado. Pelo cardápio ele confirma com o CPF; a equipe não precisa. */
-  const convenio = corpo.pag === 'convenio' && (modo === 'entrega' || retirada || equipe);
+  /* Convênio: só para o cliente conveniado. Pelo cardápio ele SEMPRE confirma com o CPF/CNPJ do convênio,
+     mesmo que o aparelho esteja logado como equipe (foi assim que um pedido passou com CPF errado).
+     Só o "Lançar pedido" do painel (painel: true, com login da loja) dispensa o documento. */
+  const peloPainel = equipe && corpo.painel === true;
+  const convenio = corpo.pag === 'convenio' && (modo === 'entrega' || retirada || peloPainel);
   if (corpo.pag === 'convenio') {
     if (!convenio) falhar(400, 'Convênio só vale para entrega, retirada ou pedido lançado pela loja.');
-    const conv = await conferirConvenio(db, corpo.telefone, total, equipe ? null : corpo.cpf);
+    const conv = await conferirConvenio(db, corpo.telefone, total, peloPainel ? null : String(corpo.cpf ?? ''));
     dados.convenio = { empresa: conv.empresa || '' };
   }
   const formasValidas = (lista) => (convenio ? [...lista, 'convenio'] : lista);
@@ -543,12 +546,26 @@ async function salvarCliente({ telefone, nome, endereco, enderecoId }, dispositi
 /* ==========================================================================
    CONVÊNIO (o cliente compra agora e paga no fechamento)
    ========================================================================== */
+/* Números do CPF (11) ou CNPJ (14). Não usa o soDigitos, que é de telefone (corta em 11). */
+const digitosDoc = (v) => String(v ?? '').replace(/\D/g, '').slice(0, 14);
 const cpfValido = (cpf) => {
-  const d = soDigitos(cpf);
+  const d = digitosDoc(cpf);
   if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
   const dig = (n) => { let s = 0; for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
   return dig(9) === Number(d[9]) && dig(10) === Number(d[10]);
 };
+const cnpjValido = (cnpj) => {
+  const d = digitosDoc(cnpj);
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
+  const dig = (n) => {
+    const pesos = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const r = pesos.reduce((s, p, i) => s + Number(d[i]) * p, 0) % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return dig(12) === Number(d[12]) && dig(13) === Number(d[13]);
+};
+/** Documento do convênio: CPF (pessoa) ou CNPJ (empresa) */
+const documentoValido = (doc) => (digitosDoc(doc).length === 14 ? cnpjValido(doc) : cpfValido(doc));
 
 /** Tudo que o cliente comprou no convênio (pedidos e comandas) e tudo que já pagou. */
 async function movimentosConvenio(c, tel) {
@@ -578,7 +595,7 @@ async function conferirConvenio(c, telefone, valor, cpf) {
   const { rows: [cli] } = await c.query('SELECT telefone, nome, convenio FROM clientes WHERE telefone = $1', [tel]);
   const conv = cli?.convenio;
   if (!conv?.ativo) falhar(403, 'Esse cliente não tem convênio com a loja.');
-  if (cpf !== null && soDigitos(cpf) !== conv.cpf) falhar(403, 'O CPF não confere com o cadastro do convênio.');
+  if (cpf !== null && (!digitosDoc(cpf) || digitosDoc(cpf) !== conv.cpf)) falhar(403, 'O CPF ou CNPJ não confere com o cadastro do convênio.');
   if (conv.limite > 0) {
     const { devido } = await movimentosConvenio(c, tel);
     if (devido + valor > conv.limite + 0.005) falhar(409, `Passa do limite do convênio (${conv.limite.toFixed(2).replace('.', ',')}). Em aberto: ${devido.toFixed(2).replace('.', ',')}.`);
@@ -603,8 +620,8 @@ async function definirConvenio(telefone, { ativo, cpf, limite, diaFechamento, em
       return { telefone: tel, ativo: false };
     }
     /* Editando sem digitar o CPF de novo: fica o que já estava */
-    const doc = manterCpf && !soDigitos(cpf) && atual.cpf ? atual.cpf : soDigitos(cpf);
-    if (!cpfValido(doc)) falhar(400, 'CPF inválido. Confira os números.');
+    const doc = manterCpf && !digitosDoc(cpf) && atual.cpf ? atual.cpf : digitosDoc(cpf);
+    if (!documentoValido(doc)) falhar(400, doc.length === 14 ? 'CNPJ inválido. Confira os números.' : 'CPF inválido. Confira os números.');
     const dia = parseInt(diaFechamento, 10);
     const conv = {
       ...atual, ativo: true, cpf: doc, empresa: texto(empresa, 80),
@@ -624,7 +641,7 @@ async function listarConvenios() {
     const m = await movimentosConvenio(db, r.telefone);
     const ultima = m.compras[m.compras.length - 1];
     const { cpf, ...conv } = r.convenio;
-    lista.push({ telefone: r.telefone, nome: r.nome, ...conv, cpfFinal: cpf ? `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**` : '', devido: m.devido, compras: m.compras.length, ultimaCompra: ultima?.em || null });
+    lista.push({ telefone: r.telefone, nome: r.nome, ...conv, cpfFinal: !cpf ? '' : cpf.length === 14 ? `**.${cpf.slice(2, 5)}.${cpf.slice(5, 8)}/****-**` : `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**`, tipoDoc: cpf?.length === 14 ? 'CNPJ' : 'CPF', devido: m.devido, compras: m.compras.length, ultimaCompra: ultima?.em || null });
   }
   return lista;
 }
@@ -655,6 +672,32 @@ async function receberConvenio(telefone, { valor, forma, recebido, obs }, por) {
   });
 }
 
+/**
+ * Tira um pedido do convênio (pedido de teste ou lançado errado): o pedido fica cancelado,
+ * sai do que o cliente deve e, se a venda estava no caixa aberto, sai do caixa. Fica registrado.
+ */
+async function estornarConvenio(telefone, { num, motivo }, por) {
+  const tel = soDigitos(telefone);
+  if (!texto(motivo)) falhar(400, 'Escreva o motivo.');
+  return db.tx(async (c) => {
+    const { rows: [p] } = await c.query('SELECT * FROM pedidos WHERE num = $1 FOR UPDATE', [Number(num)]);
+    if (!p || p.telefone !== tel || p.dados.pag !== 'convenio') falhar(404, 'Esse pedido não está no convênio deste cliente.');
+    if (p.status === 'cancelado') falhar(409, 'Esse pedido já foi tirado.');
+    const dados = { ...p.dados, statusAntes: p.status, canceladoEm: Date.now(), canceladoPor: por, estornoConvenio: { em: Date.now(), por, motivo: texto(motivo, 200) } };
+    await c.query("UPDATE pedidos SET status = 'cancelado', dados = $2, atualizado_em = now() WHERE num = $1", [p.num, dados]);
+    const caixa = await caixaAberto(c, true);
+    if (caixa) {
+      const i = caixa.dados.movimentos.findIndex((m) => m.pedido === p.num && m.forma === 'convenio');
+      if (i >= 0) {
+        const [m] = caixa.dados.movimentos.splice(i, 1);
+        (caixa.dados.estornos ||= []).push({ ...m, estornadoEm: Date.now(), estornadoPor: por, motivo: texto(motivo, 200) });
+        await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, caixa.dados]);
+      }
+    }
+    return { num: p.num, ...(await movimentosConvenio(c, tel)) };
+  });
+}
+
 /** Manda o extrato para o cliente no WhatsApp da loja */
 async function enviarExtratoConvenio(telefone, textoExtrato) {
   const tel = soDigitos(telefone);
@@ -663,7 +706,7 @@ async function enviarExtratoConvenio(telefone, textoExtrato) {
 }
 
 module.exports = {
-  definirConvenio, listarConvenios, extratoConvenio, receberConvenio, enviarExtratoConvenio,
+  definirConvenio, listarConvenios, extratoConvenio, receberConvenio, enviarExtratoConvenio, estornarConvenio,
   mesaTexto, pedidoDaLinha, comandaDaLinha,
   abrirCaixa, movimentoCaixa, corrigirMovimento, redividirComanda, fecharCaixa, trocoMotoboy, fecharBolsa,
   criarPedido, avancarPedido, cancelarPedido, sairParaEntrega, concluirEntrega,
