@@ -562,3 +562,5 @@ button.tag { cursor: pointer; }
   .topo .status-loja { background: var(--superficie); border: 1px solid var(--borda); border-radius: 999px; padding: 6px 12px 6px 8px; }
 }
 @media (max-width: 1024px) { .menu__logo .logo__nome { font-size: 18px; line-height: 1.15; } }
+/* Página curta (ex.: busca com 1 produto): a barra não pode esticar para ocupar a sobra da tela */
+@media (max-width: 1024px) { body { align-content: start; grid-template-rows: auto auto 1fr; } .barra-menu { align-self: start; } }

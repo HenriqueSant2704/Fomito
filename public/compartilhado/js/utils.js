@@ -26,6 +26,11 @@ Fomito.toast = (mensagem, icone = "check") => {
   setTimeout(() => el.remove(), 2600);
 };
 
+/* Texto para busca: sem acento, maiúscula, traço, ponto ou espaço; "cheese" vira "x"
+   e "burguer" vira "burger" ("cheeseburger" acha o X-Burguer). Usado em todas as buscas. */
+Fomito.paraBusca = (texto) => String(texto || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  .replace(/cheese|chis/g, "x").replace(/burguer/g, "burger").replace(/[^a-z0-9]/g, "");
+
 /* HTML do logo do restaurante (símbolo + nome), vindo das Configurações */
 Fomito.logo = (claro = false) => {
   const marca = Fomito.config.ler().marca;

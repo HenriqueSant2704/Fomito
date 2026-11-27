@@ -37,8 +37,8 @@ function renderCardapio() {
 function abaProdutos() {
   const cats = [{ id: "todas", nome: "Todos" }, ...dados.categorias];
   const conta = (id) => dados.produtos.filter((p) => id === "todas" || p.cat === id).length;
-  const termo = cardapio.busca.toLowerCase();
-  const lista = dados.produtos.filter((p) => (cardapio.filtro === "todas" || p.cat === cardapio.filtro) && p.nome.toLowerCase().includes(termo));
+  const termo = Fomito.paraBusca(cardapio.busca);
+  const lista = dados.produtos.filter((p) => (cardapio.filtro === "todas" || p.cat === cardapio.filtro) && Fomito.paraBusca(`${p.nome} ${p.desc || ""}`).includes(termo));
   return `
     <div class="entre" style="flex-wrap:wrap">
       <nav class="filtros">${cats.map((c) => `<button class="filtro ${cardapio.filtro === c.id ? "ativo" : ""}" data-filtro-cardapio="${c.id}">${c.nome} <small>${conta(c.id)}</small></button>`).join("")}</nav>

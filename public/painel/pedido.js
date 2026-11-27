@@ -203,9 +203,9 @@ function blocoClienteNovo() {
 }
 
 function seletorProdutos() {
-  const termo = novo.busca.toLowerCase();
+  const termo = Fomito.paraBusca(novo.busca);
   return dados.produtos
-    .filter((p) => !p.esgotado && (termo ? p.nome.toLowerCase().includes(termo) : p.cat === novo.cat))
+    .filter((p) => !p.esgotado && (termo ? Fomito.paraBusca(`${p.nome} ${p.desc || ""}`).includes(termo) : p.cat === novo.cat))
     .map((p) => {
       const q = novo.itens[p.id] || 0;
       return `

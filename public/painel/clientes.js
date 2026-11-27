@@ -13,10 +13,10 @@ let buscaClientes = "";
 /* ---------- 1. LISTA ---------- */
 function renderClientes() {
   const todos = Fomito.clientes.lista();
-  const termo = buscaClientes.toLowerCase();
+  const termo = Fomito.paraBusca(buscaClientes);
   const digitos = Fomito.clientes.soDigitos(buscaClientes);
   const lista = todos
-    .filter((c) => c.nome.toLowerCase().includes(termo) || (digitos && c.telefone.includes(digitos)))
+    .filter((c) => Fomito.paraBusca(c.nome).includes(termo) || (digitos && c.telefone.includes(digitos)))
     .sort((a, b) => b.pedidos - a.pedidos);
   const recorrentes = todos.filter((c) => c.pedidos > 1).length;
   const gasto = todos.reduce((s, c) => s + c.gasto, 0);

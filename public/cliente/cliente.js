@@ -204,8 +204,7 @@ function linhaProduto(p) {
 
 /* Busca que perdoa: sem acento, maiúscula, traço, ponto ou espaço, e "cheese" vale "X"
    ("cheeseburger", "x burger" e "xburguer" acham o X-Burguer) */
-const paraBusca = (texto) => String(texto || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
-  .replace(/cheese|chis/g, "x").replace(/burguer/g, "burger").replace(/[^a-z0-9]/g, "");
+const paraBusca = Fomito.paraBusca;
 
 function renderProdutos() {
   const termo = paraBusca(estado.busca);
