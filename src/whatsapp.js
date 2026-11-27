@@ -157,7 +157,11 @@ async function desconectar() {
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Manda um texto para um celular brasileiro (só os números, com DDD). */
+/* Só para testar no computador, sem celular conectado: WHATSAPP_SIMULAR=1 mostra as mensagens no terminal */
+const SIMULAR = process.env.WHATSAPP_SIMULAR === '1';
+
 async function enviar(telefone, texto) {
+  if (SIMULAR) { console.log(`[WhatsApp simulado] para ${telefone}: ${texto}`); return; }
   if (st.estado !== 'on' || !sock) throw Object.assign(new Error('O WhatsApp da loja está desconectado.'), { status: 409 });
   let d = String(telefone || '').replace(/\D/g, '');
   if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);
@@ -183,18 +187,21 @@ async function avisar(pedido, tipo) {
   try {
     const { config, cardapio } = loja.obter();
     const modelo = config.whatsapp.modelos[tipo];
-    if (!modelo?.ativo || st.estado !== 'on' || !pedido.telefone) return;
+    if (!modelo?.ativo || (st.estado !== 'on' && !SIMULAR) || !pedido.telefone) return;
     const forma = cardapio.formasPagamento.find((f) => f.id === pedido.pag);
     const texto = montar(modelo.texto, {
-      nome: String(pedido.cliente || '').split(' ')[0],
-      pedido: pedido.num,
+      nome: String(pedido.cliente || '').split(' ')[0] || 'tudo bem',
+      pedido: pedido.num ?? '',
       loja: config.marca.nome,
-      total: moeda(pedido.total),
+      total: moeda(pedido.total || 0),
       previsao: cardapio.lanchonete.tempoEntrega,
+      mesa: pedido.mesa || '',
+      endereco: cardapio.lanchonete.endereco || 'nosso balcão',
       pagamento: forma ? forma.nome + (pedido.pag === 'dinheiro' && pedido.troco ? `, troco para ${moeda(pedido.troco)}` : '') : '-',
     });
     await enviar(pedido.telefone, texto);
-    await db.query(`UPDATE pedidos SET dados = jsonb_set(dados, '{whats}', to_jsonb($2::text)) WHERE num = $1`, [pedido.num, modelo.titulo]);
+    /* No pedido (entrega e balcão) fica marcada a última mensagem; a mesa não guarda */
+    if (pedido.mesa == null && pedido.num) await db.query(`UPDATE pedidos SET dados = jsonb_set(dados, '{whats}', to_jsonb($2::text)) WHERE num = $1`, [pedido.num, modelo.titulo]);
   } catch (err) {
     console.error(`WhatsApp (pedido #${pedido.num}, ${tipo}):`, err.message);
   }

@@ -33,6 +33,7 @@ const estado = {
   mesaQR: Fomito.estado.mesaQR || null, // mesa lida pelo QR Code (?m=código da mesa; o servidor diz qual é)
   mesa: "",
   nomeLocal: "",
+  mesaTel: (() => { try { return JSON.parse(localStorage.getItem("fomito.telefone")) || ""; } catch { return ""; } })(), // celular (opcional) para os avisos da mesa no WhatsApp
   etapaCheckout: 1,         // finalizar em etapas: 1 = como receber, 2 = pagamento
   /* Retirar no balcão (lembra o nome e o celular da última vez) */
   retNome: (() => { try { return JSON.parse(localStorage.getItem("fomito.retirada"))?.nome || ""; } catch { return ""; } })(),
@@ -790,6 +791,7 @@ $("#checkout").addEventListener("input", (e) => {
   if (e.target.id === "tel") e.target.value = clientes.formatarTelefone(e.target.value);
   if (e.target.id === "retTel") { e.target.value = clientes.formatarTelefone(e.target.value); estado.retTel = clientes.soDigitos(e.target.value); }
   if (e.target.id === "retNome") estado.retNome = e.target.value;
+  if (e.target.id === "mesaTel") { e.target.value = clientes.formatarTelefone(e.target.value); estado.mesaTel = clientes.soDigitos(e.target.value); }
   /* Retirada: com o celular completo, puxa o nome do cadastro (se ainda não digitou) */
   if (e.target.id === "retTel" && clientes.telefoneValido(estado.retTel) && !estado.retNome.trim()) {
     clientes.buscarRemoto(estado.retTel).then((c) => {
@@ -995,6 +997,7 @@ function blocoLocal() {
         <div class="campo"><label for="mesa">Número da mesa</label><input id="mesa" class="input" type="number" min="1" value="${estado.mesa}" readonly><span class="pequeno fraco">Pelo QR Code da mesa</span></div>
         <div class="campo"><label for="nomeLocal">Seu nome</label><input id="nomeLocal" class="input" placeholder="Como te chamamos" value="${estado.nomeLocal}"></div>
       </div>
+      <div class="campo"><label for="mesaTel">Seu celular <span class="fraco">(opcional)</span></label><input id="mesaTel" class="input" inputmode="tel" autocomplete="tel" placeholder="(11) 90000-0000" value="${clientes.formatarTelefone(estado.mesaTel)}"><span class="pequeno fraco">Para avisarmos no WhatsApp quando o seu pedido estiver pronto.</span></div>
       <div class="aviso">${icone("info", "ic--sm")}<span>Vamos abrir uma <b>comanda</b> para a sua mesa. Você pode pedir mais vezes e paga tudo no final, com o garçom.</span></div>
     </div>`;
 }
@@ -1042,7 +1045,8 @@ async function enviarParaComanda() {
   const aberta = minhaComanda();
   const mesa = aberta ? aberta.mesa : Number(estado.mesa);
   const jaTinha = !aberta && comandas.daMesa(mesa); // alguém da mesa (ou o garçom) já abriu
-  const c = await comandas.lancar(mesa, estado.carrinho, { nome: estado.nomeLocal.trim() });
+  const c = await comandas.lancar(mesa, estado.carrinho, { nome: estado.nomeLocal.trim(), telefone: estado.mesaTel });
+  if (clientes.telefoneValido(estado.mesaTel)) guardar("fomito.telefone", estado.mesaTel);
   minha = { mesa, abertaEm: c.abertaEm };
   guardar(CHAVE_MINHA, minha);
   estado.carrinho = [];

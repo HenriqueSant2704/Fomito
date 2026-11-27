@@ -42,8 +42,8 @@ window.Fomito = window.Fomito || {};
    * Lança uma rodada. Se a mesa não tem comanda aberta, abre uma.
    * O cliente manda o código do QR da mesa; o garçom e o painel mandam o número.
    */
-  const lancar = (mesa, itens, { nome = "" } = {}) => Fomito.acao("POST", "/comandas/lancar", {
-    mesa: Number(mesa), codigo: Fomito.codigoMesa, nome,
+  const lancar = (mesa, itens, { nome = "", telefone = "" } = {}) => Fomito.acao("POST", "/comandas/lancar", {
+    mesa: Number(mesa), codigo: Fomito.codigoMesa, nome, telefone,
     itens: itens.map(({ id, qtd, extras = [], obs = "", sem = [] }) => ({ id, qtd, extras, obs, sem })),
   });
 

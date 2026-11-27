@@ -15,7 +15,9 @@ const pedidoDaLinha = (r) => ({ ...r.dados, num: r.num, status: r.status, total:
 
 function comandaDaLinha(r) {
   const { dispositivos, ...dados } = r.dados;
-  return { ...dados, mesa: r.mesa, numero: r.numero || undefined, total: Number(r.total) };
+  /* O celular de quem pediu pelo QR fica só no servidor (para o WhatsApp), não vai para as telas */
+  const rodadas = (dados.rodadas || []).map(({ telefone, ...rd }) => rd);
+  return { ...dados, rodadas, mesa: r.mesa, numero: r.numero || undefined, total: Number(r.total) };
 }
 
 /* ==========================================================================
@@ -164,7 +166,7 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
     `INSERT INTO pedidos (modo, status, telefone, dispositivo, dados, total) VALUES ($1, 'novo', $2, $3, $4, $5) RETURNING *`,
     [modo, soDigitos(dados.telefone) || null, dispositivo, dados, total]);
   const pedido = pedidoDaLinha(rows[0]);
-  if (modo === 'entrega') whatsapp.avisar(pedido, 'recebido');
+  whatsapp.avisar(pedido, 'recebido'); // entrega e retirada (sem celular, como no balcão do painel, não envia)
   return pedido;
 }
 
@@ -188,8 +190,18 @@ async function avancarPedido(num) {
     if (p.status === 'pronto' && p.modo === 'local') return { status: 'concluido', entregueEm: Date.now() };
     falhar(409, `O pedido #${p.num} já mudou em outro aparelho. A tela vai atualizar.`);
   }));
-  if (pedido.modo === 'entrega' && pedido.status === 'preparo') whatsapp.avisar(pedido, 'preparo');
+  /* Mensagem certa para cada tipo: entrega (preparo; saiu e entregue vêm do motoboy) e retirada no balcão */
+  const tipo = pedido.modo === 'entrega'
+    ? { preparo: 'preparo' }[pedido.status]
+    : { preparo: 'preparo_balcao', pronto: 'pronto_balcao', concluido: 'retirado' }[pedido.status];
+  if (tipo) whatsapp.avisar(pedido, tipo);
   return pedido;
+}
+
+/** Mensagem do WhatsApp para quem pediu pela mesa (QR Code) e deixou o celular. O garçom não avisa ninguém. */
+function avisarMesa(comanda, rodada, tipo, total) {
+  if (rodada?.por !== 'qr' || !rodada.telefone) return;
+  whatsapp.avisar({ cliente: rodada.nome || comanda.nome, telefone: rodada.telefone, mesa: mesaTexto(comanda.mesa), total }, tipo);
 }
 
 async function cancelarPedido(num, por) {
@@ -246,13 +258,16 @@ async function comandaAberta(c, mesa) {
 }
 
 /** Lança uma rodada. Se a mesa não tem comanda aberta, abre uma. */
-async function lancarNaComanda(mesa, itensRecebidos, { nome = '', por = 'qr', quem = '', dispositivo = null } = {}) {
+async function lancarNaComanda(mesa, itensRecebidos, { nome = '', por = 'qr', quem = '', telefone = '', dispositivo = null } = {}) {
   const { cardapio } = loja.obter();
   const n = Number(mesa);
   if (!Number.isInteger(n) || n < 1 || n > cardapio.lanchonete.mesas) falhar(400, 'Mesa inválida.');
   if (por === 'qr' && cardapio.lanchonete.aberta === false) falhar(409, 'A loja não está recebendo pedidos agora. Chame o garçom.');
   const itens = montarItens(cardapio, itensRecebidos);
   const rodada = { hora: Date.now(), por, ...(quem ? { quem } : {}), status: 'recebido', itens }; // quem: nome do garçom/atendente que lançou
+  /* Pelo QR, o cliente pode deixar o celular para receber os avisos do pedido no WhatsApp */
+  const tel = por === 'qr' ? soDigitos(telefone) : '';
+  if (tel.length >= 10) Object.assign(rodada, { telefone: tel, nome: texto(nome, 60) });
 
   const tentar = () => db.tx(async (c) => {
     let linha = await comandaAberta(c, n);
@@ -268,12 +283,15 @@ async function lancarNaComanda(mesa, itensRecebidos, { nome = '', por = 'qr', qu
     const { rows } = await c.query('UPDATE comandas SET dados = $2, total = $3 WHERE id = $1 RETURNING *', [linha.id, d, total]);
     return comandaDaLinha(rows[0]);
   });
+  let comanda;
   try {
-    return await tentar();
+    comanda = await tentar();
   } catch (err) {
-    if (err.code === '23505') return tentar(); // duas pessoas abriram a mesma mesa no mesmo instante
-    throw err;
+    if (err.code !== '23505') throw err;
+    comanda = await tentar(); // duas pessoas abriram a mesma mesa no mesmo instante
   }
+  avisarMesa(comanda, rodada, 'mesa_recebido', comanda.total);
+  return comanda;
 }
 
 /** Quem pode mudar o quê numa rodada: o painel faz a cozinha, o garçom serve. */
@@ -289,7 +307,10 @@ async function statusRodada(mesa, indice, status, perfil) {
     r.status = status;
     r[`${status}Em`] = Date.now();
     const { rows } = await c.query('UPDATE comandas SET dados = $2 WHERE id = $1 RETURNING *', [linha.id, linha.dados]);
-    return comandaDaLinha(rows[0]);
+    const comanda = comandaDaLinha(rows[0]);
+    const tipo = { preparo: 'mesa_preparo', pronto: 'mesa_pronto' }[status];
+    if (tipo) avisarMesa(comanda, r, tipo, comanda.total);
+    return comanda;
   });
 }
 
@@ -330,7 +351,15 @@ async function fecharComanda(mesa, { pagamentos, servico = 0 }, por) {
       'UPDATE comandas SET aberta = false, numero = $2, fechada_em = now(), dados = $3, total = $4 WHERE id = $1 RETURNING *',
       [linha.id, n, dados, totalFinal]);
     for (const p of conferidos) await registrar(c, caixa, { tipo: 'comanda', ref: `${mesaTexto(linha.mesa)} · comanda #${n}`, ...p, por });
-    return comandaDaLinha(rows[0]);
+    const fechada = comandaDaLinha(rows[0]);
+    /* Agradece no WhatsApp cada pessoa da mesa que pediu pelo QR e deixou o celular (uma vez cada) */
+    const vistos = new Set();
+    for (const r of rows[0].dados.rodadas) {
+      if (r.por !== 'qr' || !r.telefone || vistos.has(r.telefone)) continue;
+      vistos.add(r.telefone);
+      avisarMesa(fechada, r, 'mesa_fechada', totalFinal);
+    }
+    return fechada;
   });
 }
 

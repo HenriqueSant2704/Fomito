@@ -146,7 +146,7 @@ r.post('/comandas/lancar', ok(async (req) => {
   const equipe = ehSalao(req);
   if (equipe) return s.lancarNaComanda(req.body.mesa, req.body.itens, { nome: req.body.nome, por: 'garcom', quem: nome(req) });
   limitePedidos(req.ip);
-  return s.lancarNaComanda(await mesaDoCliente(req), req.body.itens, { nome: req.body.nome, por: 'qr', dispositivo: dispositivoDe(req) });
+  return s.lancarNaComanda(await mesaDoCliente(req), req.body.itens, { nome: req.body.nome, por: 'qr', telefone: req.body.telefone, dispositivo: dispositivoDe(req) });
 }));
 r.post('/comandas/:mesa/rodadas/:i', garcom, ok((req) => s.statusRodada(req.params.mesa, req.params.i, req.body.status, req.usuario.perfil)));
 r.post('/comandas/conta', ok(async (req) => {

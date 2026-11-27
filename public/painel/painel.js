@@ -577,7 +577,7 @@ function previaApp(m) {
 /* --- Aba: WhatsApp (conexão pelo QR Code e mensagens automáticas) --- */
 function configWhatsApp() {
   const w = rascunho.whatsapp;
-  const exemplo = { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00" };
+  const exemplo = { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00", mesa: "Mesa 05", endereco: dados.lanchonete.endereco || "nosso balcão" };
   return `
     <div class="duas-colunas">
       <div class="pilha" style="gap:16px">
@@ -597,7 +597,7 @@ function configWhatsApp() {
       </div>
 
       <div class="card painel-card">
-        <div class="pilha" style="gap:2px"><h3>Mensagens automáticas</h3><p class="pequeno suave">Use {nome}, {pedido}, {loja}, {total}, {previsao} e {pagamento}.</p></div>
+        <div class="pilha" style="gap:2px"><h3>Mensagens automáticas</h3><p class="pequeno suave">Use {nome}, {pedido}, {loja}, {total}, {previsao}, {pagamento}, {mesa} e {endereco}.</p></div>
         ${Object.entries(w.modelos).map(([id, m]) => `
           <div class="modelo">
             <div class="entre"><span class="forte">${m.titulo}</span><label class="interruptor"><input type="checkbox" data-modelo-ativo="${id}" id="ativo-${id}" ${m.ativo ? "checked" : ""}><span></span></label></div>
@@ -776,7 +776,7 @@ function ligarConfig() {
     if (t.dataset.whats) rascunho.whatsapp[t.dataset.whats] = t.value;
     if (t.dataset.modelo) {
       rascunho.whatsapp.modelos[t.dataset.modelo].texto = t.value;
-      $(`#previa-${t.dataset.modelo}`).textContent = Fomito.config.montarMensagem(t.value, { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00" });
+      $(`#previa-${t.dataset.modelo}`).textContent = Fomito.config.montarMensagem(t.value, { nome: "Ana", pedido: 1042, loja: rascunho.marca.nome, total: moeda(69.9), previsao: dados.lanchonete.tempoEntrega, pagamento: "Dinheiro, troco para R$ 100,00", mesa: "Mesa 05", endereco: dados.lanchonete.endereco || "nosso balcão" });
     }
     if (t.dataset.loja) {
       rascunhoLoja[t.dataset.loja] = t.value;
