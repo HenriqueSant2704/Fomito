@@ -235,9 +235,13 @@ function acaoDoPedido(p) {
 
 /* Quem está com o pedido depois de pronto */
 function situacaoEntrega(p) {
-  if (p.modo !== "entrega") return "";
   const h = Fomito.pedidos.hora;
   const pago = p.pagoCom === "dinheiro" && p.recebido ? ` · recebeu ${moeda(p.recebido)}${p.trocoDado ? `, troco ${moeda(p.trocoDado)}` : ""}` : "";
+  if (p.modo !== "entrega") {
+    if (p.status !== "concluido") return "";
+    const forma = p.pagoCom ? ` · ${(Fomito.formaPag(p.pagoCom)?.nome || p.pagoCom).toLowerCase()}` : "";
+    return `<div class="pedido__situacao pedido__situacao--concluido">${icone("check", "ic--sm")}<span>Retirado às ${h(p.entregueEm)}${p.retiradoPor ? `, por <b>${p.retiradoPor}</b>` : ""}${p.pagoCom === "dinheiro" ? pago : forma}</span></div>`;
+  }
   const texto = {
     pronto: `${icone("relogio", "ic--sm")}<span>Aguardando o motoboy sair</span>`,
     rota: `${icone("entrega", "ic--sm")}<span>Com <b>${p.motoboy}</b> · saiu às ${h(p.saiuEm)}</span>`,
@@ -325,15 +329,111 @@ document.addEventListener("click", async (e) => {
   const acao = acaoDoPedido(antes);
   if (!acao) return;
   const aceitou = antes.status === "novo";
-  const p = await Fomito.pedidos.avancar(antes.num);
+  /* Cliente retirou no balcão: antes de concluir, registra como pagou (vai para o caixa) */
+  let pagamento;
+  if (acao.proximo === "concluido") {
+    pagamento = await janelaRetirada(antes);
+    if (!pagamento) return;
+  }
+  const p = await Fomito.pedidos.avancar(antes.num, pagamento);
   pedidosSincronizados();
   renderPedidos();
 
   if (aceitou && Fomito.config.ler().impressao.aoAceitar) mostrarCupom(p, true);
   else if (p.status === "pronto" && p.modo === "entrega") toast(`Pedido #${p.num} pronto. Os motoboys foram avisados.`, "sino");
   else if (p.status === "pronto") toast(`Pedido #${p.num} pronto para retirar no balcão`, "sino");
+  else if (p.status === "concluido") toast(`Pedido #${p.num} retirado${p.trocoDado ? ` · troco ${moeda(p.trocoDado)}` : ""}. Pagamento no caixa.`, "check");
   else toast(`Pedido #${p.num} atualizado`, "check");
 });
+
+/* "Cliente retirou": como ele pagou no balcão. Igual ao motoboy e ao garçom:
+   no dinheiro, o valor recebido é OBRIGATÓRIO e o troco é calculado. Convênio não cobra.
+   Devolve { forma, recebido } ou null se fechar a janela. */
+function janelaRetirada(p) {
+  const arred = (n) => Math.round(n * 100) / 100;
+  const numero = (t) => parseFloat(String(t).replace(/\./g, "").replace(",", ".")) || 0;
+  const total = totalPedido(p);
+  const convenio = p.pag === "convenio";
+  const r = { forma: convenio ? "convenio" : p.pag || "", recebido: "" };
+  const formas = Fomito.formasAtivas();
+  const notas = () => [...new Set([p.troco, Math.ceil(total / 10) * 10, Math.ceil(total / 50) * 50, Math.ceil(total / 100) * 100])].filter((n) => n && n > total).slice(0, 3);
+  const caixaAberto = () => !!Fomito.caixa.aberto();
+  const problema = () => {
+    if (!caixaAberto()) return "O caixa está fechado. Abra o caixa (menu Caixa) para registrar o pagamento.";
+    if (!r.forma) return "Escolha como o cliente pagou.";
+    if (r.forma !== "dinheiro") return null;
+    if (!r.recebido) return "Informe quanto o cliente entregou em dinheiro para calcular o troco.";
+    if (numero(r.recebido) < total) return `Faltam ${moeda(total - numero(r.recebido))} para cobrir o pedido.`;
+    return null;
+  };
+  const blocoTroco = () => {
+    if (r.forma !== "dinheiro") return "";
+    if (!r.recebido) return `<div class="troco-caixa aviso-campo">${icone("info", "ic--sm")}<span>Campo obrigatório: o troco é calculado a partir do valor recebido.</span></div>`;
+    const v = numero(r.recebido);
+    return v < total
+      ? `<div class="troco-caixa erro"><span>Faltam</span><strong class="num">${moeda(total - v)}</strong></div>`
+      : `<div class="troco-caixa"><span>Troco a devolver</span><strong class="num">${moeda(v - total)}</strong></div>`;
+  };
+  const areaConfirmar = () => {
+    const erro = problema();
+    return `${erro && (r.recebido !== "" || !caixaAberto()) ? `<p class="form-erro">${erro}</p>` : ""}
+      <button class="btn btn--primario btn--bloco" data-confirmar ${erro ? "disabled" : ""}>${icone("check", "ic--sm")} ${convenio ? "Cliente retirou" : "Recebi e o cliente retirou"}</button>`;
+  };
+  const combinado = p.pag ? `Combinado: ${Fomito.formaPag(p.pag)?.nome || "-"}${p.pag === "dinheiro" && p.troco ? `, troco para ${moeda(p.troco)}` : ""}` : "Pagamento no balcão";
+
+  return new Promise((resolver) => {
+    const camada = document.createElement("div");
+    camada.className = "sobreposicao sobreposicao--centro";
+    document.body.appendChild(camada);
+    const fechar = (valor) => { camada.remove(); document.removeEventListener("keydown", tecla); resolver(valor); };
+    const tecla = (e) => { if (e.key === "Escape") fechar(null); };
+    document.addEventListener("keydown", tecla);
+    const desenhar = () => {
+      camada.innerHTML = `
+        <div class="folha receber" style="max-width:460px">
+          <div class="folha__topo"><div class="pilha" style="gap:2px"><h2>Cliente retirou · #${p.num}</h2><span class="pequeno suave">${p.cliente}</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+          <div class="receber__total"><span class="rotulo">Valor do pedido</span><span class="preco">${moeda(total)}</span><span class="pequeno suave">${combinado}</span></div>
+          ${convenio
+            ? `<div class="aviso aviso--convenio">${icone("conta", "ic--sm")}<span><b>Convênio:</b> não cobre nada. O valor vai para a conta do cliente na loja.</span></div>`
+            : `<div class="campo"><span class="rotulo-campo">Como o cliente pagou?</span>
+                <div class="formas-painel">
+                  ${formas.map((f) => `<button class="opcao ${r.forma === f.id ? "ativa" : ""}" data-forma="${f.id}"><span class="opcao__icone">${icone(f.icone, "ic--sm")}</span><span class="opcao__titulo pequeno">${f.nome}</span></button>`).join("")}
+                </div></div>`}
+          ${r.forma === "dinheiro" ? `
+            <div class="campo"><label for="recebidoBalcao">Valor recebido em dinheiro <span class="obrigatorio">*</span></label>
+              <input class="input num ${r.recebido ? "" : "input--pendente"}" id="recebidoBalcao" inputmode="decimal" placeholder="Quanto o cliente entregou" value="${r.recebido}">
+              <div class="notas">
+                <button data-nota="${total}">Valor exato</button>
+                ${notas().map((n) => `<button data-nota="${n}">${moeda(n)}${n === p.troco ? " (combinado)" : ""}</button>`).join("")}
+              </div>
+            </div>
+            <div id="caixaTroco">${blocoTroco()}</div>` : ""}
+          <div id="areaConfirmar">${areaConfirmar()}</div>
+        </div>`;
+      $("#recebidoBalcao", camada)?.focus();
+    };
+    const parcial = () => {
+      if ($("#caixaTroco", camada)) $("#caixaTroco", camada).innerHTML = blocoTroco();
+      $("#areaConfirmar", camada).innerHTML = areaConfirmar();
+      $("#recebidoBalcao", camada)?.classList.toggle("input--pendente", !r.recebido);
+    };
+    const confirmar = () => {
+      if (problema()) return;
+      fechar({ forma: r.forma, recebido: r.forma === "dinheiro" ? arred(numero(r.recebido)) : null });
+    };
+    desenhar();
+    camada.addEventListener("click", (e) => {
+      if (e.target === camada || e.target.closest("[data-fechar]")) return fechar(null);
+      const f = e.target.closest("[data-forma]");
+      if (f) { r.forma = f.dataset.forma; r.recebido = ""; return desenhar(); }
+      const nota = e.target.closest("[data-nota]");
+      if (nota) { r.recebido = Number(nota.dataset.nota).toFixed(2).replace(".", ","); $("#recebidoBalcao", camada).value = r.recebido; return parcial(); }
+      if (e.target.closest("[data-confirmar]")) confirmar();
+    });
+    camada.addEventListener("input", (e) => { if (e.target.id === "recebidoBalcao") { r.recebido = e.target.value; parcial(); } });
+    camada.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches("input")) confirmar(); });
+  });
+}
 
 /* Janela com a prévia do cupom de 80mm. Ao aceitar, já manda imprimir. */
 function mostrarCupom(p, aoAceitar) {

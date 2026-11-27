@@ -775,3 +775,15 @@ button.tag { cursor: pointer; }
 
 /* Lista de clientes com rolagem própria: a seção "Chamar de volta" fica logo abaixo */
 .lista-clientes { max-height: 620px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+
+/* "Cliente retirou": como pagou no balcão (igual ao finalizar entrega do motoboy) */
+.receber { display: flex; flex-direction: column; gap: 16px; }
+.receber__total { padding: 16px; border-radius: var(--raio-lg); background: var(--superficie-2); display: flex; flex-direction: column; gap: 2px; }
+.receber__total .preco { font-size: 28px; font-family: var(--fonte-marca); font-weight: 800; }
+.receber .notas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.receber .notas button { height: 34px; padding: 0 12px; border-radius: var(--raio-sm); border: 1px solid var(--borda); background: var(--superficie); font-size: 13px; font-weight: 600; cursor: pointer; }
+.receber .notas button:hover { border-color: var(--roxo); color: var(--roxo); }
+.troco-caixa { background: var(--verde-claro); color: var(--verde-escuro); padding: 12px 14px; border-radius: var(--raio-md); font-weight: 500; display: flex; justify-content: space-between; }
+.troco-caixa.erro { background: var(--vermelho-claro); color: var(--vermelho-escuro); }
+.troco-caixa.aviso-campo { background: var(--creme); color: var(--laranja-escuro); justify-content: flex-start; gap: 8px; font-size: 13px; align-items: center; }
+.aviso--convenio { background: var(--roxo-claro); color: var(--roxo); }

@@ -184,7 +184,7 @@ r.post('/pedidos', ok(async (req) => {
   if (!equipe) limitePedidos(req.ip);
   return s.criarPedido(req.body, { equipe, dispositivo: equipe ? null : dispositivoDe(req) });
 }));
-r.post('/pedidos/:num/avancar', balcao, ok((req) => s.avancarPedido(req.params.num)));
+r.post('/pedidos/:num/avancar', balcao, ok((req) => s.avancarPedido(req.params.num, req.body || {}, nome(req))));
 r.post('/pedidos/:num/cancelar', balcao, ok((req) => s.cancelarPedido(req.params.num, nome(req), req.body?.motivo)));
 r.post('/pedidos/sair', motoboy, ok((req) => s.sairParaEntrega(req.body.nums, nome(req))));
 r.post('/pedidos/:num/entregar', motoboy, ok((req) => s.concluirEntrega(req.params.num, req.body, nome(req))));

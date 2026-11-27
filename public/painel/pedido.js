@@ -87,7 +87,8 @@ function abrirPedido(num) {
           ? `<span class="linha" style="gap:8px">${icone(forma.icone, "ic--sm")}${forma.nome} na entrega</span>
              ${p.pag === "dinheiro" && p.troco ? `<div class="troco-painel">Troco para <b>${moeda(p.troco)}</b> · levar <b>${moeda(p.troco - totalPedido(p))}</b></div>` : ""}
              ${pagoCom ? `<div class="pedido__situacao pedido__situacao--concluido">${icone("check", "ic--sm")}<span>${p.motoboy} recebeu no ${pagoCom.nome.toLowerCase()}${p.recebido ? `: ${moeda(p.recebido)}, troco de ${moeda(p.trocoDado || 0)}` : ""}. Já está no caixa.</span></div>` : ""}`
-          : `<span class="linha" style="gap:8px">${icone("usuario", "ic--sm")}No balcão, na retirada</span>`}
+          : `<span class="linha" style="gap:8px">${icone(p.pag ? forma.icone : "usuario", "ic--sm")}${p.pag ? `${forma.nome} na retirada` : "No balcão, na retirada"}</span>
+             ${pagoCom ? `<div class="pedido__situacao pedido__situacao--concluido">${icone("check", "ic--sm")}<span>Pago no ${pagoCom.nome.toLowerCase()}${p.recebido ? `: recebeu ${moeda(p.recebido)}, troco de ${moeda(p.trocoDado || 0)}` : ""}. Já está no caixa.</span></div>` : ""}`}
       </div>
 
       <div class="ficha-bloco">

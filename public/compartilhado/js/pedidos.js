@@ -55,7 +55,8 @@ window.Fomito = window.Fomito || {};
   const criar = async (dados) => completar(await Fomito.acao("POST", "/pedidos", dados));
 
   /** Painel: aceitar → em preparo → pronto (e, no balcão, cliente retirou) */
-  const avancar = async (num) => completar(await Fomito.acao("POST", `/pedidos/${num}/avancar`));
+  /** Avança o pedido. No "Cliente retirou" do balcão vai junto o pagamento: { forma, recebido } */
+  const avancar = async (num, pagamento) => completar(await Fomito.acao("POST", `/pedidos/${num}/avancar`, pagamento));
 
   /** Painel: cancela o pedido com o motivo (vai para o cliente no WhatsApp; fica registrado quem cancelou) */
   const cancelar = (num, motivo) => Fomito.acao("POST", `/pedidos/${num}/cancelar`, { motivo });

@@ -173,8 +173,8 @@ async function corrigirMovimento(id, novo, { motivo }, por) {
     (m.correcoes ||= []).push({ em: Date.now(), por, motivo: texto(motivo, 200), antes, depois });
     await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, caixa.dados]);
 
-    /* Entrega: o pedido também passa a mostrar a forma certa (e o acerto do motoboy) */
-    if (m.tipo === 'entrega' && m.pedido) {
+    /* Entrega e balcão: o pedido também passa a mostrar a forma certa (e o acerto do motoboy) */
+    if (['entrega', 'balcao'].includes(m.tipo) && m.pedido) {
       await c.query(`UPDATE pedidos SET dados = dados || $2::jsonb, atualizado_em = now() WHERE num = $1`,
         [m.pedido, { pagoCom: m.forma, recebido: m.recebido ?? null, trocoDado: m.troco ?? null }]);
     }
@@ -285,13 +285,26 @@ async function alterarPedido(c, num, fn) {
 }
 
 /** Painel: aceitar (preparo), marcar pronto e, no balcão, cliente retirou. */
-async function avancarPedido(num) {
-  const pedido = await db.tx((c) => alterarPedido(c, num, (p) => {
-    if (p.status === 'novo') return { status: 'preparo', aceitoEm: Date.now() };
-    if (p.status === 'preparo') return { status: 'pronto', prontoEm: Date.now() };
-    if (p.status === 'pronto' && p.modo === 'local') return { status: 'concluido', entregueEm: Date.now() };
-    falhar(409, `O pedido #${p.num} já mudou em outro aparelho. A tela vai atualizar.`);
-  }));
+async function avancarPedido(num, { forma, recebido } = {}, por = '') {
+  const pedido = await db.tx(async (c) => {
+    /* Balcão/retirada: quando o cliente retira, o pagamento entra no caixa (como a entrega e a mesa) */
+    const caixa = await caixaAberto(c, true); // trava o caixa antes do pedido, na mesma ordem da entrega
+    let pagamento = null;
+    const p = await alterarPedido(c, num, (atual) => {
+      if (atual.status === 'novo') return { status: 'preparo', aceitoEm: Date.now() };
+      if (atual.status === 'preparo') return { status: 'pronto', prontoEm: Date.now() };
+      if (atual.status === 'pronto' && atual.modo === 'local') {
+        pagamento = atual.pag === 'convenio' ? { forma: 'convenio', valor: atual.total } : conferirPagamento({ forma, valor: atual.total, recebido });
+        return { status: 'concluido', entregueEm: Date.now(), pagoCom: pagamento.forma, recebido: pagamento.recebido ?? null, trocoDado: pagamento.troco ?? null, retiradoPor: por };
+      }
+      falhar(409, `O pedido #${atual.num} já mudou em outro aparelho. A tela vai atualizar.`);
+    });
+    if (pagamento) {
+      if (!caixa) falhar(409, CAIXA_FECHADO);
+      await registrar(c, caixa, { tipo: 'balcao', pedido: p.num, ref: `${p.retirada ? 'Retirada' : 'Balcão'} #${p.num} · ${p.cliente}`, ...pagamento, ...(pagamento.forma === 'convenio' ? { telefone: soDigitos(p.telefone), cliente: p.cliente } : {}), por });
+    }
+    return p;
+  });
   /* Mensagem certa para cada tipo: entrega (preparo; saiu e entregue vêm do motoboy) e retirada no balcão */
   const tipo = pedido.modo === 'entrega'
     ? { preparo: 'preparo' }[pedido.status]
