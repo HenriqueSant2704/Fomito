@@ -41,8 +41,10 @@ r.get('/estado', ok(estado));
 
 /* ---------- Login da equipe ---------- */
 r.post('/login', ok(async (req, res) => {
-  limiteLogin(req.ip);
   const usuario = texto(req.body.usuario, 40).toLowerCase();
+  /* Conta por rede + usuário: a equipe toda entra pelo mesmo Wi-Fi e, contando só pela rede,
+     10 logins em 10 minutos (até os certos) travavam o Portal no começo do turno */
+  limiteLogin(`${req.ip}|${usuario}`);
   const { rows } = await db.query('SELECT * FROM usuarios WHERE usuario = $1', [usuario]);
   const u = rows[0];
   if (!u || !(await bcrypt.compare(String(req.body.senha || ''), u.senha_hash))) falhar(401, 'Usuário ou senha incorretos. Confira e tente de novo.');
