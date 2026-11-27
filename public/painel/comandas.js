@@ -51,7 +51,7 @@ function cardComandaFechada(f) {
   }));
   const linhas = Object.entries(itens);
   return `
-    <div class="card pedido pedido--comanda pedido--fechada" title="Comanda fechada">
+    <div class="card pedido pedido--comanda pedido--fechada" data-ver-comanda="${f.numero}" role="button" tabindex="0" title="Ver os detalhes da comanda">
       <div class="entre"><span class="forte">${cmd.mesaTexto(f.mesa)}</span><span class="pequeno fraco">comanda #${f.numero}</span></div>
       <div class="entre"><span class="forte">${f.nome || "Comanda"}</span><span class="tag tag--roxo">${icone("mesa", "ic--sm")} Mesa</span></div>
       <div class="pedido__itens">${linhas.slice(0, 4).map(([nome, qtd]) => `${qtd}× ${nome}`).join("<br>")}${linhas.length > 4 ? `<br><span class="fraco">+ ${linhas.length - 4} ${linhas.length - 4 > 1 ? "itens" : "item"}</span>` : ""}</div>
@@ -81,6 +81,8 @@ document.addEventListener("click", async (e) => {
     return toast(`${Fomito.comandas.mesaTexto(mesa)}: ${i + 1}º pedido ${Fomito.comandas.STATUS[novo].nome.toLowerCase()}`, Fomito.comandas.STATUS[novo].icone);
   }
   if (e.target.closest("button, a, input, label")) return;
+  const fechada = e.target.closest("[data-ver-comanda]");
+  if (fechada) return abrirComandaFechada(Number(fechada.dataset.verComanda));
   const card = e.target.closest("[data-abrir-mesa]");
   if (card) abrirComandaPainel(Number(card.dataset.abrirMesa));
 });
@@ -127,7 +129,7 @@ function renderComandas() {
             <thead><tr><th>Nº</th><th>Mesa</th><th>Período</th><th>Itens</th><th>Pagamento</th><th class="dir">Total</th></tr></thead>
             <tbody>
               ${fechadas.map((f) => `
-                <tr>
+                <tr class="linha-clicavel" data-ver-comanda="${f.numero}" title="Ver os detalhes da comanda">
                   <td class="num forte">#${f.numero}</td>
                   <td style="white-space:nowrap">${cmd.mesaTexto(f.mesa)}${f.nome ? `<div class="pequeno fraco">${f.nome}</div>` : ""}</td>
                   <td class="num suave" style="white-space:nowrap">${cmd.hora(f.abertaEm)} – ${cmd.hora(f.fechadaEm)}</td>
@@ -187,6 +189,81 @@ document.addEventListener("change", (e) => {
   qrMesa = Number(e.target.value);
   renderComandas();
 });
+
+/* ---------- Detalhe de uma comanda fechada ----------
+   Os pedidos de cada rodada (com o que tirou e as observações), quem atendeu,
+   abertura e fechamento, em quantas pessoas dividiu (e se o caixa refez a
+   divisão, com o motivo) e cada pagamento com a forma, o valor e o troco. */
+function abrirComandaFechada(numero) {
+  const cmd = Fomito.comandas;
+  const f = cmd.fechadas().find((x) => x.numero === numero);
+  if (!f) return toast("Comanda não encontrada.", "alerta");
+  const nomeForma = Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome]));
+  const nomeItem = (it) => it.nome || Fomito.produto(it.id)?.nome || "Item";
+  const valorItem = (it) => (it.preco != null ? it.preco * it.qtd : cmd.precoItem(it));
+  const extrasItem = (it) => {
+    const cat = Fomito.produto(it.id)?.cat;
+    return (dados.adicionais[cat] || []).filter((a) => it.extras?.includes(a.id)).map((a) => a.nome);
+  };
+  /* Pagamentos: se o caixa ainda está aberto, vale o que está nele (já com as correções) */
+  const movs = (Fomito.caixa.aberto()?.movimentos || []).filter((m) => m.tipo === "comanda" && (m.comanda === numero || String(m.ref || "").endsWith(`comanda #${numero}`)));
+  const pagamentos = movs.length ? movs : (f.pagamentos || []);
+  const atendentes = [...new Set(f.rodadas.map((r) => r.quem).filter(Boolean))];
+  const divisao = f.divisao || pagamentos.length || 1;
+  const historico = f.historicoDivisao || [];
+  const correcoes = movs.flatMap((m) => (m.correcoes || []).map((c) => ({ ...c, m })));
+  const dataHora = (t) => t ? new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-";
+
+  const camada = document.createElement("div");
+  camada.className = "sobreposicao sobreposicao--centro";
+  camada.innerHTML = `
+    <div class="folha folha--detalhe-comanda">
+      <div class="folha__topo"><div class="pilha" style="gap:0"><h2>Comanda #${f.numero}</h2><span class="pequeno suave">${cmd.mesaTexto(f.mesa)}${f.nome ? ` · ${f.nome}` : ""}</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+
+      <div class="detalhe-grade">
+        <div><span class="pequeno fraco">Aberta</span><span class="forte">${dataHora(f.abertaEm)}</span></div>
+        <div><span class="pequeno fraco">Fechada</span><span class="forte">${dataHora(f.fechadaEm)}</span></div>
+        <div><span class="pequeno fraco">Atendimento</span><span class="forte">${atendentes.length ? atendentes.join(", ") : (f.rodadas.every((r) => r.por === "qr") ? "Pelo QR da mesa" : "-")}</span></div>
+        <div><span class="pequeno fraco">Conta fechada por</span><span class="forte">${f.por || "-"}</span></div>
+      </div>
+
+      <div class="detalhe-bloco">
+        <span class="rotulo">Pedidos</span>
+        ${f.rodadas.map((r, i) => `
+          <div class="detalhe-rodada">
+            <div class="entre pequeno"><span class="forte">${i + 1}º pedido · ${cmd.hora(r.hora)}</span><span class="fraco">${r.por === "qr" ? "QR da mesa" : (r.quem ? `Lançado por ${r.quem}` : "Garçom")}</span></div>
+            ${r.itens.map((it) => {
+              const ex = extrasItem(it);
+              return `<div class="entre pequeno"><span>${it.qtd}× ${nomeItem(it)}${ex.length ? `<br><span class="fraco">+ ${ex.join(", ")}</span>` : ""}${it.obs ? `<br><span class="fraco">Obs.: ${it.obs}</span>` : ""}</span><span class="num">${moeda(valorItem(it))}</span></div>`;
+            }).join("")}
+          </div>`).join("")}
+        <div class="entre"><span class="forte">Total</span><span class="preco">${moeda(f.total)}</span></div>
+      </div>
+
+      <div class="detalhe-bloco">
+        <div class="entre"><span class="rotulo">Pagamento</span><span class="tag tag--roxo">${divisao > 1 ? `Dividida em ${divisao} pessoas` : "Sem divisão"}</span></div>
+        ${pagamentos.map((p, i) => `
+          <div class="entre pequeno">
+            <span>${pagamentos.length > 1 ? `Pessoa ${i + 1} · ` : ""}<b>${nomeForma[p.forma] || p.forma}</b>${p.forma === "dinheiro" && p.recebido ? `<br><span class="fraco">Deu ${moeda(p.recebido)} · troco ${moeda(p.troco || 0)}</span>` : ""}</span>
+            <span class="num">${moeda(p.valor)}</span>
+          </div>`).join("") || `<span class="pequeno suave">Nenhum pagamento registrado.</span>`}
+      </div>
+
+      ${historico.length || correcoes.some((c) => !historico.some((h) => h.em === c.em)) ? `
+      <div class="detalhe-bloco detalhe-bloco--aviso">
+        <span class="rotulo">Correções no caixa</span>
+        ${historico.map((h) => `<div class="pequeno">${dataHora(h.em)} · <b>${h.por || "-"}</b> refez a divisão de ${h.de} para ${h.para} pessoas<br><span class="fraco">Motivo: ${h.motivo || "-"}</span></div>`).join("")}
+        ${correcoes.filter((c) => !historico.some((h) => h.em === c.em)).map((c) => `<div class="pequeno">${dataHora(c.em)} · <b>${c.por || "-"}</b> corrigiu um pagamento: ${nomeForma[c.antes?.forma] || "-"} ${c.antes?.valor != null ? moeda(c.antes.valor) : ""} → ${nomeForma[c.depois?.forma] || "-"} ${c.depois?.valor != null ? moeda(c.depois.valor) : ""}<br><span class="fraco">Motivo: ${c.motivo || "-"}</span></div>`).join("")}
+      </div>` : ""}
+
+      <button class="btn btn--contorno btn--bloco" data-fechar>Fechar</button>
+    </div>`;
+  document.body.appendChild(camada);
+  const fechar = () => { camada.remove(); document.removeEventListener("keydown", tecla); };
+  const tecla = (e) => e.key === "Escape" && fechar();
+  document.addEventListener("keydown", tecla);
+  camada.addEventListener("click", (e) => { if (e.target === camada || e.target.closest("[data-fechar]")) fechar(); });
+}
 
 /* ---------- 3. FICHA DA COMANDA ---------- */
 function abrirComandaPainel(mesa) {
