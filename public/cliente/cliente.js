@@ -220,7 +220,7 @@ function renderProdutos() {
     .map((c) => {
       const itens = dados.produtos.filter((p) => p.cat === c.id && (!termo || paraBusca(`${p.nome} ${p.desc || ""}`).includes(termo)));
       if (!itens.length) return "";
-      return `<section class="secao" data-sec="${c.id}" id="sec-${c.id}"><h3 class="secao__titulo">${icone(c.icone || "cardapio", "ic--sm")}${c.nome}<span class="secao__qtd">${itens.length}</span></h3><div class="secao__lista">${itens.map(linhaProduto).join("")}</div></section>`;
+      return `<section class="secao" data-sec="${c.id}" id="sec-${c.id}"><header class="secao__cabeca"><span class="secao__icone">${icone(c.icone || "cardapio")}</span><div class="secao__textos"><span class="secao__sobre">Categoria</span><h3 class="secao__titulo">${c.nome}</h3></div><span class="secao__qtd">${itens.length} ${itens.length === 1 ? "item" : "itens"}</span></header><div class="secao__lista">${itens.map(linhaProduto).join("")}</div></section>`;
     })
     .join("");
 
