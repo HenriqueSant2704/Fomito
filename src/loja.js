@@ -36,6 +36,11 @@ async function carregar() {
     await gravar(carga);
     console.log('✓ Cardápio do Grupo 3 Irmãos cadastrado (os produtos antigos ficaram em cardapio.arquivados)');
   }
+  const fotos = require('./cargas/grupo3irmaos').montarV2(atual.cardapio);
+  if (fotos) {
+    await gravar(fotos);
+    console.log('✓ Grupo 3 Irmãos: fotos reais, promoção e vitrine ligada aos produtos');
+  }
   await garantirMesas(atual.cardapio.lanchonete.mesas);
   return atual;
 }

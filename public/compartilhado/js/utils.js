@@ -41,10 +41,20 @@ Fomito.logo = (claro = false) => {
   </span>`;
 };
 
-/* Uma foto da galeria: imagem enviada pelo dono (src) ou ilustração (desenho + cena) */
+/* Uma foto da galeria: imagem enviada pelo dono (src) ou ilustração (desenho + cena).
+   Produto ainda sem foto: fundo neutro com o ícone da categoria e "Foto em breve",
+   serve para qualquer tipo de produto até o restaurante colocar a foto de verdade. */
+Fomito.fotoProvisoria = (categoria) => {
+  const cat = (Fomito.dados?.categorias || []).find((c) => c.id === categoria);
+  return `<span class="foto-provisoria" aria-label="Foto em breve">
+    <span class="foto-provisoria__prato">${Fomito.icone(cat?.icone || categoria || "cardapio")}</span>
+    <span class="foto-provisoria__texto">Foto em breve</span>
+  </span>`;
+};
 Fomito.imagemFoto = (foto, categoria) => {
-  if (foto?.src) return `<img class="foto__img" src="${foto.src}" alt="${foto.legenda || ""}">`;
-  return foto && Fomito.cena ? Fomito.cena(foto.desenho, foto.cena, categoria) : Fomito.icone(categoria);
+  if (foto?.src) return `<img class="foto__img" src="${foto.src}" alt="${foto.legenda || ""}" loading="lazy">`;
+  if (foto?.desenho && Fomito.cena) return Fomito.cena(foto.desenho, foto.cena, categoria);
+  return Fomito.fotoProvisoria(categoria);
 };
 
 /* Miniatura do produto: usa a primeira foto da galeria (a capa) */
