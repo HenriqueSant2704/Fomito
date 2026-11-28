@@ -109,10 +109,16 @@ document.addEventListener("click", (e) => {
 /* Vitrine do topo: desliza sozinha a cada 5 segundos */
 function renderVitrine() {
   const slides = dados.lanchonete.vitrine.filter((v) => !v.oculto);
+  /* Banner ligado a um produto: tocar abre o produto (mesmo clique dos cards, data-produto) */
+  const temProduto = (v) => v.produto && dados.produtos.some((p) => p.id === Number(v.produto));
   $("#vitrine").innerHTML = slides.map((v) => `
-    <div class="vitrine__slide">
+    <div class="vitrine__slide ${temProduto(v) ? "vitrine__slide--link" : ""}" ${temProduto(v) ? `data-produto="${Number(v.produto)}" role="button" aria-label="Ver ${v.titulo}"` : ""}>
       ${Fomito.imagemFoto(v, "lanches")}
-      <div class="vitrine__texto"><strong>${v.titulo}</strong><span>${v.texto}</span></div>
+      <div class="vitrine__texto">
+        ${v.selo ? `<em class="vitrine__selo">${v.selo}</em>` : ""}
+        <strong>${v.titulo}</strong><span>${v.texto}</span>
+        ${temProduto(v) ? `<b class="vitrine__ver">Ver produto ${icone("seta", "ic--sm")}</b>` : ""}
+      </div>
     </div>`).join("");
   ligarCarrossel($("#vitrine"), $("#vitrinePontos"), slides.length, 5000);
 }
@@ -271,10 +277,10 @@ function abrirProduto(id) {
   tela.innerHTML = `
     <div class="galeria">
       <div class="galeria__trilho" id="galeria">
-        ${p.fotos.map((f) => `
+        ${(p.fotos.length ? p.fotos : [null]).map((f) => `
           <div class="galeria__foto">
             ${Fomito.imagemFoto(f, p.cat)}
-            ${f.legenda ? `<span class="galeria__legenda">${icone(f.cena === "chapa" || f.cena === "combo" ? "loja" : "fotos", "ic--sm")}${f.legenda}</span>` : ""}
+            ${f?.legenda ? `<span class="galeria__legenda">${icone(f.cena === "chapa" || f.cena === "combo" ? "loja" : "fotos", "ic--sm")}${f.legenda}</span>` : ""}
           </div>`).join("")}
       </div>
       <div class="galeria__topo">

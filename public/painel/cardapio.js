@@ -123,6 +123,7 @@ function abaVitrine() {
         <div class="card slide-card">
           <div class="slide-card__imagem">${Fomito.imagemFoto(v)}<span class="slide-card__ordem">${i + 1}</span>
             <div class="slide-card__texto"><strong>${v.titulo}</strong><span>${v.texto}</span></div></div>
+          ${v.produto ? `<span class="pequeno suave" style="padding:8px 12px 0;display:flex;gap:6px;align-items:center">${icone("seta", "ic--sm")}Abre: ${Fomito.produto(v.produto).nome}</span>` : ""}
           <div class="entre" style="padding:10px 12px">
             <label class="interruptor" title="Mostrar no cardápio"><input type="checkbox" data-mostrar-slide="${i}" ${v.oculto ? "" : "checked"}><span></span></label>
             <span class="linha" style="gap:4px">
@@ -150,12 +151,16 @@ async function editarSlide(indice, nova = null) {
     campos: [
       { id: "titulo", rotulo: "Título", valor: v.titulo, placeholder: "Ex.: Combo da casa", obrigatorio: true, max: 40 },
       { id: "texto", rotulo: "Frase", valor: v.texto, placeholder: "Ex.: Lanche + batata + refri por R$ 39,90", tipo: "textarea", max: 90 },
+      { id: "selo", rotulo: "Selo (opcional)", valor: v.selo || "", placeholder: "Ex.: Promoção", max: 20 },
+      { id: "produto", rotulo: "Ao tocar, abre o produto", tipo: "select", valor: v.produto || "",
+        opcoes: [["", "Nenhum (só a imagem)"], ...dados.produtos.map((p) => [p.id, `${p.nome} · ${moeda(p.preco)}`])],
+        ajuda: "O cliente toca no banner e já cai no produto para pedir." },
     ],
     confirmar: nova ? "Publicar na vitrine" : "Salvar",
     aoDigitar: (val, camada) => { camada.querySelector("#previaSlide").innerHTML = previa(esc(val.titulo), esc(val.texto)); },
   });
   if (!r) return;
-  Object.assign(v, { titulo: r.titulo, texto: r.texto });
+  Object.assign(v, { titulo: r.titulo, texto: r.texto, selo: (r.selo || "").trim(), produto: r.produto ? Number(r.produto) : null });
   if (nova) dados.lanchonete.vitrine.push(v);
   await Fomito.salvarCardapio();
   renderCardapio();

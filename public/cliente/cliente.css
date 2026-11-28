@@ -34,6 +34,10 @@ body { background: var(--fundo); }
 .vitrine__texto { position: absolute; left: 20px; right: 20px; bottom: 54px; z-index: 1; color: #fff; display: flex; flex-direction: column; gap: 2px; }
 .vitrine__texto strong { font-family: var(--fonte-marca); font-weight: 900; font-size: 24px; line-height: 1.15; }
 .vitrine__texto span { font-size: 13px; opacity: .85; }
+.vitrine__slide--link { cursor: pointer; }
+.vitrine__selo { align-self: flex-start; font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; background: var(--laranja, #FF8A00); color: #fff; padding: 4px 10px; border-radius: 999px; margin-bottom: 6px; }
+.vitrine__ver { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,.18); backdrop-filter: blur(6px); padding: 6px 12px; border-radius: 999px; }
+.vitrine__ver .ic { width: 14px; height: 14px; }
 
 .vitrine__topo { position: absolute; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
 /* Só o símbolo da marca, numa bolinha branca (o nome fica no cartão da loja) */
