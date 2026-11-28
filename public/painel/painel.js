@@ -849,8 +849,8 @@ function configMarca() {
           </div>
         </div>
         <div class="form-grade">
-          <div class="campo"><label for="mFonte1">Fonte dos títulos</label><select id="mFonte1" class="input" data-marca="fonteTitulo">${opcoes(Fomito.config.FONTES_TITULO, m.fonteTitulo)}</select></div>
-          <div class="campo"><label for="mFonte2">Fonte dos textos</label><select id="mFonte2" class="input" data-marca="fonteTexto">${opcoes(Fomito.config.FONTES_TEXTO, m.fonteTexto)}</select></div>
+          <div class="campo"><label for="mFonte1">Fonte dos títulos</label><select id="mFonte1" class="input" data-fontes data-marca="fonteTitulo">${opcoes(Fomito.config.FONTES_TITULO, m.fonteTitulo)}</select></div>
+          <div class="campo"><label for="mFonte2">Fonte dos textos</label><select id="mFonte2" class="input" data-fontes data-marca="fonteTexto">${opcoes(Fomito.config.FONTES_TEXTO, m.fonteTexto)}</select></div>
         </div>
       </div>
 
