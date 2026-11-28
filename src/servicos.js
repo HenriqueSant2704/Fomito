@@ -5,6 +5,7 @@ const loja = require('./loja');
 const whatsapp = require('./whatsapp');
 const { falhar, arred, numero, texto, soDigitos, formatarTelefone, separarNumero } = require('./util');
 const { montarItens, somaItens, resumoCaixa, conferirPagamento, bolsasDe } = require('./regras');
+const turno = require('./turno');
 
 const mesaTexto = (n) => `Mesa ${String(n).padStart(2, '0')}`;
 
@@ -35,7 +36,26 @@ async function registrar(c, caixa, movimento) {
   await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, caixa.dados]);
 }
 
-const CAIXA_FECHADO = 'O caixa está fechado. Peça para abrir o caixa no painel.';
+const CAIXA_FECHADO = 'O caixa ainda não foi aberto. Abra o caixa no painel (menu Caixa) para aceitar e mexer nos pedidos.';
+
+/**
+ * Regra do caixa para a equipe mexer nos pedidos (ajuste 61):
+ *   • sem caixa aberto, ninguém da loja aceita, prepara, serve nem despacha (o cliente continua pedindo);
+ *   • doDia: para COMEÇAR algo novo (aceitar, lançar, sair para entrega), o caixa precisa ser de hoje.
+ *     Caixa de um dia anterior que não foi fechado bloqueia até fechar ou juntar com o de hoje.
+ *     O que já estava em andamento (marcar pronto, servir, receber a entrega, fechar a conta) continua,
+ *     para dar para terminar e fechar o caixa antigo.
+ * Trava o caixa (FOR UPDATE) na mesma ordem de sempre: caixa primeiro, depois o pedido ou a comanda.
+ */
+async function exigirCaixa(c, { doDia = false, travar = true } = {}) {
+  const caixa = await caixaAberto(c, travar);
+  if (!caixa) falhar(409, CAIXA_FECHADO);
+  if (doDia) {
+    const s = turno.situacao(caixa.dados);
+    if (s.caixa === 'atrasado') falhar(409, turno.mensagemAtrasado(s));
+  }
+  return caixa;
+}
 
 async function abrirCaixa({ fundo, motoboys = {}, garcons = {} }, por) {
   const valor = numero(fundo);
@@ -44,7 +64,7 @@ async function abrirCaixa({ fundo, motoboys = {}, garcons = {} }, por) {
   const bolsas = {};
   for (const [nome, f] of Object.entries(motoboys || {})) {
     const v = numero(f);
-    if (v > 0) bolsas[texto(nome, 60)] = { fundo: v, definidoEm: Date.now(), por };
+    if (v >= 0) bolsas[texto(nome, 60)] = { fundo: v, definidoEm: Date.now(), por }; // R$ 0,00 também abre a bolsa (sem bolsa, não sai para entrega)
   }
   /* Garçons que trabalham com bolsa própria (pochete + maquininha): o troco pode ser R$ 0,00 */
   const bolsasGarcons = {};
@@ -54,9 +74,29 @@ async function abrirCaixa({ fundo, motoboys = {}, garcons = {} }, por) {
   }
   return db.tx(async (c) => {
     if (await caixaAberto(c, true)) falhar(409, 'Já existe um caixa aberto.');
-    const dados = { abertoEm: Date.now(), por, fundo: valor, motoboys: bolsas, garcons: bolsasGarcons, movimentos: [] };
+    const dia = turno.diaDaLoja();
+    const dados = { abertoEm: Date.now(), por, fundo: valor, motoboys: bolsas, garcons: bolsasGarcons, movimentos: [], dia, dias: [dia] };
     await c.query('INSERT INTO caixas (dados) VALUES ($1)', [dados]);
     return dados;
+  });
+}
+
+/**
+ * Juntar o caixa de um dia anterior (que não deu tempo de fechar) com o de hoje:
+ * o mesmo caixa continua aberto, passa a cobrir também hoje e, no fim, fecha tudo de uma vez.
+ */
+async function juntarCaixa(por) {
+  return db.tx(async (c) => {
+    const caixa = await caixaAberto(c, true);
+    if (!caixa) falhar(409, 'Não há caixa aberto.');
+    const s = turno.situacao(caixa.dados);
+    if (s.caixa !== 'atrasado') falhar(409, 'O caixa aberto já é de hoje.');
+    const d = caixa.dados;
+    d.dias = [...s.dias, s.hoje];
+    d.dia = s.hoje;
+    (d.juntados ||= []).push({ em: Date.now(), por, dia: s.hoje, de: s.dia });
+    await c.query('UPDATE caixas SET dados = $2 WHERE id = $1', [caixa.id, d]);
+    return { dias: d.dias };
   });
 }
 
@@ -324,6 +364,8 @@ async function criarPedido(corpo, { equipe = false, dispositivo = null } = {}) {
      mesmo que o aparelho esteja logado como equipe (foi assim que um pedido passou com CPF errado).
      Só o "Lançar pedido" do painel (painel: true, com login da loja) dispensa o documento. */
   const peloPainel = equipe && corpo.painel === true;
+  /* "Lançar pedido" do painel: a loja só lança com o caixa de hoje aberto (o cliente pede sempre) */
+  if (peloPainel) await exigirCaixa(db, { doDia: true, travar: false });
   const convenio = corpo.pag === 'convenio' && (modo === 'entrega' || retirada || peloPainel);
   if (corpo.pag === 'convenio') {
     if (!convenio) falhar(400, 'Convênio só vale para entrega, retirada ou pedido lançado pela loja.');
@@ -389,10 +431,15 @@ async function alterarPedido(c, num, fn) {
 async function avancarPedido(num, { forma, recebido } = {}, por = '') {
   const pedido = await db.tx(async (c) => {
     /* Balcão/retirada: quando o cliente retira, o pagamento entra no caixa (como a entrega e a mesa) */
-    const caixa = await caixaAberto(c, true); // trava o caixa antes do pedido, na mesma ordem da entrega
+    /* Sem caixa aberto, a loja não mexe no pedido. Para ACEITAR, o caixa tem que ser de hoje. */
+    const caixa = await exigirCaixa(c); // trava o caixa antes do pedido, na mesma ordem da entrega
     let pagamento = null;
     const p = await alterarPedido(c, num, (atual) => {
-      if (atual.status === 'novo') return { status: 'preparo', aceitoEm: Date.now() };
+      if (atual.status === 'novo') {
+        const s = turno.situacao(caixa.dados);
+        if (s.caixa === 'atrasado') falhar(409, turno.mensagemAtrasado(s));
+        return { status: 'preparo', aceitoEm: Date.now() };
+      }
       if (atual.status === 'preparo') return { status: 'pronto', prontoEm: Date.now() };
       if (atual.status === 'pronto' && atual.modo === 'local') {
         pagamento = atual.pag === 'convenio' ? { forma: 'convenio', valor: atual.total } : conferirPagamento({ forma, valor: atual.total, recebido });
@@ -401,7 +448,6 @@ async function avancarPedido(num, { forma, recebido } = {}, por = '') {
       falhar(409, `O pedido #${atual.num} já mudou em outro aparelho. A tela vai atualizar.`);
     });
     if (pagamento) {
-      if (!caixa) falhar(409, CAIXA_FECHADO);
       await registrar(c, caixa, { tipo: 'balcao', pedido: p.num, ref: `${p.retirada ? 'Retirada' : 'Balcão'} #${p.num} · ${p.cliente}`, ...pagamento, ...(pagamento.forma === 'convenio' ? { telefone: soDigitos(p.telefone), cliente: p.cliente } : {}), por });
     }
     return p;
@@ -436,6 +482,10 @@ async function cancelarPedido(num, por, motivo) {
 async function sairParaEntrega(nums, motoboy) {
   if (!Array.isArray(nums) || !nums.length) falhar(400, 'Escolha os pedidos.');
   const saidos = await db.tx(async (c) => {
+    /* Só sai com o caixa de hoje aberto e com a bolsa do motoboy aberta nele:
+       o dinheiro e a maquininha da entrega ficam na bolsa dele até a conferência */
+    const caixa = await exigirCaixa(c, { doDia: true });
+    if (!caixa.dados.motoboys?.[motoboy]) falhar(409, `A bolsa de ${motoboy} ainda não foi aberta. Peça para abrir a bolsa no Caixa do painel antes de sair para entrega.`);
     const lista = [];
     for (const num of nums) {
       lista.push(await alterarPedido(c, num, (p) => {
@@ -452,8 +502,7 @@ async function sairParaEntrega(nums, motoboy) {
 /** Entregou e recebeu: o pedido vira concluído e o pagamento entra no caixa. */
 async function concluirEntrega(num, { forma, recebido }, por) {
   const pedido = await db.tx(async (c) => {
-    const caixa = await caixaAberto(c, true);
-    if (!caixa) falhar(409, CAIXA_FECHADO);
+    const caixa = await exigirCaixa(c); // entrega que já saiu termina mesmo com o caixa de ontem aberto
     let pagamento;
     const p = await alterarPedido(c, num, (atual) => {
       if (atual.modo !== 'entrega' || !['rota', 'pronto'].includes(atual.status)) falhar(409, `O pedido #${atual.num} já foi finalizado.`);
@@ -496,6 +545,9 @@ async function lancarNaComanda(mesa, itensRecebidos, { nome = '', por = 'qr', qu
   if (tel.length >= 10) Object.assign(rodada, { telefone: tel, nome: texto(nome, 60) });
 
   const tentar = () => db.tx(async (c) => {
+    /* Garçom e painel só lançam com o caixa de hoje aberto. O cliente pelo QR continua pedindo:
+       a rodada chega no painel, que só aceita depois de abrir o caixa. */
+    if (por !== 'qr') await exigirCaixa(c, { doDia: true });
     let linha = await comandaAberta(c, n);
     if (!linha) {
       const dados = { nome: texto(nome, 60), pessoas: 2, abertaEm: Date.now(), pediuConta: false, rodadas: [], dispositivos: [] };
@@ -524,6 +576,8 @@ async function lancarNaComanda(mesa, itensRecebidos, { nome = '', por = 'qr', qu
 const PASSOS = { recebido: 'preparo', preparo: 'pronto', pronto: 'servido' };
 async function statusRodada(mesa, indice, status, perfil) {
   return db.tx(async (c) => {
+    /* Aceitar (em preparo) pede o caixa de hoje; pronto e servido, só o caixa aberto */
+    await exigirCaixa(c, { doDia: status === 'preparo' });
     const linha = await comandaAberta(c, Number(mesa));
     if (!linha) falhar(404, `A ${mesaTexto(mesa)} não tem comanda aberta.`);
     const r = linha.dados.rodadas[Number(indice)];
@@ -549,6 +603,7 @@ async function tirarItemComanda(mesa, rodadaI, itemI, { qtd, motivo }, por) {
   const porque = texto(motivo, 200);
   if (!porque) falhar(400, 'Escreva o motivo.');
   return db.tx(async (c) => {
+    await exigirCaixa(c);
     const linha = await comandaAberta(c, Number(mesa));
     if (!linha) falhar(404, `A ${mesaTexto(mesa)} não tem comanda aberta.`);
     const d = linha.dados;
@@ -590,8 +645,7 @@ async function pedirConta(mesa, sim = true) {
 async function fecharComanda(mesa, { pagamentos, pessoas = 1 }, por) {
   if (!Array.isArray(pagamentos) || !pagamentos.length) falhar(400, 'Informe o pagamento.');
   return db.tx(async (c) => {
-    const caixa = await caixaAberto(c, true);
-    if (!caixa) falhar(409, CAIXA_FECHADO);
+    const caixa = await exigirCaixa(c); // a mesa de ontem ainda fecha no caixa de ontem
     const linha = await comandaAberta(c, Number(mesa));
     if (!linha) falhar(404, 'Essa comanda já foi fechada.');
     /* Sem taxa de serviço: a conta é só o consumo */
@@ -876,7 +930,7 @@ module.exports = {
   fechamentoCompleto,
   definirConvenio, listarConvenios, extratoConvenio, receberConvenio, enviarExtratoConvenio, estornarConvenio,
   mesaTexto, pedidoDaLinha, comandaDaLinha,
-  abrirCaixa, movimentoCaixa, corrigirMovimento, redividirComanda, fecharCaixa, trocoBolsa, fecharBolsa,
+  abrirCaixa, juntarCaixa, movimentoCaixa, corrigirMovimento, redividirComanda, fecharCaixa, trocoBolsa, fecharBolsa,
   criarPedido, avancarPedido, cancelarPedido, sairParaEntrega, concluirEntrega,
   lancarNaComanda, statusRodada, pedirConta, fecharComanda, tirarItemComanda,
   buscarCliente, salvarCliente,

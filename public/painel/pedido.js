@@ -211,6 +211,8 @@ document.addEventListener("click", async (e) => {
 let novo = null; // rascunho do pedido sendo lançado
 
 function abrirLancarPedido() {
+  /* A loja só lança pedido com o caixa de hoje aberto */
+  if (!Fomito.turno.conferir({ novo: true })) return;
   novo = { modo: "entrega", telefone: "", buscou: false, cliente: null, enderecoId: null, mesa: "1", nome: "", itens: {}, pag: Fomito.formasAtivas()[0]?.id || "dinheiro", troco: "", cat: dados.categorias[0]?.id || "", busca: "" };
   const camada = document.createElement("div");
   camada.className = "sobreposicao sobreposicao--centro";

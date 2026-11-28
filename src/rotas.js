@@ -249,6 +249,8 @@ r.post('/convenios/:telefone/estornar', admin, ok((req) => s.estornarConvenio(re
 r.post('/convenios/:telefone/enviar', balcao, ok((req) => s.enviarExtratoConvenio(req.params.telefone, req.body.texto)));
 
 r.post('/caixa/abrir', balcao, ok((req) => s.abrirCaixa(req.body, nome(req))));
+/* Caixa de um dia anterior que não foi fechado: juntar com o de hoje e fechar os dois juntos */
+r.post('/caixa/juntar', balcao, ok((req) => s.juntarCaixa(nome(req))));
 r.post('/caixa/movimento', balcao, ok((req) => s.movimentoCaixa(req.body, nome(req))));
 r.post('/caixa/corrigir', balcao, ok((req) => s.corrigirMovimento(String(req.body.id), req.body.novo || {}, req.body, nome(req))));
 r.post('/caixa/redividir', balcao, ok((req) => s.redividirComanda(req.body.comanda, req.body, nome(req))));

@@ -124,6 +124,7 @@ $("#paraServir").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-servir-pronto]");
   if (!b) return;
   const [mesa, i] = b.dataset.servirPronto.split(",").map(Number);
+  if (!Fomito.turno.conferir()) return;
   await comandas.statusRodada(mesa, i, "servido");
   atualizarTudo();
   toast(`Pedido servido na mesa ${mesa}`, "check");
@@ -253,14 +254,15 @@ function renderComanda() {
       </div>
     </div>`;
 
-  $("#btnLancar").onclick = () => abrirLancamento(m);
-  $("#btnFechar").onclick = () => abrirFechamento(m);
+  /* Sem caixa aberto (ajuste 61): não lança nem fecha. Lançar pede o caixa de hoje. */
+  $("#btnLancar").onclick = () => Fomito.turno.conferir({ novo: true }) && abrirLancamento(m);
+  $("#btnFechar").onclick = () => Fomito.turno.conferir() && abrirFechamento(m);
   $("#voltarMesas").onclick = () => painel.classList.remove("aberta");
   painel.onclick = async (e) => {
     const tirar = e.target.closest("[data-tirar-item]");
     if (tirar) { const [ri, ii] = tirar.dataset.tirarItem.split(":").map(Number); return abrirTirarItem(m, ri, ii); }
     const servir = e.target.closest("[data-servir]");
-    if (!servir) return;
+    if (!servir || !Fomito.turno.conferir()) return;
     await comandas.statusRodada(m.numero, Number(servir.dataset.servir), "servido");
     atualizarTudo();
     toast(`Pedido servido na mesa ${m.numero}`, "check");
@@ -530,6 +532,23 @@ function abrirFechamento(mesa) {
   });
 }
 
+/* Caixa fechado ou de ontem (ajuste 61): o cliente continua pedindo pelo QR,
+   mas o garçom só lança, serve e fecha conta com o caixa aberto no painel */
+let faixaTurnoGarcom = null;
+function renderAvisoTurno() {
+  const s = Fomito.turno.situacao();
+  const loja = ["admin", "atendente"].includes(usuarioLogado?.perfil);
+  const html = s.caixa === "fechado"
+    ? Fomito.turno.faixa({ titulo: "O caixa ainda não foi aberto", texto: loja ? "Abra o caixa no painel para lançar, servir e fechar contas. As mesas continuam pedindo pelo QR Code." : "Você ainda não consegue lançar, servir nem fechar contas. Peça ao responsável para abrir o caixa no painel. As mesas continuam pedindo pelo QR Code." })
+    : s.caixa === "atrasado"
+      ? Fomito.turno.faixa({ tipo: "perigo", titulo: `O caixa de ${s.diaDoCaixa} não foi fechado`, texto: loja ? "Feche esse caixa ou junte com o de hoje no painel para lançar pedidos novos." : "Você ainda não consegue lançar pedidos novos. Peça ao responsável para fechar esse caixa ou juntar com o de hoje no painel. Dá para servir e fechar as contas que já estavam abertas." })
+      : "";
+  if (html === faixaTurnoGarcom) return;
+  faixaTurnoGarcom = html;
+  $("#avisoTurno").innerHTML = html;
+}
+document.addEventListener("fomito:estado", renderAvisoTurno);
+
 /* ---------- 6. INÍCIO ---------- */
 function atualizarTudo() {
   mesas = lerMesas();
@@ -554,6 +573,7 @@ const paramsTela = new URLSearchParams(location.search);
 if (paramsTela.get("embutido")) document.body.classList.add("embutido");
 if (Number(paramsTela.get("mesa")) > 0) estado.mesaAtual = Number(paramsTela.get("mesa"));
 atualizarTudo();
+renderAvisoTurno();
 if (estado.mesaAtual) renderComanda();
 
 /* ---------- 7. AVISOS ----------

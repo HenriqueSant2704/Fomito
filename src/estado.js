@@ -9,12 +9,17 @@ const loja = require('./loja');
 const { pedidoDaLinha, comandaDaLinha } = require('./servicos');
 const { inicioDoDia, dispositivoDe, arred, separarNumero } = require('./util');
 const { bolsasDe } = require('./regras');
+const turno = require('./turno');
 
 const PEDIDOS_DO_DIA = `status <> 'cancelado' AND (criado_em >= $1 OR status <> 'concluido')`;
 
 async function caixaResumido(nome, tipo = 'motoboy') {
   const { rows } = await db.query('SELECT dados FROM caixas WHERE aberto');
   const r = { aberto: rows[0] ? { abertoEm: rows[0].dados.abertoEm, fundo: 0, movimentos: [] } : null, fechamentos: [] };
+  /* Caixa de hoje, de um dia anterior (atrasado) ou fechado: as telas avisam e travam os botões */
+  r.turno = turno.situacao(rows[0]?.dados || null);
+  /* Motoboy: só sai para entrega com a bolsa aberta no caixa */
+  if (tipo === 'motoboy' && nome) r.temBolsa = !!rows[0]?.dados.motoboys?.[nome];
   /* O motoboy vê a própria bolsa: troco inicial, dinheiro recebido, troco dado e quanto deve ter */
   if (nome && rows[0]) r.bolsa = bolsasDe(rows[0].dados, tipo)[nome] || (tipo === 'motoboy' ? { fundo: 0, recebido: 0, troco: 0, dinheiro: 0, credito: 0, debito: 0, entregas: 0, esperado: 0 } : null);
   /* Garçom com bolsa própria também vê a dele (sem bolsa, o dinheiro vai para o caixa) */
@@ -247,7 +252,7 @@ async function estado(req, res) {
   r.comandas = await comandasDoDia();
   const { rows: aberto } = await db.query('SELECT dados FROM caixas WHERE aberto');
   const { rows: fechados } = await db.query('SELECT id, dados FROM caixas WHERE NOT aberto ORDER BY fechado_em DESC LIMIT 30');
-  r.caixa = { aberto: aberto[0]?.dados || null, fechamentos: fechados.map((x) => ({ ...x.dados, id: x.id })) };
+  r.caixa = { aberto: aberto[0]?.dados || null, fechamentos: fechados.map((x) => ({ ...x.dados, id: x.id })), turno: turno.situacao(aberto[0]?.dados || null) };
   r.clientes = await clientesComResumo();
   const { rows: usuarios } = await db.query("SELECT nome, usuario, perfil FROM usuarios ORDER BY perfil = 'admin' DESC, nome");
   r.usuarios = usuarios;
