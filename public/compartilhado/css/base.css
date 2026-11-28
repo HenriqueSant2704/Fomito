@@ -343,3 +343,74 @@ button, a, label, select, input, textarea, [data-ir], [data-produto] { touch-act
 }
 /* A foto provisória fica certa também dentro da galeria e da vitrine (que esticam todo svg) */
 .foto-provisoria .foto-provisoria__prato svg.ic { width: 52%; height: 52%; }
+
+/* ---------- Caixa de escolha (no lugar do <select>; ver js/selecao.js) ---------- */
+.sel__nativa {
+  position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important;
+  overflow: hidden !important; clip: rect(0 0 0 0) !important; border: 0 !important; opacity: 0; pointer-events: none;
+}
+.sel__botao {
+  display: inline-flex; align-items: center; gap: 8px; text-align: left; cursor: pointer;
+  font: inherit; color: inherit; min-width: 0;
+}
+.sel__botao.input { display: flex; padding-right: 10px; }
+.sel__botao:not(.input) { background: transparent; border: 0; padding: 0; }
+.sel__texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel__detalhe { color: var(--texto-fraco); font-weight: 500; }
+.sel__seta { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--texto-suave); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--transicao); }
+.sel__botao:not(.input) .sel__seta { width: 14px; height: 14px; }
+.sel__botao:hover .sel__seta, .sel__botao--aberto .sel__seta { stroke: var(--roxo); }
+.sel__botao--aberto .sel__seta { transform: rotate(180deg); }
+.sel__botao.input:hover:not(:disabled) { border-color: var(--roxo-medio); }
+.sel__botao--aberto.input { border-color: var(--roxo); box-shadow: 0 0 0 3px var(--roxo-claro); }
+.sel__botao:disabled { cursor: default; }
+
+.sel-painel {
+  position: fixed; z-index: 150; display: flex; flex-direction: column;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-lg); padding: 6px; font-family: var(--fonte-texto); font-size: 14px; color: var(--texto);
+  opacity: 0; transform: translateY(-4px); transition: opacity .14s ease, transform .14s ease;
+}
+.sel-painel--cima { transform: translateY(4px); }
+.sel-painel--visivel { opacity: 1; transform: none; }
+.sel-busca {
+  display: flex; align-items: center; gap: 8px; margin: 2px 2px 6px; padding: 0 12px; height: 40px;
+  border-radius: var(--raio-md); background: var(--superficie-2); border: 1px solid transparent; color: var(--texto-fraco);
+  transition: border-color var(--transicao), background var(--transicao);
+}
+.sel-busca:focus-within { border-color: var(--roxo); background: var(--superficie); color: var(--roxo); }
+.sel-busca .ic, .sel-busca svg { width: 17px; height: 17px; flex: none; }
+.sel-busca input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--texto); font-size: 14px; }
+.sel-lista { list-style: none; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; outline: none; max-height: 320px; scrollbar-width: thin; }
+.sel-op {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 12px; border-radius: var(--raio-md);
+  cursor: pointer; line-height: 1.3; user-select: none;
+}
+.sel-op[hidden] { display: none; }
+.sel-op__nome { flex: 1; min-width: 0; }
+.sel-op__detalhe { flex: none; color: var(--texto-suave); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sel-op__marca { width: 18px; height: 18px; flex: none; display: grid; place-items: center; color: var(--roxo); visibility: hidden; }
+.sel-op__marca svg { width: 18px; height: 18px; }
+.sel-op.ativa { background: var(--roxo-claro); }
+.sel-op.escolhida { color: var(--roxo); font-weight: 600; }
+.sel-op.escolhida .sel-op__detalhe { color: var(--roxo-medio); }
+.sel-op.escolhida .sel-op__marca { visibility: visible; }
+.sel-op.desligada { opacity: .45; cursor: default; }
+.sel-vazio { margin: 0; padding: 18px 12px; text-align: center; color: var(--texto-fraco); font-size: 13.5px; }
+
+/* Celular: a lista sobe de baixo da tela */
+.sel-fundo { position: fixed; inset: 0; z-index: 149; background: rgba(27, 21, 48, .45); animation: sel-aparece .18s ease; }
+.sel-painel--folha {
+  left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 78dvh; padding: 6px 12px calc(12px + env(safe-area-inset-bottom));
+  border-radius: var(--raio-xl) var(--raio-xl) 0 0; border: 0; transform: translateY(24px);
+}
+.sel-painel--folha.sel-painel--visivel { transform: none; }
+.sel-painel--folha .sel-lista { max-height: none; flex: 1; }
+.sel-painel--folha .sel-op { padding: 13px 12px; font-size: 15px; }
+.sel-painel--folha .sel-busca input { font-size: 16px; }
+.sel-painel__topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 2px 10px 4px; }
+.sel-painel__topo::before { content: ""; position: absolute; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 4px; background: var(--borda-forte); }
+.sel-painel__topo strong { font-family: var(--fonte-marca); font-size: 17px; font-weight: 800; }
+.sel-painel__fechar { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--superficie-2); display: grid; place-items: center; cursor: pointer; color: var(--texto-suave); }
+.sel-painel__fechar svg { width: 18px; height: 18px; }
+@keyframes sel-aparece { from { opacity: 0; } }
