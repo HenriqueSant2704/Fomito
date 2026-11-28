@@ -30,19 +30,25 @@ async function carregar() {
     atual.cardapio.produtos.forEach((p) => delete p.avulsos);
     await db.query("UPDATE loja SET cardapio = $1 WHERE id = 1", [atual.cardapio]);
   }
-  /* Cardápio do primeiro restaurante cliente: entra uma vez só em cada banco (ver src/cargas/) */
-  const carga = require('./cargas/grupo3irmaos').montar(atual.cardapio, atual.config);
-  if (carga) {
-    await gravar(carga);
-    console.log('✓ Cardápio do Grupo 3 Irmãos cadastrado (os produtos antigos ficaram em cardapio.arquivados)');
+  /* Cardápio do primeiro restaurante cliente: entra uma vez só em cada banco (ver src/cargas/).
+     Com MODO_DEMO=1 (ambiente para apresentar o sistema a outros restaurantes) não roda:
+     fica o cardápio de exemplo do Fomito, com as ilustrações. */
+  if (process.env.MODO_DEMO === '1') {
+    console.log('✓ Modo demonstração: cardápio de exemplo do Fomito (sem carga de cliente)');
+  } else {
+    const carga = require('./cargas/grupo3irmaos').montar(atual.cardapio, atual.config);
+    if (carga) {
+      await gravar(carga);
+      console.log('✓ Cardápio do Grupo 3 Irmãos cadastrado (os produtos antigos ficaram em cardapio.arquivados)');
+    }
+    const fotos = require('./cargas/grupo3irmaos').montarV2(atual.cardapio);
+    if (fotos) {
+      await gravar(fotos);
+      console.log('✓ Grupo 3 Irmãos: fotos reais, promoção e vitrine ligada aos produtos');
+    }
+    const restantes = require('./cargas/grupo3irmaos').corrigirRecortes(atual.cardapio);
+    if (restantes) await gravar(restantes);
   }
-  const fotos = require('./cargas/grupo3irmaos').montarV2(atual.cardapio);
-  if (fotos) {
-    await gravar(fotos);
-    console.log('✓ Grupo 3 Irmãos: fotos reais, promoção e vitrine ligada aos produtos');
-  }
-  const restantes = require('./cargas/grupo3irmaos').corrigirRecortes(atual.cardapio);
-  if (restantes) await gravar(restantes);
   await garantirMesas(atual.cardapio.lanchonete.mesas);
   return atual;
 }
