@@ -193,6 +193,12 @@ function montarV2(atual) {
    liga, mas só grava quando ainda existe algum recorte antigo. */
 function corrigirRecortes(atual) {
   const antigo = (f) => PASTA_ANTIGA.test(f?.src || '');
+  /* O painel colocava sozinho um desenho de lanche em produto salvo sem foto: tira */
+  const automatica = (p) => p.fotos?.length === 1 && p.fotos[0].desenho === 'xburguer' && p.fotos[0].cena === 'produto' && !p.fotos[0].src;
+  if ((atual.cargas || []).includes(MARCA) && (atual.produtos || []).some(automatica)) {
+    atual = { ...atual, produtos: atual.produtos.map((p) => (automatica(p) ? { ...p, fotos: [] } : p)) };
+    if (!atual.produtos.some((p) => (p.fotos || []).some(antigo))) return { cardapio: atual };
+  }
   if (!(atual.produtos || []).some((p) => (p.fotos || []).some(antigo))) return null;
   const simples = (t) => String(t).toLowerCase().normalize('NFD').replace(/[^a-z0-9#]/g, '');
   const parecido = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
