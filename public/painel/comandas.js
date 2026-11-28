@@ -72,6 +72,7 @@ document.addEventListener("click", async (e) => {
     const r = Fomito.comandas.daMesa(mesa)?.rodadas[i];
     if (!r || !acaoDaRodada[r.status]) return;
     const novo = Fomito.comandas.PROXIMO[r.status];
+    if (!Fomito.turno.conferir({ novo: novo === "preparo" })) return;
     await Fomito.comandas.statusRodada(mesa, i, novo);
     renderPedidos();
     versaoComandasPainel = JSON.stringify(Fomito.comandas.abertas());

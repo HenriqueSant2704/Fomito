@@ -111,6 +111,83 @@ $("#lojaAberta").addEventListener("change", async (e) => {
   toast(aberta ? "Loja aberta para pedidos" : "Novos pedidos pausados", aberta ? "check" : "info");
 });
 
+/* ---------- Aviso do caixa (ajuste 61) ----------
+   O cliente pede sempre. A loja só aceita e mexe nos pedidos com o caixa aberto e de hoje.
+   A faixa fica no topo de todas as páginas do painel:
+     • caixa fechado (no horário ou com pedido esperando) → Abrir caixa
+     • caixa de ontem que não foi fechado → Fechar esse caixa ou Juntar com o de hoje
+     • expediente acabou e o caixa continua aberto → "Faltou fechar o caixa" */
+const temPedidoEsperando = () => lerPedidos().some((p) => ["novo", "preparo", "pronto", "rota"].includes(p.status))
+  || Fomito.comandas.abertas().some((c) => c.rodadas.some((r) => r.status !== "servido"));
+let faixaTurno = null;
+function renderAvisoTurno() {
+  const t = Fomito.turno;
+  const s = t.situacao();
+  const f = Fomito.estado.loja || {};
+  const botao = (acao, texto, primario = true) => `<button class="btn ${primario ? "btn--primario" : "btn--contorno"} btn--sm" data-turno="${acao}">${texto}</button>`;
+  let html = "";
+  if (s.caixa === "fechado" && (!f.foraDoHorario || temPedidoEsperando())) {
+    html = t.faixa({
+      titulo: "O caixa ainda não foi aberto",
+      texto: "Os clientes continuam pedindo pelo cardápio, mas ninguém da loja consegue aceitar, preparar, servir nem mandar para entrega até abrir o caixa.",
+      acoes: botao("abrir", `${icone("dinheiro", "ic--sm")} Abrir caixa`),
+    });
+  } else if (s.caixa === "atrasado") {
+    const qual = s.diaDoCaixa.startsWith("ontem") ? "de ontem" : `de ${s.diasTexto.at(-1).split(",")[0]}`;
+    html = t.faixa({
+      tipo: "perigo",
+      titulo: `O caixa de ${s.diaDoCaixa} não foi fechado`,
+      texto: `Para aceitar pedidos hoje, feche esse caixa e abra um novo. Sem tempo agora? Junte o caixa ${qual} com o de hoje e feche os dois juntos no fim do dia.`,
+      acoes: botao("fechar", `${icone("cadeado", "ic--sm")} Fechar o caixa ${qual}`) + botao("juntar", `${icone("mais", "ic--sm")} Juntar com o de hoje`, false),
+    });
+  } else if (s.caixa === "aberto" && s.expedienteAcabou) {
+    html = t.faixa({
+      icone: "relogio",
+      titulo: "Faltou fechar o caixa",
+      texto: `O expediente acabou às ${t.horaFim(s)}. Confira as bolsas dos motoboys e garçons e feche o caixa do dia.`,
+      acoes: botao("fechar", `${icone("cadeado", "ic--sm")} Fechar caixa`),
+    });
+    /* Uma vez por dia neste computador: som e aviso na hora em que o expediente acaba */
+    let avisado = null;
+    try { avisado = localStorage.getItem("fomito.avisoFimCaixa"); } catch { /* sem armazenamento */ }
+    if (avisado !== s.hoje) {
+      try { localStorage.setItem("fomito.avisoFimCaixa", s.hoje); } catch { /* sem armazenamento */ }
+      alertas.tocarAlerta();
+      toast("O expediente acabou: faltou fechar o caixa.", "cadeado");
+    }
+  }
+  if (html === faixaTurno) return;
+  faixaTurno = html;
+  $("#avisoTurno").innerHTML = html;
+}
+document.addEventListener("fomito:estado", () => renderAvisoTurno());
+setInterval(renderAvisoTurno, 30000); // o horário de fechar passa sem nada mudar no servidor
+
+/* Botões da faixa (e do Caixa): abrir, fechar e juntar o caixa de ontem com o de hoje */
+async function juntarCaixas() {
+  const s = Fomito.turno.situacao();
+  const ok = await Fomito.dialogo({
+    titulo: "Juntar com o caixa de hoje",
+    texto: `O caixa de <b>${s.diaDoCaixa}</b> continua aberto e passa a valer também para <b>hoje (${s.hojeTexto})</b>. Os pedidos de hoje entram nele e, no fim do dia, você fecha os dois juntos, numa conferência só (gaveta, maquininha e bolsas).`,
+    confirmar: "Juntar os caixas",
+  });
+  if (!ok) return;
+  await Fomito.acao("POST", "/caixa/juntar", {});
+  renderAvisoTurno();
+  if (!$('[data-secao="caixa"].secao').hidden) renderCaixa();
+  toast("Caixas juntados. Agora dá para aceitar os pedidos de hoje.", "check");
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-turno]");
+  if (!b) return;
+  const acao = b.dataset.turno;
+  if (acao === "juntar") return juntarCaixas();
+  diaCaixa = null; // o caixa de hoje, não um dia anterior
+  abrirSecao("caixa");
+  if (acao === "abrir" && !Fomito.caixa.aberto()) janelaAbrir();
+  if (acao === "fechar" && Fomito.caixa.aberto()) janelaFechar();
+});
+
 /* ---------- 3. VISÃO GERAL ---------- */
 /* Gráfico de faturamento: escolha o período (Hoje por hora, 7 dias, 30 dias).
    Passando o mouse (ou o dedo), a bolinha corre pela linha e mostra a data e o valor daquele ponto. */
@@ -410,6 +487,8 @@ document.addEventListener("click", async (e) => {
   const acao = acaoDoPedido(antes);
   if (!acao) return;
   const aceitou = antes.status === "novo";
+  /* Sem caixa aberto (ou com o de ontem para aceitar), avisa antes de tentar */
+  if (!Fomito.turno.conferir({ novo: aceitou })) return;
   /* Cliente retirou no balcão: antes de concluir, registra como pagou (vai para o caixa) */
   let pagamento;
   if (acao.proximo === "concluido") {
@@ -1511,6 +1590,7 @@ atualizarMenuLoja();
 atualizarBotaoSom();
 atualizarStatusLoja();
 atualizarBadge();
+renderAvisoTurno();
 document.addEventListener("fomito:loja", () => { atualizarStatusLoja(); atualizarMenuLoja(); $("#logo").innerHTML = Fomito.logo(true); });
 /* Menu: o atendente só vê as seções dele */
 $$(".menu__item[data-secao]").forEach((b) => { b.hidden = !podeVer(b.dataset.secao); });

@@ -242,10 +242,30 @@ function render() {
   renderBarraSaida();
 }
 
+/* Caixa fechado, caixa de ontem ou bolsa ainda não aberta: a faixa no topo explica (ajuste 61) */
+let faixaTurnoMoto = null;
+function renderAvisoTurno() {
+  const s = Fomito.turno.situacao();
+  const t = Fomito.turno;
+  const html = s.caixa === "fechado"
+    ? t.faixa({ titulo: "O caixa ainda não foi aberto", texto: "Você ainda não consegue sair para entrega. Peça ao responsável para abrir o caixa e a sua bolsa no painel." })
+    : s.caixa === "atrasado"
+      ? t.faixa({ tipo: "perigo", titulo: `O caixa de ${s.diaDoCaixa} não foi fechado`, texto: "Você ainda não consegue sair com pedidos novos. Peça ao responsável para fechar esse caixa ou juntar com o de hoje. As entregas que já estão com você podem ser finalizadas." })
+      : Fomito.estado.caixa?.temBolsa === false
+        ? t.faixa({ icone: "entrega", titulo: "Sua bolsa ainda não foi aberta", texto: "Peça ao responsável para abrir a sua bolsa no Caixa do painel (pode ser com R$ 0,00 de troco). Sem bolsa, não dá para sair para entrega." })
+        : "";
+  if (html === faixaTurnoMoto) return;
+  faixaTurnoMoto = html;
+  $("#avisoTurno").innerHTML = html;
+}
+document.addEventListener("fomito:estado", renderAvisoTurno);
+
 /* ---------- 7. SAIR PARA ENTREGA ---------- */
 async function sair() {
   const nums = [...estado.selecionados];
   if (!nums.length) return;
+  /* Só sai com o caixa de hoje aberto e a bolsa dele aberta (ajuste 61) */
+  if (!Fomito.turno.conferir({ novo: true, bolsa: true })) return;
   await pedidos.sairParaEntrega(nums); // o servidor avisa os clientes no WhatsApp
   estado.selecionados.clear();
   estado.aba = "rota";
@@ -425,3 +445,4 @@ document.addEventListener("click", (e) => {
 
 renderAvisoNotificacao();
 render();
+renderAvisoTurno();

@@ -21,6 +21,9 @@ let filtroDia = "todos";
 const formatoDinheiro = (texto) => parseFloat(String(texto).replace(/\./g, "").replace(",", ".")) || 0;
 const horaCaixa = (ts) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const dataCaixa = (ts) => new Date(ts).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+/* Caixa que juntou mais de um dia (ajuste 61): "2 dias juntos" */
+const tagDiasJuntos = (cx) => (cx?.dias?.length > 1 ? `<span class="tag tag--roxo" title="Caixa de um dia anterior juntado com o seguinte e fechado de uma vez">${cx.dias.length} dias juntos</span>` : "");
+const diasDoCaixa = (cx) => (cx?.dias || []).map((d) => { const [, m, dd] = d.split("-"); return `${dd}/${m}`; }).join(" e ");
 
 /* Etiqueta da diferença entre o contado e o esperado */
 function tagDiferenca(contado, esperado) {
@@ -58,7 +61,7 @@ function renderCaixa() {
           <tbody>
             ${fechamentos.map((f) => `
               <tr class="linha-clicavel fechamento-linha" data-ver-dia="${f.id}" title="Ver tudo deste dia">
-                <td><span class="forte" style="text-transform:capitalize">${dataCaixa(f.abertoEm)}</span><br><span class="num pequeno suave">${horaCaixa(f.abertoEm)} – ${horaCaixa(f.fechadoEm)}</span></td>
+                <td><span class="forte" style="text-transform:capitalize">${dataCaixa(f.abertoEm)}</span>${f.dias?.length > 1 ? `<br>${tagDiasJuntos(f)}` : ""}<br><span class="num pequeno suave">${horaCaixa(f.abertoEm)} – ${horaCaixa(f.fechadoEm)}</span></td>
                 <td class="dir num forte">${moeda(f.vendas)}</td>
                 <td>${linhaConferida(f.esperado, f.contado, "na gaveta")}</td>
                 <td>${f.cartao ? linhaConferida(f.cartao.esperado.credito + f.cartao.esperado.debito, f.cartao.contado.credito + f.cartao.contado.debito, "no extrato") : `<span class="pequeno fraco">Não conferida</span>`}</td>
@@ -373,6 +376,7 @@ function blocoCorrecoes(correcoes) {
 
 function caixaAberto(cx) {
   const r = Fomito.caixa.resumo(cx);
+  const turno = Fomito.turno.situacao();
   const nomes = { ...Fomito.caixa.FORMAS_TODAS };
   const cartoes = r.porForma.credito + r.porForma.debito;
   const correcoes = Fomito.caixa.correcoes(cx);
@@ -409,10 +413,12 @@ function caixaAberto(cx) {
     <div class="card caixa-status">
       <span class="caixa-status__icone">${icone("dinheiro")}</span>
       <div class="pilha" style="gap:2px;flex:1;min-width:0">
-        <span class="linha" style="gap:8px"><b>Caixa aberto</b><span class="tag tag--verde">Aberto</span></span>
-        <span class="pequeno suave">Desde ${horaCaixa(cx.abertoEm)} · aberto por ${cx.por} · dinheiro inicial ${moeda(cx.fundo)}</span>
+        <span class="linha" style="gap:8px;flex-wrap:wrap"><b>Caixa aberto</b>${turno.caixa === "atrasado" ? `<span class="tag tag--vermelho">De ${turno.diaDoCaixa}</span>` : `<span class="tag tag--verde">Aberto</span>`}${tagDiasJuntos(cx)}</span>
+        <span class="pequeno suave">Desde ${dataCaixa(cx.abertoEm)}, ${horaCaixa(cx.abertoEm)} · aberto por ${cx.por} · dinheiro inicial ${moeda(cx.fundo)}${cx.dias?.length > 1 ? ` · junta os dias ${diasDoCaixa(cx)}: fecha tudo de uma vez` : ""}</span>
+        ${turno.caixa === "atrasado" ? `<span class="pequeno" style="color:var(--vermelho-escuro)">Não foi fechado. Para aceitar pedidos hoje, feche este caixa e abra um novo, ou junte com o de hoje.</span>` : ""}
       </div>
       <div class="linha" style="gap:8px;flex-wrap:wrap">
+        ${turno.caixa === "atrasado" ? `<button class="btn btn--contorno btn--sm" data-turno="juntar">${icone("mais", "ic--sm")} Juntar com o de hoje</button>` : ""}
         <button class="btn btn--contorno btn--sm" data-movimento="suprimento">${icone("mais", "ic--sm")} Colocar dinheiro</button>
         <button class="btn btn--contorno btn--sm" data-movimento="sangria">${icone("menos", "ic--sm")} Tirar dinheiro</button>
         <button class="btn btn--primario btn--sm" data-fechar-caixa>${icone("cadeado", "ic--sm")} Fechar caixa</button>
@@ -483,7 +489,7 @@ function caixaFechado(ultimo) {
       <span class="caixa-status__icone">${icone("cadeado")}</span>
       <div class="pilha" style="gap:2px;flex:1;min-width:0">
         <span class="linha" style="gap:8px"><b>Caixa fechado</b><span class="tag tag--cinza">Fechado</span></span>
-        <span class="pequeno suave">${ultimo ? `Último fechamento às ${horaCaixa(ultimo.fechadoEm)}: vendas de ${moeda(ultimo.vendas)}, ${tagDiferenca(ultimo.contado, ultimo.esperado).replace(/<[^>]+>/g, "").toLowerCase()} na gaveta.` : "Abra o caixa para começar o dia."} Enquanto estiver fechado, o garçom não consegue receber contas.</span>
+        <span class="pequeno suave">${ultimo ? `Último fechamento às ${horaCaixa(ultimo.fechadoEm)}: vendas de ${moeda(ultimo.vendas)}, ${tagDiferenca(ultimo.contado, ultimo.esperado).replace(/<[^>]+>/g, "").toLowerCase()} na gaveta.` : "Abra o caixa para começar o dia."} Enquanto estiver fechado, o cliente continua pedindo, mas ninguém da loja aceita, serve ou manda para entrega.</span>
       </div>
       <button class="btn btn--primario" data-abrir-caixa>${icone("dinheiro", "ic--sm")} Abrir caixa</button>
     </div>`;
@@ -630,7 +636,8 @@ function paginaDia() {
       <div class="dia-topo__titulo">
         <div class="pilha" style="gap:4px;min-width:0">
           <span class="dia-topo__sobre">Fechamento do caixa</span>
-          <h2 class="dia-topo__dia">${diaLongo(f.abertoEm)}</h2>
+          <h2 class="dia-topo__dia">${diaLongo(f.abertoEm)}${f.dias?.length > 1 ? ` <span class="dia-topo__juntos">a ${diaLongo(f.fechadoEm).toLowerCase()}</span>` : ""}</h2>
+          ${f.dias?.length > 1 ? `<span class="linha" style="gap:6px">${tagDiasJuntos(f)}<span class="pequeno suave">O caixa de um dia não foi fechado e foi juntado com o seguinte: os dias ${diasDoCaixa(f)} fecharam numa conferência só.</span></span>` : ""}
           <span class="pequeno suave">Aberto às ${horaCaixa(f.abertoEm)} por ${escDia(f.por || "-")} · fechado às ${horaCaixa(f.fechadoEm)} por ${escDia(f.fechadoPor || "-")}${f.fechadoEm - f.abertoEm >= 60000 ? ` · ${duracaoDia(f.abertoEm, f.fechadoEm)} de caixa` : ""}</span>
         </div>
         <div class="dia-topo__resultado ${okDinheiro && okMaq ? "dia-topo__resultado--ok" : "dia-topo__resultado--dif"}">
@@ -773,7 +780,7 @@ function janelaAbrir() {
     ${motoboys.length ? `
     <div class="abrir-bloco">
       <span class="abrir-bloco__titulo">${icone("entrega", "ic--sm")} Bolsas dos motoboys</span>
-      <p class="suave pequeno">Escolha quem sai para entregar hoje e quanto leva de troco. Sai separado da gaveta.</p>
+      <p class="suave pequeno">Escolha quem sai para entregar hoje e quanto leva de troco (pode ser R$ 0,00). Sai separado da gaveta. Só sai para entrega quem tiver a bolsa aberta.</p>
       <div id="bolsasAbrir" class="pilha" style="gap:8px">${linhaBolsa(motoboys.length === 1 ? motoboys[0] : "")}</div>
       <button class="btn btn--contorno btn--sm" data-mais-bolsa style="align-self:flex-start">${icone("mais", "ic--sm")} Abrir bolsa de outro motoboy</button>
     </div>` : ""}
@@ -947,7 +954,11 @@ function janelaFechar() {
   const esp = r.cartoesEsperado;
   const temCartao = esp.credito + esp.debito > 0;
   const pixTotal = r.gaveta.pix;
-  janelaCaixa("Fechar caixa", `
+  const turno = Fomito.turno.situacao();
+  const titulo = cx.dias?.length > 1 ? `Fechar caixa · ${cx.dias.length} dias juntos` : turno.caixa === "atrasado" ? `Fechar o caixa de ${turno.diaDoCaixa.replace(/^ontem \((.*)\)$/, "ontem")}` : "Fechar caixa";
+  janelaCaixa(titulo, `
+    ${cx.dias?.length > 1 ? `<div class="aviso aviso--convenio">${icone("info", "ic--sm")}<span>Este caixa junta os dias <b>${diasDoCaixa(cx)}</b>. A conferência abaixo soma tudo e fecha os dois de uma vez.</span></div>` : ""}
+    ${turno.caixa === "atrasado" ? `<div class="aviso">${icone("info", "ic--sm")}<span>Este caixa é de <b>${turno.diaDoCaixa}</b>. Depois de fechar, abra o caixa de hoje para aceitar os pedidos.</span></div>` : ""}
     <div class="conferencia">
       ${Object.entries(r.porForma).map(([f, v]) => `<div class="entre"><span>${Fomito.caixa.FORMAS_TODAS[f] || f}</span><span class="num">${moeda(v)}</span></div>`).join("")}
       <div class="entre conferencia__total"><span>Total de vendas <span class="fraco pequeno">(todas as formas)</span></span><span class="num">${moeda(r.vendas)}</span></div>
