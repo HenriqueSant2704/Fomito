@@ -41,6 +41,8 @@ async function carregar() {
     await gravar(fotos);
     console.log('✓ Grupo 3 Irmãos: fotos reais, promoção e vitrine ligada aos produtos');
   }
+  const restantes = require('./cargas/grupo3irmaos').corrigirRecortes(atual.cardapio);
+  if (restantes) await gravar(restantes);
   await garantirMesas(atual.cardapio.lanchonete.mesas);
   return atual;
 }

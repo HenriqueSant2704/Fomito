@@ -186,4 +186,26 @@ function montarV2(atual) {
   };
 }
 
-module.exports = { MARCA, MARCA_V2, montar, montarV2, itens, categorias, adicionais };
+
+/* Recortes da arte que ficaram para trás (ex.: produto renomeado no painel antes da v2):
+   acha o produto da v1 mais parecido na mesma categoria e põe a foto nova. Se não achar,
+   tira a foto quebrada e o produto mostra a foto provisória. Roda a cada vez que o servidor
+   liga, mas só grava quando ainda existe algum recorte antigo. */
+function corrigirRecortes(atual) {
+  const antigo = (f) => PASTA_ANTIGA.test(f?.src || '');
+  if (!(atual.produtos || []).some((p) => (p.fotos || []).some(antigo))) return null;
+  const simples = (t) => String(t).toLowerCase().normalize('NFD').replace(/[^a-z0-9#]/g, '');
+  const parecido = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
+  const produtos = atual.produtos.map((p) => {
+    if (!(p.fotos || []).some(antigo)) return p;
+    const nome = simples(p.nome);
+    const melhor = itens.filter(([cat]) => cat === p.cat)
+      .map(([, n, , , fotos]) => ({ fotos, nota: parecido(simples(n), nome) }))
+      .sort((a, b) => b.nota - a.nota)[0];
+    const novas = melhor && melhor.nota >= 8 ? melhor.fotos.map((f) => foto(f)) : [];
+    return { ...p, fotos: [...novas, ...p.fotos.filter((f) => !antigo(f))] };
+  });
+  return { cardapio: { ...atual, produtos } };
+}
+
+module.exports = { MARCA, MARCA_V2, montar, montarV2, corrigirRecortes, itens, categorias, adicionais };
