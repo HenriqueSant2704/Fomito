@@ -226,8 +226,8 @@ async function estado(req, res) {
   r.pedidos = pedidos.map(pedidoDaLinha);
   r.comandas = await comandasDoDia();
   const { rows: aberto } = await db.query('SELECT dados FROM caixas WHERE aberto');
-  const { rows: fechados } = await db.query('SELECT dados FROM caixas WHERE NOT aberto ORDER BY fechado_em DESC LIMIT 30');
-  r.caixa = { aberto: aberto[0]?.dados || null, fechamentos: fechados.map((x) => x.dados) };
+  const { rows: fechados } = await db.query('SELECT id, dados FROM caixas WHERE NOT aberto ORDER BY fechado_em DESC LIMIT 30');
+  r.caixa = { aberto: aberto[0]?.dados || null, fechamentos: fechados.map((x) => ({ ...x.dados, id: x.id })) };
   r.clientes = await clientesComResumo();
   const { rows: usuarios } = await db.query("SELECT nome, usuario, perfil FROM usuarios ORDER BY perfil = 'admin' DESC, nome");
   r.usuarios = usuarios;

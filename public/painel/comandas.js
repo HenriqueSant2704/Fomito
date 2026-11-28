@@ -195,9 +195,10 @@ document.addEventListener("change", (e) => {
    Os pedidos de cada rodada (com o que tirou e as observações), quem atendeu,
    abertura e fechamento, em quantas pessoas dividiu (e se o caixa refez a
    divisão, com o motivo) e cada pagamento com a forma, o valor e o troco. */
-function abrirComandaFechada(numero) {
+/* "comanda" vem quando é de um dia anterior (Caixa → Fechamentos anteriores) */
+function abrirComandaFechada(numero, comanda, movimentosDoDia) {
   const cmd = Fomito.comandas;
-  const f = cmd.fechadas().find((x) => x.numero === numero);
+  const f = comanda || cmd.fechadas().find((x) => x.numero === numero);
   if (!f) return toast("Comanda não encontrada.", "alerta");
   const nomeForma = { ...Object.fromEntries(dados.formasPagamento.map((x) => [x.id, x.nome])), convenio: "Convênio" };
   const nomeItem = (it) => it.nome || Fomito.produto(it.id)?.nome || "Item";
@@ -207,7 +208,7 @@ function abrirComandaFechada(numero) {
     return Fomito.todosAdicionaisDo(Fomito.produto(it.id)).filter((a) => it.extras?.includes(a.id)).map((a) => a.nome);
   };
   /* Pagamentos: se o caixa ainda está aberto, vale o que está nele (já com as correções) */
-  const movs = (Fomito.caixa.aberto()?.movimentos || []).filter((m) => m.tipo === "comanda" && (m.comanda === numero || String(m.ref || "").endsWith(`comanda #${numero}`)));
+  const movs = (movimentosDoDia || (comanda ? [] : Fomito.caixa.aberto()?.movimentos) || []).filter((m) => m.tipo === "comanda" && (m.comanda === numero || String(m.ref || "").endsWith(`comanda #${numero}`)));
   const pagamentos = movs.length ? movs : (f.pagamentos || []);
   const atendentes = [...new Set(f.rodadas.map((r) => r.quem).filter(Boolean))];
   const divisao = f.divisao || pagamentos.length || 1;
@@ -219,7 +220,7 @@ function abrirComandaFechada(numero) {
   camada.className = "sobreposicao sobreposicao--centro";
   camada.innerHTML = `
     <div class="folha folha--detalhe-comanda">
-      <div class="folha__topo"><div class="pilha" style="gap:0"><h2>Comanda #${f.numero}</h2><span class="pequeno suave">${cmd.mesaTexto(f.mesa)}${f.nome ? ` · ${f.nome}` : ""}</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
+      <div class="folha__topo"><div class="pilha" style="gap:0"><h2>${f.numero ? `Comanda #${f.numero}` : "Mesa liberada sem conta"}</h2><span class="pequeno suave">${cmd.mesaTexto(f.mesa)}${f.nome ? ` · ${f.nome}` : ""}</span></div><button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button></div>
 
       <div class="detalhe-grade">
         <div><span class="pequeno fraco">Aberta</span><span class="forte">${dataHora(f.abertaEm)}</span></div>

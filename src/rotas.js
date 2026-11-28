@@ -257,6 +257,8 @@ r.post('/caixa/motoboy/fechar', balcao, ok((req) => s.fecharBolsa({ ...req.body,
 /* Bolsa do garçom (pochete + maquininha própria): mesmo funcionamento da bolsa do motoboy */
 r.post('/caixa/garcom', balcao, ok((req) => s.trocoBolsa({ ...req.body, tipo: 'garcom' }, nome(req))));
 r.post('/caixa/garcom/fechar', balcao, ok((req) => s.fecharBolsa({ ...req.body, tipo: 'garcom' }, nome(req))));
+/* Fechamentos anteriores: a página completa de um dia (caixa, bolsas, pedidos e mesas) */
+r.get('/caixa/fechamentos/:id', balcao, ok((req) => s.fechamentoCompleto(Number(req.params.id))));
 r.post('/caixa/fechar', balcao, ok((req) => s.fecharCaixa(req.body, nome(req))));
 
 r.use((req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));

@@ -16,6 +16,8 @@
    ========================================================================== */
 
 let filtroCaixa = "todas";
+let diaCaixa = null; // fechamento anterior aberto na página do dia: { id, dados, erro }
+let filtroDia = "todos";
 const formatoDinheiro = (texto) => parseFloat(String(texto).replace(/\./g, "").replace(",", ".")) || 0;
 const horaCaixa = (ts) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const dataCaixa = (ts) => new Date(ts).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
@@ -44,23 +46,26 @@ const resumoCorrecao = (c) => `Corrigido por ${c.por} às ${horaCaixa(c.em)}: ${
 /* ---------- 1. TELA DO CAIXA ---------- */
 function renderCaixa() {
   const { aberto, fechamentos } = Fomito.caixa.estado();
+  /* Um dia anterior aberto: a página dele no lugar do caixa de hoje (o caixa de hoje continua igual) */
+  if (diaCaixa) { $('[data-secao="caixa"].secao').innerHTML = paginaDia(); return; }
   $('[data-secao="caixa"].secao').innerHTML = `
     ${aberto ? caixaAberto(aberto) : caixaFechado(fechamentos[0])}
     <div class="card painel-card">
-      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Fechamentos anteriores</h3><span class="pequeno suave">Total de vendas soma todas as formas. Na conferência entram o dinheiro da gaveta e a maquininha do caixa; o Pix fica só de registro.</span></div></div>
+      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Fechamentos anteriores</h3><span class="pequeno suave">Total de vendas soma todas as formas. Na conferência entram o dinheiro da gaveta e a maquininha do caixa; o Pix fica só de registro. Toque num dia para ver tudo dele.</span></div></div>
       <div class="tabela-rolagem">
         <table class="tabela tabela--fechamentos">
-          <thead><tr><th>Dia</th><th class="dir">Total de vendas<br><span class="fraco">todas as formas</span></th><th>Dinheiro na gaveta</th><th>Maquininha do caixa</th><th class="dir">Pix<br><span class="fraco">só registro</span></th><th>Fechado por</th></tr></thead>
+          <thead><tr><th>Dia</th><th class="dir">Total de vendas<br><span class="fraco">todas as formas</span></th><th>Dinheiro na gaveta</th><th>Maquininha do caixa</th><th class="dir">Pix<br><span class="fraco">só registro</span></th><th>Fechado por</th><th></th></tr></thead>
           <tbody>
             ${fechamentos.map((f) => `
-              <tr>
+              <tr class="linha-clicavel fechamento-linha" data-ver-dia="${f.id}" title="Ver tudo deste dia">
                 <td><span class="forte" style="text-transform:capitalize">${dataCaixa(f.abertoEm)}</span><br><span class="num pequeno suave">${horaCaixa(f.abertoEm)} – ${horaCaixa(f.fechadoEm)}</span></td>
                 <td class="dir num forte">${moeda(f.vendas)}</td>
                 <td>${linhaConferida(f.esperado, f.contado, "na gaveta")}</td>
                 <td>${f.cartao ? linhaConferida(f.cartao.esperado.credito + f.cartao.esperado.debito, f.cartao.contado.credito + f.cartao.contado.debito, "no extrato") : `<span class="pequeno fraco">Não conferida</span>`}</td>
                 <td class="dir num suave">${moeda(f.pix ?? f.porForma?.pix ?? 0)}</td>
-                <td class="suave">${f.fechadoPor || f.por}${f.correcoes ? `<br><span class="tag tag--amarelo">${f.correcoes} ${f.correcoes > 1 ? "correções" : "correção"}</span>` : ""}${f.obs ? `<div class="pequeno fraco">“${f.obs}”</div>` : ""}</td>
-              </tr>`).join("") || `<tr><td colspan="6" class="suave" style="text-align:center;padding:24px">Nenhum fechamento ainda.</td></tr>`}
+                <td class="suave">${f.fechadoPor || f.por}${f.correcoes ? `<br><span class="tag tag--amarelo">${f.correcoes} ${f.correcoes > 1 ? "correções" : "correção"}</span>` : ""}${f.obs ? `<div class="pequeno fraco">“${escDia(f.obs)}”</div>` : ""}</td>
+                <td class="dir"><span class="ver-dia">Ver o dia ${icone("seta", "ic--sm")}</span></td>
+              </tr>`).join("") || `<tr><td colspan="7" class="suave" style="text-align:center;padding:24px">Nenhum fechamento ainda.</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -241,7 +246,7 @@ const TIPOS_MOV = {
 let filtroForma = "todas";
 const abertosCaixa = new Set(); // cartões de movimentação abertos (continuam abertos ao atualizar a tela)
 
-function gruposMovimentos(movimentos) {
+function gruposMovimentos(movimentos, cx = Fomito.caixa.aberto() || { garcons: {} }) {
   const grupos = [];
   const porChave = {};
   movimentos.forEach((m) => {
@@ -257,7 +262,6 @@ function gruposMovimentos(movimentos) {
     g.corrigido = g.movs.some((m) => m.correcoes?.length);
     g.formas = [...new Set(g.movs.map((m) => m.forma))];
     /* O que esse cartão mudou na gaveta do balcão */
-    const cx = Fomito.caixa.aberto() || { garcons: {} };
     g.gaveta = g.movs.reduce((s, m) => s + (m.tipo === "sangria" ? -m.valor : m.tipo === "suprimento" ? m.valor : m.forma === "dinheiro" && !Fomito.contasCaixa.destino(cx, m) ? m.valor : 0), 0);
     g.bolsa = Fomito.contasCaixa.destino(cx, g.movs[0]); // entrega → motoboy; mesa de garçom com bolsa → garçom
   });
@@ -286,7 +290,7 @@ function efeitoGrupo(g) {
   return "cai na conta";
 }
 
-function cartaoMovimento(g) {
+function cartaoMovimento(g, leitura = false) {
   const t = TIPOS_MOV[g.tipo] || TIPOS_MOV.balcao;
   const m0 = g.movs[0];
   const gaveta = g.tipo === "sangria" || g.tipo === "suprimento";
@@ -313,12 +317,12 @@ function cartaoMovimento(g) {
             <span class="mov-pag__texto">
               <span class="forte">${g.movs.length > 1 ? `${g.tipo === "comanda" ? "Pessoa" : "Pagamento"} ${i + 1} · ` : ""}${gaveta ? "Dinheiro" : Fomito.caixa.FORMAS_TODAS[m.forma]}${m.forma === "convenio" && m.cliente ? ` · ${m.cliente}` : ""}</span>
               <span class="pequeno fraco">${m.forma === "dinheiro" && !gaveta ? `Deu ${moeda(m.recebido ?? m.valor)} · troco ${moeda(m.troco || 0)} · ` : ""}${horaCaixa(m.hora)} · ${m.por}</span>
-              ${m.correcoes?.length ? `<button class="mov-pag__corr" data-historico="${m.id}">${icone("editar", "ic--sm")} Ver a correção</button>` : ""}
+              ${m.correcoes?.length && !leitura ? `<button class="mov-pag__corr" data-historico="${m.id}">${icone("editar", "ic--sm")} Ver a correção</button>` : ""}
             </span>
             <span class="num forte">${moeda(m.valor)}</span>
-            ${m.forma === "convenio" || m.tipo === "convenio" ? `<span style="width:32px"></span>` : `<button class="btn-icone btn-icone--sm" data-corrigir="${m.id}" aria-label="Corrigir este pagamento" title="Corrigir">${icone("editar", "ic--sm")}</button>`}
+            ${leitura ? "" : m.forma === "convenio" || m.tipo === "convenio" ? `<span style="width:32px"></span>` : `<button class="btn-icone btn-icone--sm" data-corrigir="${m.id}" aria-label="Corrigir este pagamento" title="Corrigir">${icone("editar", "ic--sm")}</button>`}
           </div>`).join("")}
-        ${g.tipo === "comanda" && g.comanda ? `
+        ${leitura ? acoesMovimentoDia(g) : g.tipo === "comanda" && g.comanda ? `
           <div class="mov__acoes">
             <button class="btn btn--contorno btn--sm" data-redividir="${g.comanda}">${icone("equipe", "ic--sm")} Refazer a divisão</button>
             ${Fomito.comandas.fechadas().some((f) => f.numero === g.comanda) ? `<button class="btn btn--contorno btn--sm" data-ver-comanda="${g.comanda}">${icone("conta", "ic--sm")} Ver a comanda</button>` : ""}
@@ -483,6 +487,250 @@ function caixaFechado(ultimo) {
       </div>
       <button class="btn btn--primario" data-abrir-caixa>${icone("dinheiro", "ic--sm")} Abrir caixa</button>
     </div>`;
+}
+
+/* ---------- 1b. PÁGINA DE UM DIA (Fechamentos anteriores → clicar no dia) ----------
+   Tudo daquele caixa, só para consulta: a conferência da gaveta e da maquininha,
+   as bolsas com a conferência de cada uma, as movimentações, as correções e
+   todos os pedidos e mesas do dia (com o detalhe ao tocar). Não muda o caixa de hoje. */
+const escDia = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+const diaLongo = (ts) => { const t = new Date(ts).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }); return t[0].toUpperCase() + t.slice(1); };
+const duracaoDia = (de, ate) => { const min = Math.max(0, Math.round((ate - de) / 60000)); return min >= 60 ? `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}` : `${min} min`; };
+const bateu = (contado, esperado) => Math.abs(contado - esperado) < 0.005;
+
+async function abrirDia(id) {
+  const atual = (diaCaixa = { id, dados: null });
+  filtroDia = "todos";
+  renderCaixa();
+  window.scrollTo({ top: 0 });
+  try { atual.dados = await Fomito.api("GET", `/caixa/fechamentos/${id}`); } catch (err) { atual.erro = err.message; }
+  if (diaCaixa === atual) renderCaixa();
+}
+
+/* Uma linha de conta: rótulo à esquerda, valor à direita */
+const linhaConta = (rotulo, valor, classe = "") => `<div class="entre"><span>${rotulo}</span><span class="num ${classe}">${valor}</span></div>`;
+
+function cartaoBolsaDia(tipo, nome, b) {
+  const t = TIPO_BOLSA[tipo];
+  const f = b.fechamento;
+  const cartoes = b.credito + b.debito;
+  const cartaoF = f?.cartao ? { esperado: f.cartao.esperado.credito + f.cartao.esperado.debito, contado: f.cartao.contado.credito + f.cartao.contado.debito } : null;
+  const ok = f && bateu(f.contado, f.esperado) && (!cartaoF || bateu(cartaoF.contado, cartaoF.esperado));
+  const status = !f ? `<span class="tag tag--cinza">Não conferida</span>` : ok ? `<span class="tag tag--verde">Conferida</span>` : `<span class="tag tag--amarelo">Conferida com diferença</span>`;
+  return `
+    <div class="bolsa-card">
+      <div class="bolsa-card__topo">
+        <span class="avatar-mini">${iniciaisCaixa(nome)}</span>
+        <div class="pilha" style="gap:0;flex:1;min-width:0"><span class="forte">${escDia(nome)}</span><span class="pequeno fraco">${b.qtd} ${t.unidade[b.qtd === 1 ? 0 : 1]}</span></div>
+        ${status}
+      </div>
+      <div class="bolsa-card__duas">
+        <div class="bolsa-mini"><span class="bolsa-mini__rotulo">${icone("dinheiro", "ic--sm")} Dinheiro</span><strong class="num">${moeda(b.esperado)}</strong><span class="pequeno fraco">troco ${moeda(b.fundo)}<br>recebido ${moeda(b.dinheiro)}</span></div>
+        <div class="bolsa-mini"><span class="bolsa-mini__rotulo">${icone("cartao", "ic--sm")} Maquininha</span><strong class="num">${moeda(cartoes)}</strong><span class="pequeno fraco">crédito ${moeda(b.credito)}<br>débito ${moeda(b.debito)}</span></div>
+      </div>
+      ${b.recebido ? `<span class="pequeno fraco">Notas dos clientes ${moeda(b.recebido)} · troco devolvido ${moeda(b.troco)}</span>` : ""}
+      ${b.pix ? `<span class="pequeno fraco">${icone("pix", "ic--sm")} Pix ${moeda(b.pix)}: caiu direto na conta</span>` : ""}
+      ${f ? `
+        <div class="dia-conf">
+          <div class="dia-conf__grade">
+            <span></span><span class="fraco">Deveria</span><span class="fraco">Contado</span><span></span>
+            <span>Dinheiro</span><span class="num">${moeda(f.esperado)}</span><b class="num">${moeda(f.contado)}</b>${tagDiferenca(f.contado, f.esperado)}
+            ${cartaoF ? `<span>Maquininha</span><span class="num">${moeda(cartaoF.esperado)}</span><b class="num">${moeda(cartaoF.contado)}</b>${tagDiferenca(cartaoF.contado, cartaoF.esperado)}` : ""}
+          </div>
+          <span class="pequeno fraco">Conferida por ${escDia(f.por)} às ${horaCaixa(f.em)}${f.ficaParaAmanha ? ` · ficou ${moeda(f.ficaParaAmanha)} de troco` : ""}${f.obs ? ` · “${escDia(f.obs)}”` : ""}</span>
+        </div>` : ""}
+    </div>`;
+}
+
+function bolsasDia(r, tipo) {
+  const bolsas = Object.entries(doTipo(r, tipo));
+  if (!bolsas.length) return "";
+  const t = TIPO_BOLSA[tipo];
+  return `
+    <div class="card painel-card">
+      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>${t.titulo}</h3><span class="pequeno suave">O que cada um levou e trouxe, e a conferência da bolsa.</span></div></div>
+      <div class="bolsas">${bolsas.map(([nome, b]) => cartaoBolsaDia(tipo, nome, b)).join("")}</div>
+    </div>`;
+}
+
+/* Botões dentro do cartão de movimentação do dia: ver o pedido ou a comanda */
+function acoesMovimentoDia(g) {
+  const m = g.movs[0];
+  if (g.tipo === "comanda" && g.comanda && diaCaixa?.dados?.comandas.some((c) => c.numero === g.comanda)) return `<div class="mov__acoes"><button class="btn btn--contorno btn--sm" data-dia-comanda="${g.comanda}">${icone("conta", "ic--sm")} Ver a comanda</button></div>`;
+  if (m.pedido && diaCaixa?.dados?.pedidos.some((p) => p.num === m.pedido)) return `<div class="mov__acoes"><button class="btn btn--contorno btn--sm" data-dia-pedido="${m.pedido}">${icone("pedidos", "ic--sm")} Ver o pedido</button></div>`;
+  return "";
+}
+
+/* Pedidos e mesas do dia numa lista só, do mais recente para o mais antigo */
+function vendasDoDia({ pedidos, comandas, caixa }) {
+  const formaDaComanda = (c) => {
+    const formas = [...new Set((c.pagamentos || []).map((p) => p.forma))];
+    return formas.length ? formas.map((f) => CURTAS[f] || f).join(" + ") : "-";
+  };
+  const linhas = [
+    ...pedidos.map((p) => {
+      const entrega = p.modo === "entrega";
+      const forma = p.pagoCom || p.pag;
+      return {
+        chave: `p${p.num}`, attr: `data-dia-pedido="${p.num}"`, num: `#${p.num}`, hora: p.criadoEm,
+        tipo: entrega ? "entrega" : "balcao", tipoNome: entrega ? "Entrega" : p.retirada ? "Retirada" : "Balcão",
+        quem: p.cliente || "-", sub: entrega && p.motoboy ? `com ${p.motoboy}` : p.retiradoPor ? `entregue por ${p.retiradoPor}` : "",
+        itens: (p.itens || []).map((i) => `${i[1]}× ${i[5] || Fomito.produto(i[0])?.nome || "Item"}`),
+        forma: forma ? (CURTAS[forma] || Fomito.formaPag(forma)?.nome || forma) : "-",
+        cancelado: p.status === "cancelado", status: tagStatus(p.status), total: p.status === "cancelado" ? 0 : Number(p.total) || 0, totalOriginal: Number(p.total) || 0,
+      };
+    }),
+    ...comandas.map((c) => {
+      const liberada = !!c.cancelada;
+      const tirados = (c.cancelamentos || []).reduce((s, x) => s + x.item.qtd, 0);
+      return {
+        chave: `c${c.numero || c.mesa}`, attr: c.numero ? `data-dia-comanda="${c.numero}"` : `data-dia-comanda-mesa="${c.mesa}|${c.abertaEm}"`, num: c.numero ? `#${c.numero}` : "-", hora: c.fechadaEm || c.abertaEm,
+        tipo: "comanda", tipoNome: Fomito.comandas.mesaTexto(c.mesa),
+        quem: c.nome || "Sem nome", sub: c.por ? `conta fechada por ${c.por}` : "",
+        itens: (liberada ? (c.cancelamentos || []).map((x) => x.item) : (c.rodadas || []).flatMap((r) => r.itens)).map((i) => `${i.qtd}× ${i.nome || Fomito.produto(i.id)?.nome || "Item"}`),
+        tirados, forma: liberada ? "-" : `${formaDaComanda(c)}${(c.divisao || 1) > 1 ? ` · ${c.divisao} pessoas` : ""}`,
+        cancelado: liberada, status: liberada ? `<span class="tag tag--cinza">Liberada sem conta</span>` : `<span class="tag tag--verde">Paga</span>`, total: liberada ? 0 : Number(c.total) || 0, totalOriginal: liberada ? (c.cancelamentos || []).reduce((s, x) => s + (x.item.preco || 0) * x.item.qtd, 0) : Number(c.total) || 0,
+      };
+    }),
+  ];
+  return linhas.sort((a, b) => b.hora - a.hora);
+}
+
+function paginaDia() {
+  const voltar = `<button class="btn btn--contorno btn--sm" data-voltar-caixa>${icone("voltar", "ic--sm")} Voltar ao caixa de hoje</button>`;
+  if (!diaCaixa.dados) return `
+    <div class="card painel-card dia-carregando">${voltar}<p class="suave">${diaCaixa.erro ? escDia(diaCaixa.erro) : "Carregando o fechamento…"}</p></div>`;
+  const { caixa: f, pedidos, comandas } = diaCaixa.dados;
+  const r = Fomito.contasCaixa.resumo(f);
+  const todasBolsas = [...Object.values(r.bolsas), ...Object.values(r.bolsasGarcons)];
+  const dinheiroBolsas = todasBolsas.reduce((s, b) => s + b.dinheiro, 0);
+  const cartoesBolsas = todasBolsas.reduce((s, b) => s + b.credito + b.debito, 0);
+  const pix = f.pix ?? r.gaveta.pix + todasBolsas.reduce((s, b) => s + b.pix, 0);
+  const esperado = f.esperado ?? r.esperado;
+  const cartao = f.cartao || null;
+  const maqEsperado = cartao ? cartao.esperado.credito + cartao.esperado.debito : r.cartoesEsperado.credito + r.cartoesEsperado.debito;
+  const maqContado = cartao ? cartao.contado.credito + cartao.contado.debito : null;
+  const okDinheiro = bateu(f.contado, esperado);
+  const okMaq = !cartao || bateu(maqContado, maqEsperado);
+  const ticket = r.qtdVendas ? r.vendas / r.qtdVendas : 0;
+  const somaTipo = (tipos) => f.movimentos.filter((m) => tipos.includes(m.tipo)).reduce((s, m) => s + m.valor, 0);
+  const contaTipo = (tipos) => new Set(f.movimentos.filter((m) => tipos.includes(m.tipo)).map((m) => m.comanda || m.pedido || m.id)).size;
+  const vendas = vendasDoDia(diaCaixa.dados);
+  const cancelados = vendas.filter((v) => v.cancelado);
+  const filtros = { todos: () => true, entrega: (v) => v.tipo === "entrega" && !v.cancelado, balcao: (v) => v.tipo === "balcao" && !v.cancelado, comanda: (v) => v.tipo === "comanda" && !v.cancelado, cancelados: (v) => v.cancelado };
+  if (!filtros[filtroDia]) filtroDia = "todos";
+  const lista = vendas.filter(filtros[filtroDia]);
+  const nomesFiltro = [["todos", "Tudo"], ["entrega", "Entregas"], ["balcao", "Balcão e retirada"], ["comanda", "Mesas"], ["cancelados", "Cancelados"]].filter(([id]) => id === "todos" || vendas.some(filtros[id]));
+  const grupos = gruposMovimentos(f.movimentos, f);
+  const correcoes = Fomito.caixa.correcoes(f);
+
+  return `
+    <div class="card dia-topo">
+      <div class="dia-topo__linha">${voltar}<span class="tag tag--cinza">${icone("cadeado", "ic--sm")} Caixa fechado</span></div>
+      <div class="dia-topo__titulo">
+        <div class="pilha" style="gap:4px;min-width:0">
+          <span class="dia-topo__sobre">Fechamento do caixa</span>
+          <h2 class="dia-topo__dia">${diaLongo(f.abertoEm)}</h2>
+          <span class="pequeno suave">Aberto às ${horaCaixa(f.abertoEm)} por ${escDia(f.por || "-")} · fechado às ${horaCaixa(f.fechadoEm)} por ${escDia(f.fechadoPor || "-")}${f.fechadoEm - f.abertoEm >= 60000 ? ` · ${duracaoDia(f.abertoEm, f.fechadoEm)} de caixa` : ""}</span>
+        </div>
+        <div class="dia-topo__resultado ${okDinheiro && okMaq ? "dia-topo__resultado--ok" : "dia-topo__resultado--dif"}">
+          <span class="pequeno">Resultado do fechamento</span>
+          <strong>${okDinheiro && okMaq ? "Tudo bateu" : "Fechou com diferença"}</strong>
+          <span class="linha" style="gap:6px;flex-wrap:wrap">${tagDiferenca(f.contado, esperado).replace(">", ">Gaveta: ")}${cartao ? tagDiferenca(maqContado, maqEsperado).replace(">", ">Maquininha: ") : ""}</span>
+        </div>
+      </div>
+      ${f.obs ? `<div class="dia-obs">${icone("info", "ic--sm")}<span><b>Observação de quem fechou:</b> “${escDia(f.obs)}”</span></div>` : ""}
+    </div>
+
+    <div class="kpis kpis--caixa">
+      <div class="card kpi"><div class="kpi__rotulo">Total de vendas${icone("moeda")}</div><div class="kpi__valor">${moeda(r.vendas)}</div><span class="variacao">todas as formas · ${r.qtdVendas} pagamentos · ticket ${moeda(ticket)}</span></div>
+      <div class="card kpi kpi--destaque"><div class="kpi__rotulo">Dinheiro na gaveta${icone("dinheiro")}</div><div class="kpi__valor">${moeda(f.contado)}</div><span class="variacao">contado · deveria ter ${moeda(esperado)}</span></div>
+      <div class="card kpi kpi--destaque"><div class="kpi__rotulo">Maquininha do caixa${icone("cartao")}</div><div class="kpi__valor">${cartao ? moeda(maqContado) : "—"}</div><span class="variacao">${cartao ? `extrato · deveria ${moeda(maqEsperado)}` : `não conferida · deveria ${moeda(maqEsperado)}`}</span></div>
+      <div class="card kpi"><div class="kpi__rotulo">Nas bolsas${icone("entrega")}</div><div class="kpi__valor">${moeda(dinheiroBolsas + cartoesBolsas)}</div><span class="variacao">dinheiro ${moeda(dinheiroBolsas)} · maquininhas ${moeda(cartoesBolsas)}</span></div>
+      <div class="card kpi"><div class="kpi__rotulo">Pix${icone("pix")}</div><div class="kpi__valor">${moeda(pix)}</div><span class="variacao">caiu direto na conta · só registro</span></div>
+    </div>
+
+    <div class="grade-caixa">
+      <div class="card painel-card">
+        <div class="pilha" style="gap:2px"><h3>Conferência do caixa</h3><span class="pequeno suave">Como o sistema chegou nos valores e o que foi contado.</span></div>
+        <div class="conferir-bloco">
+          <span class="conferir-bloco__titulo">${icone("dinheiro", "ic--sm")} Dinheiro na gaveta</span>
+          <div class="conferencia">
+            ${linhaConta("Dinheiro inicial", moeda(f.fundo || 0))}
+            ${linhaConta("+ Notas que os clientes deram", moeda(r.gaveta.recebido))}
+            ${linhaConta("− Troco devolvido", moeda(r.gaveta.troco), "valor-saida")}
+            ${r.convenioDinheiro ? linhaConta("+ Convênios recebidos em dinheiro", moeda(r.convenioDinheiro)) : ""}
+            ${linhaConta("+ Dinheiro colocado", moeda(r.suprimentos))}
+            ${linhaConta("− Dinheiro tirado", moeda(r.sangrias), "valor-saida")}
+            <div class="entre conferencia__total"><span>Deveria ter no caixa (dinheiro)</span><span class="num">${moeda(esperado)}</span></div>
+            ${linhaConta("Contado na gaveta", `<b>${moeda(f.contado)}</b>`)}
+            <div class="entre"><span>Resultado</span>${tagDiferenca(f.contado, esperado)}</div>
+          </div>
+        </div>
+        <div class="conferir-bloco">
+          <span class="conferir-bloco__titulo">${icone("cartao", "ic--sm")} Maquininha do caixa</span>
+          <div class="conferencia">
+            ${cartao ? `
+              <div class="dia-maq"><span></span><span class="fraco">Deveria</span><span class="fraco">Extrato</span></div>
+              <div class="dia-maq"><span>Crédito</span><span class="num">${moeda(cartao.esperado.credito)}</span><span class="num forte">${moeda(cartao.contado.credito)}</span></div>
+              <div class="dia-maq"><span>Débito</span><span class="num">${moeda(cartao.esperado.debito)}</span><span class="num forte">${moeda(cartao.contado.debito)}</span></div>
+              <div class="entre conferencia__total"><span>Resultado</span>${tagDiferenca(maqContado, maqEsperado)}</div>`
+            : `${linhaConta("Crédito", moeda(r.cartoesEsperado.credito))}${linhaConta("Débito", moeda(r.cartoesEsperado.debito))}<span class="pequeno fraco">Este caixa foi fechado antes da conferência da maquininha.</span>`}
+          </div>
+        </div>
+      </div>
+      <div class="card painel-card">
+        <h3>Por forma de pagamento</h3>
+        ${Object.entries(r.porForma).filter(([, v]) => v).map(([forma, valor]) => `
+          <div class="barra-cat">
+            <div class="entre pequeno"><span>${Fomito.caixa.FORMAS_TODAS[forma] || forma}</span><span class="num">${moeda(valor)} <span class="fraco">${r.vendas ? Math.round((valor / r.vendas) * 100) : 0}%</span></span></div>
+            <div class="barra-cat__trilho"><span style="width:${r.vendas ? (valor / r.vendas) * 100 : 0}%"></span></div>
+          </div>`).join("") || `<span class="pequeno suave">Nenhuma venda neste caixa.</span>`}
+        <div class="conferir-bloco">
+          <span class="conferir-bloco__titulo">${icone("sacola", "ic--sm")} De onde veio</span>
+          <div class="conferencia">
+            ${linhaConta(`Mesas <span class="fraco">(${contaTipo(["comanda"])})</span>`, moeda(somaTipo(["comanda"])))}
+            ${linhaConta(`Balcão e retirada <span class="fraco">(${contaTipo(["balcao"])})</span>`, moeda(somaTipo(["balcao"])))}
+            ${linhaConta(`Entregas <span class="fraco">(${contaTipo(["entrega"])})</span>`, moeda(somaTipo(["entrega"])))}
+            ${r.recebidoConvenio ? linhaConta("Convênios recebidos (não é venda nova)", moeda(r.recebidoConvenio)) : ""}
+            ${cancelados.length ? linhaConta(`Cancelados <span class="fraco">(${cancelados.length}, não entram)</span>`, moeda(cancelados.reduce((s, v) => s + v.totalOriginal, 0)), "fraco") : ""}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${bolsasDia(r, "motoboy")}
+    ${bolsasDia(r, "garcom")}
+
+    <div class="card painel-card">
+      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Pedidos e mesas do dia</h3><span class="pequeno suave">${lista.length} de ${vendas.length} · toque para ver o pedido completo</span></div></div>
+      <nav class="filtros">${nomesFiltro.map(([id, nome]) => `<button class="filtro ${filtroDia === id ? "ativo" : ""}" data-filtro-dia="${id}">${nome} <small>${vendas.filter(filtros[id]).length}</small></button>`).join("")}</nav>
+      <div class="tabela-rolagem">
+        <table class="tabela tabela--dia">
+          <thead><tr><th>Nº</th><th>Hora</th><th>Tipo</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Situação</th><th class="dir">Total</th></tr></thead>
+          <tbody>
+            ${lista.map((v) => `
+              <tr class="linha-clicavel ${v.cancelado ? "linha-cancelada" : ""}" ${v.attr} title="Ver o detalhe">
+                <td class="num forte">${v.num}</td>
+                <td class="num suave">${horaCaixa(v.hora)}</td>
+                <td><span class="tipo-dia tipo-dia--${v.tipo}">${icone(v.tipo === "entrega" ? "entrega" : v.tipo === "comanda" ? "mesa" : "loja", "ic--sm")} ${escDia(v.tipoNome)}</span></td>
+                <td><span class="forte">${escDia(v.quem)}</span>${v.sub ? `<br><span class="pequeno fraco">${escDia(v.sub)}</span>` : ""}</td>
+                <td class="pequeno dia-itens">${escDia(v.itens.slice(0, 3).join(", "))}${v.itens.length > 3 ? ` <span class="fraco">+${v.itens.length - 3}</span>` : ""}${v.tirados ? `<br><span class="tag tag--amarelo">${v.tirados} ${v.tirados > 1 ? "itens tirados" : "item tirado"}</span>` : ""}</td>
+                <td class="pequeno">${escDia(v.forma)}</td>
+                <td>${v.status}</td>
+                <td class="dir num forte">${v.cancelado ? `<s class="fraco">${moeda(v.totalOriginal)}</s>` : moeda(v.total)}</td>
+              </tr>`).join("") || `<tr><td colspan="8" class="suave" style="text-align:center;padding:24px">Nada neste filtro.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card painel-card">
+      <div class="painel-card__topo"><div class="pilha" style="gap:2px"><h3>Movimentações do caixa</h3><span class="pequeno suave">${grupos.length} · cada pagamento, com o que o cliente deu e o troco, e o dinheiro colocado e tirado</span></div></div>
+      <div class="movs">${grupos.map((g) => cartaoMovimento(g, true)).join("") || `<div class="suave pequeno" style="text-align:center;padding:24px">Nenhuma movimentação.</div>`}</div>
+    </div>
+    ${blocoCorrecoes(correcoes)}
+    <div class="dia-rodape">${voltar}</div>`;
 }
 
 /* ---------- 2. JANELAS ---------- */
@@ -766,6 +1014,20 @@ async function janelaRedividir(numero) {
 /* ---------- 3. CLIQUES ---------- */
 document.addEventListener("click", (e) => {
   if (!$('[data-secao="caixa"].secao')?.contains(e.target)) return;
+  /* Página de um dia anterior */
+  const dia = e.target.closest("[data-ver-dia]");
+  if (dia) return abrirDia(Number(dia.dataset.verDia));
+  if (e.target.closest("[data-voltar-caixa]")) { diaCaixa = null; renderCaixa(); return window.scrollTo({ top: 0 }); }
+  const filtroD = e.target.closest("[data-filtro-dia]");
+  if (filtroD) { filtroDia = filtroD.dataset.filtroDia; return renderCaixa(); }
+  const pedidoDia = e.target.closest("[data-dia-pedido]");
+  if (pedidoDia && diaCaixa?.dados) return abrirPedido(null, diaCaixa.dados.pedidos.find((p) => p.num === Number(pedidoDia.dataset.diaPedido)));
+  const comandaDia = e.target.closest("[data-dia-comanda], [data-dia-comanda-mesa]");
+  if (comandaDia && diaCaixa?.dados) {
+    const [mesa, aberta] = (comandaDia.dataset.diaComandaMesa || "").split("|").map(Number);
+    const c = diaCaixa.dados.comandas.find((x) => (comandaDia.dataset.diaComanda ? x.numero === Number(comandaDia.dataset.diaComanda) : x.mesa === mesa && x.abertaEm === aberta));
+    return c && abrirComandaFechada(c.numero, c, diaCaixa.dados.caixa.movimentos);
+  }
   const filtro = e.target.closest("[data-filtro-caixa]");
   if (filtro) { filtroCaixa = filtro.dataset.filtroCaixa; return renderCaixa(); }
   const forma = e.target.closest("[data-filtro-forma]");
@@ -795,3 +1057,6 @@ document.addEventListener("toggle", (e) => {
   if (!d.matches?.("details.mov")) return;
   if (d.open) abertosCaixa.add(d.dataset.mov); else abertosCaixa.delete(d.dataset.mov);
 }, true);
+
+/* Tocar em Caixa no menu volta sempre para o caixa de hoje */
+document.addEventListener("click", (e) => { if (e.target.closest('.menu__item[data-secao="caixa"]')) diaCaixa = null; }, true);

@@ -9,8 +9,10 @@
 const hora = (ts) => Fomito.pedidos.hora(ts);
 
 /* ---------- 1. DETALHE DO PEDIDO ---------- */
-function abrirPedido(num) {
-  const p = Fomito.pedidos.doNumero(num);
+/* "pedido" vem quando é de um dia anterior (Caixa → Fechamentos anteriores): só leitura, sem ações */
+function abrirPedido(num, pedido) {
+  const antigo = !!pedido;
+  const p = antigo ? Fomito.pedidos.completar(pedido) : Fomito.pedidos.doNumero(num);
   const forma = Fomito.formaPag(p.pag) || { icone: "dinheiro", nome: "Pagamento" };
   const entrega = p.modo === "entrega";
   const subtotalPedido = p.itens.reduce((s, item) => s + precoItem(item), 0);
@@ -36,7 +38,7 @@ function abrirPedido(num) {
       <div class="folha__topo">
         <div class="pilha" style="gap:4px">
           <h2 class="num">Pedido #${p.num}</h2>
-          <span class="linha" style="gap:6px">${tagStatus(p.status)}<span class="tag ${entrega ? "tag--roxo" : "tag--cinza"}">${entrega ? "Entrega" : "Balcão"}</span><span class="pequeno fraco">às ${hora(p.criadoEm)}</span></span>
+          <span class="linha" style="gap:6px">${tagStatus(p.status)}<span class="tag ${entrega ? "tag--roxo" : "tag--cinza"}">${entrega ? "Entrega" : "Balcão"}</span><span class="pequeno fraco">${antigo ? new Date(p.criadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " às") : `às ${hora(p.criadoEm)}`}</span></span>
         </div>
         <button class="btn-icone" data-fechar aria-label="Fechar">${icone("fechar")}</button>
       </div>
@@ -65,9 +67,9 @@ function abrirPedido(num) {
           const nomesExtras = Fomito.todosAdicionaisDo(prod).filter((a) => extras.includes(a.id));
           return `
             <div class="item-pedido">
-              ${Fomito.foto(prod, 40)}
+              ${prod ? Fomito.foto(prod, 40) : ""}
               <div class="pilha" style="gap:1px;flex:1;min-width:0">
-                <span class="forte">${qtd}× ${item[5] || prod.nome}</span>
+                <span class="forte">${qtd}× ${item[5] || prod?.nome || "Item"}</span>
                 ${nomesExtras.map((a) => `<span class="pequeno suave">+ ${a.nome}</span>`).join("")}
                 ${obs ? `<span class="pequeno obs">Obs.: ${obs}</span>` : ""}
               </div>
@@ -108,11 +110,11 @@ function abrirPedido(num) {
           ${mensagens.map((m) => `<div class="linha pequeno" style="gap:8px;color:#15803D">${icone("whatsapp", "ic--sm")}${m}</div>`).join("")}
         </div>` : ""}
 
-      <div class="acoes-pedido">
+      ${antigo ? `<button class="btn btn--contorno btn--bloco" data-fechar>Fechar</button>` : `<div class="acoes-pedido">
         <button class="btn btn--contorno" data-fechar data-cupom="${p.num}">${icone("impressora", "ic--sm")} Imprimir</button>
         ${!["concluido", "cancelado"].includes(p.status) ? `<button class="btn btn--contorno" data-fechar data-cancelar-pedido="${p.num}" style="color:var(--vermelho-escuro)">Cancelar</button>` : ""}
         ${acao ? `<button class="btn btn--primario" data-fechar data-avancar="${p.num}" style="flex:1">${acao.texto}</button>` : ""}
-      </div>
+      </div>`}
     </div>`;
   document.body.appendChild(camada);
   camada.addEventListener("click", (e) => {

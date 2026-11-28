@@ -230,6 +230,35 @@ async function corrigirMovimento(id, novo, { motivo }, por) {
 }
 
 /**
+ * Um fechamento anterior completo (Caixa → Fechamentos anteriores → clicar no dia):
+ * o caixa como foi fechado e tudo que aconteceu nele (pedidos, mesas e cancelados).
+ * Entram os pedidos e as mesas do período em que o caixa ficou aberto e também os
+ * que foram pagos nele (ex.: pedido feito antes de abrir o caixa).
+ */
+async function fechamentoCompleto(id) {
+  if (!Number.isInteger(id)) falhar(404, 'Fechamento não encontrado.');
+  const { rows } = await db.query('SELECT id, dados, aberto_em, fechado_em FROM caixas WHERE id = $1 AND NOT aberto', [id]);
+  if (!rows[0]) falhar(404, 'Fechamento não encontrado.');
+  const cx = rows[0];
+  const movs = cx.dados.movimentos || [];
+  const nums = [...new Set(movs.map((m) => Number(m.pedido)).filter(Number.isInteger))];
+  const numeros = [...new Set(movs.map((m) => Number(m.comanda)).filter(Number.isInteger))];
+  const de = cx.aberto_em, ate = cx.fechado_em || new Date();
+  const { rows: pedidos } = await db.query(
+    'SELECT * FROM pedidos WHERE (criado_em BETWEEN $1 AND $2) OR num = ANY($3::int[]) ORDER BY criado_em', [de, ate, nums]);
+  const { rows: comandas } = await db.query(
+    'SELECT * FROM comandas WHERE NOT aberta AND ((fechada_em BETWEEN $1 AND $2) OR numero = ANY($3::int[])) ORDER BY fechada_em', [de, ate, numeros]);
+  return {
+    caixa: { ...cx.dados, id: cx.id },
+    pedidos: pedidos.map(pedidoDaLinha),
+    comandas: comandas.map((linha) => {
+      const c = comandaDaLinha(linha);
+      return { ...c, abertaEm: c.abertaEm || new Date(linha.aberta_em).getTime(), fechadaEm: c.fechadaEm || new Date(linha.fechada_em).getTime() };
+    }),
+  };
+}
+
+/**
  * Fecha o caixa: confere o dinheiro da gaveta e o extrato da maquininha do balcão (crédito e débito).
  * Antes, todas as bolsas (motoboys e garçons) precisam estar conferidas e ninguém pode estar na rua.
  * Pix não se confere aqui: fica só registrado.
@@ -844,6 +873,7 @@ async function enviarExtratoConvenio(telefone, textoExtrato) {
 }
 
 module.exports = {
+  fechamentoCompleto,
   definirConvenio, listarConvenios, extratoConvenio, receberConvenio, enviarExtratoConvenio, estornarConvenio,
   mesaTexto, pedidoDaLinha, comandaDaLinha,
   abrirCaixa, movimentoCaixa, corrigirMovimento, redividirComanda, fecharCaixa, trocoBolsa, fecharBolsa,

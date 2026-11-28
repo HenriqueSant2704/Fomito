@@ -80,5 +80,5 @@ window.Fomito = window.Fomito || {};
   };
   const hora = (ts) => (ts ? new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "-");
 
-  Fomito.pedidos = { lista, doNumero, entregas, porBairro, criar, avancar, cancelar, sairParaEntrega, concluirEntrega, total, precoItem, qtdItens, textoEndereco, STATUS, hora };
+  Fomito.pedidos = { lista, doNumero, completar, entregas, porBairro, criar, avancar, cancelar, sairParaEntrega, concluirEntrega, total, precoItem, qtdItens, textoEndereco, STATUS, hora };
 })();
