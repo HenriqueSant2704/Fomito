@@ -117,29 +117,116 @@ $("#lojaAberta").addEventListener("change", async (e) => {
 });
 
 /* ---------- 3. VISÃO GERAL ---------- */
+/* Gráfico de faturamento: escolha o período (Hoje por hora, 7 dias, 30 dias).
+   Passando o mouse (ou o dedo), a bolinha corre pela linha e mostra a data e o valor daquele ponto. */
+const PERIODOS_GRAFICO = {
+  hoje:   { botao: "Hoje",    titulo: "Faturamento de hoje, por hora", media: "por hora" },
+  semana: { botao: "7 dias",  titulo: "Faturamento dos últimos 7 dias", media: "por dia" },
+  mes:    { botao: "30 dias", titulo: "Faturamento dos últimos 30 dias", media: "por dia" },
+};
+let periodoGrafico = (() => { try { return PERIODOS_GRAFICO[localStorage.getItem("fomito.periodoGrafico")] ? localStorage.getItem("fomito.periodoGrafico") : "semana"; } catch { return "semana"; } })();
+const GRAF = { L: 640, A: 210, m: { e: 48, d: 14, t: 16, b: 28 } };
+
+/* Topo do eixo arredondado para um número "bonito" (100, 250, 500, 1 mil, 2,5 mil...) */
+function topoDoEixo(maior) {
+  if (maior <= 0) return 100;
+  const passo = 10 ** Math.floor(Math.log10(maior));
+  const fator = [1, 2, 2.5, 5, 10].find((f) => f * passo >= maior);
+  return fator * passo;
+}
+const valorDoEixo = (v) => v >= 1000 ? `${String(+(v / 1000).toFixed(1)).replace(".", ",")} mil` : String(Math.round(v));
+
 function graficoLinha(pontos) {
-  const L = 640, A = 210, m = { e: 40, d: 12, t: 16, b: 28 };
-  const max = Math.max(1000, Math.ceil(Math.max(...pontos.map((p) => p.valor)) / 1000) * 1000);
-  const x = (i) => m.e + (i * (L - m.e - m.d)) / (pontos.length - 1);
+  const { L, A, m } = GRAF;
+  const max = topoDoEixo(Math.max(...pontos.map((p) => p.valor)));
+  const x = (i) => m.e + (i * (L - m.e - m.d)) / Math.max(1, pontos.length - 1);
   const y = (v) => m.t + (1 - v / max) * (A - m.t - m.b);
   const linha = pontos.map((p, i) => `${i ? "L" : "M"}${x(i)},${y(p.valor)}`).join(" ");
   const area = `${linha} L${x(pontos.length - 1)},${A - m.b} L${x(0)},${A - m.b} Z`;
-  const ultimo = pontos.length - 1;
   const grades = [0, max / 2, max].map((v) => `
     <line x1="${m.e}" x2="${L - m.d}" y1="${y(v)}" y2="${y(v)}" stroke="var(--borda)" stroke-dasharray="${v ? "3 4" : "0"}" />
-    <text x="${m.e - 10}" y="${y(v) + 4}" text-anchor="end">${v ? `${String(v / 1000).replace(".", ",")} mil` : "0"}</text>`).join("");
+    <text x="${m.e - 10}" y="${y(v) + 4}" text-anchor="end">${v ? valorDoEixo(v) : "0"}</text>`).join("");
+  /* Com muitos pontos (30 dias, horas) mostra só alguns rótulos para não amontoar */
+  const salto = pontos.length > 16 ? Math.ceil(pontos.length / 8) : pontos.length > 9 ? 2 : 1;
+  const mostraRotulo = (i) => (pontos.length - 1 - i) % salto === 0;
+  const rotulo = (p) => pontos.length > 9 && p.rotulo !== "Hoje" && /\//.test(p.data) ? p.data : p.rotulo;
+  const ultimo = pontos.length - 1;
+  /* Bolinha e etiqueta ficam por cima em HTML: o SVG estica (preserveAspectRatio="none") e a bolinha viraria oval */
+  const pct = (i) => ({ e: (x(i) / L) * 100, t: (y(pontos[i].valor) / A) * 100 });
+  const fixo = pct(ultimo);
 
   return `
-    <svg viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Vendas dos últimos 7 dias">
+    <svg viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="${PERIODOS_GRAFICO[periodoGrafico].titulo}">
       <defs><linearGradient id="gArea" x1="0" x2="0" y1="0" y2="1">
         <stop offset="0" stop-color="#4B2B8F" stop-opacity=".14"/><stop offset="1" stop-color="#4B2B8F" stop-opacity="0"/>
       </linearGradient></defs>
       ${grades}
       <path d="${area}" fill="url(#gArea)"/>
       <path d="${linha}" fill="none" stroke="var(--roxo)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
-      ${pontos.map((p, i) => `<text x="${x(i)}" y="${A - 6}" text-anchor="middle">${p.dia}</text>`).join("")}
-      <circle cx="${x(ultimo)}" cy="${y(pontos[ultimo].valor)}" r="5" fill="var(--laranja)" stroke="#fff" stroke-width="2"><title>${pontos[ultimo].dia}: ${moeda(pontos[ultimo].valor)}</title></circle>
-    </svg>`;
+      ${pontos.map((p, i) => mostraRotulo(i) ? `<text x="${x(i)}" y="${A - 6}" text-anchor="middle">${rotulo(p)}</text>` : "").join("")}
+      <line class="grafico__guia" x1="0" x2="0" y1="${m.t}" y2="${A - m.b}" stroke="var(--roxo)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" style="display:none"/>
+    </svg>
+    <span class="grafico__ponto grafico__ponto--fixo" style="left:${fixo.e}%;top:${fixo.t}%"></span>
+    <span class="grafico__ponto grafico__ponto--mouse" hidden></span>
+    <div class="grafico__dica" hidden></div>`;
+}
+
+/* Liga o "passar o mouse": acha o ponto mais perto e move a bolinha, a linha-guia e a etiqueta */
+function ligarDicaGrafico(caixa, pontos) {
+  const { L, A, m } = GRAF;
+  const max = topoDoEixo(Math.max(...pontos.map((p) => p.valor)));
+  const passo = (L - m.e - m.d) / Math.max(1, pontos.length - 1);
+  const ponto = caixa.querySelector(".grafico__ponto--mouse");
+  const dica = caixa.querySelector(".grafico__dica");
+  const guia = caixa.querySelector(".grafico__guia");
+  const mostrar = (i) => {
+    const p = pontos[i];
+    const xv = m.e + i * passo, yv = m.t + (1 - p.valor / max) * (A - m.t - m.b);
+    const esq = (xv / L) * 100, topo = (yv / A) * 100;
+    ponto.hidden = false; dica.hidden = false; guia.style.display = "";
+    ponto.style.left = `${esq}%`; ponto.style.top = `${topo}%`;
+    guia.setAttribute("x1", xv); guia.setAttribute("x2", xv);
+    dica.innerHTML = `<span class="grafico__dica-data">${p.titulo}</span><strong>${moeda(p.valor)}</strong><span class="grafico__dica-vendas">${p.vendas ? `${p.vendas} ${p.vendas === 1 ? "venda" : "vendas"}` : "Sem vendas"}</span>`;
+    dica.style.left = `${esq}%`; dica.style.top = `${topo}%`;
+    /* Perto das bordas a etiqueta vira para dentro, para não sair do cartão */
+    dica.classList.toggle("grafico__dica--esq", esq > 78);
+    dica.classList.toggle("grafico__dica--dir", esq < 22);
+    dica.classList.toggle("grafico__dica--baixo", topo < 30);
+  };
+  const esconder = () => { ponto.hidden = true; dica.hidden = true; guia.style.display = "none"; };
+  const mover = (e) => {
+    const r = caixa.getBoundingClientRect();
+    const xv = ((e.clientX - r.left) / r.width) * L;
+    mostrar(Math.min(pontos.length - 1, Math.max(0, Math.round((xv - m.e) / passo))));
+  };
+  caixa.addEventListener("pointermove", mover);
+  caixa.addEventListener("pointerdown", mover);
+  caixa.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") esconder(); });
+}
+
+function renderGrafico() {
+  const alvo = $("#cardGrafico");
+  if (!alvo) return;
+  const g = relatorio().grafico || {};
+  const pontos = (g[periodoGrafico] || []).length ? g[periodoGrafico] : [{ rotulo: "Hoje", data: "", titulo: "Hoje", valor: 0, vendas: 0 }, { rotulo: "", data: "", titulo: "", valor: 0, vendas: 0 }];
+  const per = PERIODOS_GRAFICO[periodoGrafico];
+  const total = pontos.reduce((s, d) => s + d.valor, 0);
+  const melhor = pontos.reduce((a, b) => (b.valor > a.valor ? b : a), pontos[0]);
+  alvo.innerHTML = `
+    <div class="painel-card__topo grafico__topo">
+      <div class="pilha"><h3>${per.titulo}</h3>
+        <span class="pequeno suave">Total de <b class="num">${moeda(total)}</b> · média de ${moeda(total / pontos.length)} ${per.media}${melhor.valor > 0 ? ` · melhor: ${melhor.titulo.replace(/^Hoje, /, "")} (${moeda(melhor.valor)})` : ""}</span></div>
+      <div class="segmentado segmentado--sm" role="tablist" aria-label="Período do gráfico">
+        ${Object.entries(PERIODOS_GRAFICO).map(([id, p]) => `<button type="button" role="tab" data-periodo="${id}" class="${id === periodoGrafico ? "ativo" : ""}" aria-selected="${id === periodoGrafico}">${p.botao}</button>`).join("")}
+      </div>
+    </div>
+    <div class="grafico">${graficoLinha(pontos)}</div>`;
+  ligarDicaGrafico(alvo.querySelector(".grafico"), pontos);
+  alvo.querySelectorAll("[data-periodo]").forEach((b) => b.addEventListener("click", () => {
+    periodoGrafico = b.dataset.periodo;
+    try { localStorage.setItem("fomito.periodoGrafico", periodoGrafico); } catch {}
+    renderGrafico();
+  }));
 }
 
 /* Comparação com ontem: "+12% vs. ontem". menorMelhor = tempo de preparo (cair é bom) */
@@ -160,7 +247,6 @@ function renderDashboard() {
     { rotulo: "Ticket médio", valor: moeda(h.ticket || 0), icone: "alvo", v: variacao(h.ticket, o.ticket) },
     { rotulo: "Tempo médio de preparo", valor: h.preparo != null ? `${h.preparo} min` : "-", icone: "relogio", v: variacao(h.preparo, o.preparo, true) },
   ];
-  const vendasSemana = r.semana.length ? r.semana : [{ dia: "Hoje", valor: 0 }, { dia: "", valor: 0 }];
   const categorias = r.categorias;
   const maisVendidos = r.maisVendidos;
 
@@ -175,12 +261,7 @@ function renderDashboard() {
     </div>
 
     <div class="duas-colunas">
-      <div class="card painel-card">
-        <div class="painel-card__topo">
-          <div class="pilha"><h3>Faturamento dos últimos 7 dias</h3><span class="pequeno suave">Total de ${moeda(vendasSemana.reduce((s, d) => s + d.valor, 0))}</span></div>
-        </div>
-        <div class="grafico">${graficoLinha(vendasSemana)}</div>
-      </div>
+      <div class="card painel-card" id="cardGrafico"></div>
       <div class="card painel-card">
         <h3>Vendas por categoria <span class="pequeno fraco" style="font-weight:400">hoje</span></h3>
         ${categorias.map(([nome, pct]) => `
@@ -218,6 +299,7 @@ function renderDashboard() {
         </div>
       </div>
     </div>`;
+  renderGrafico();
 }
 
 function tagStatus(status) {

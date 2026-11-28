@@ -86,9 +86,11 @@ async function calcularClientes() {
   });
 }
 
-/** Números da Visão geral: hoje, ontem, últimos 7 dias, categorias e mais vendidos. */
+/** Números da Visão geral: hoje, ontem, o gráfico (hoje por hora, 7 e 30 dias), categorias e mais vendidos. */
+const DIAS_CURTOS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const dataCurta = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 async function relatorio(cardapio) {
-  const inicio = inicioDoDia(7);
+  const inicio = inicioDoDia(29); // o gráfico do mês volta 30 dias (hoje incluído)
   const { rows: pedidos } = await db.query(`SELECT dados, total, status, modo, criado_em FROM pedidos WHERE status <> 'cancelado' AND criado_em >= $1`, [inicio]);
   const { rows: comandas } = await db.query('SELECT dados, total, aberta, aberta_em, fechada_em FROM comandas WHERE (fechada_em >= $1 AND NOT (dados ? \'cancelada\')) OR aberta', [inicio]);
   const dia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
@@ -104,12 +106,12 @@ async function relatorio(cardapio) {
       if (p.dados.prontoEm) vendas.push({ dia: dia(p.criado_em), valor: 0, canal: null, concluido: false, preparo: (p.dados.prontoEm - p.dados.criadoEm) / 60000, itens: [], soPreparo: true });
       continue;
     }
-    vendas.push({ dia: dia(p.dados.entregueEm || p.criado_em), valor: Number(p.total), canal: p.modo === 'entrega' ? 'entrega' : 'local', concluido: true,
+    vendas.push({ dia: dia(p.dados.entregueEm || p.criado_em), hora: new Date(p.dados.entregueEm || p.criado_em).getHours(), valor: Number(p.total), canal: p.modo === 'entrega' ? 'entrega' : 'local', concluido: true,
       preparo: p.dados.prontoEm ? (p.dados.prontoEm - p.dados.criadoEm) / 60000 : null,
       itens: p.dados.itens.map(([id, qtd, , , preco]) => ({ id, qtd, valor: (preco || 0) * qtd })) });
   }
   for (const c of comandas) {
-    if (!c.aberta) vendas.push({ dia: dia(c.fechada_em), valor: Number(c.total), canal: 'local', concluido: true,
+    if (!c.aberta) vendas.push({ dia: dia(c.fechada_em), hora: new Date(c.fechada_em).getHours(), valor: Number(c.total), canal: 'local', concluido: true,
       preparo: null, itens: c.dados.rodadas.flatMap((r) => r.itens.map((i) => ({ id: i.id, qtd: i.qtd, valor: i.preco * i.qtd }))) });
     c.dados.rodadas.forEach((r) => { if (r.prontoEm) vendas.push({ dia: dia(r.hora), valor: 0, canal: null, concluido: false, preparo: (r.prontoEm - r.hora) / 60000, itens: [], soPreparo: true }); });
   }
@@ -126,10 +128,28 @@ async function relatorio(cardapio) {
     };
   };
 
-  const semana = [];
-  for (let i = 6; i >= 0; i--) {
+  /* Gráfico de faturamento: um ponto por dia (7 ou 30 dias) ou por hora (hoje).
+     Cada ponto leva o rótulo do eixo, o texto da bolinha (data/hora), o valor e quantas vendas. */
+  const pontoDoDia = (i) => {
     const d = inicioDoDia(i);
-    semana.push({ dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').replace(/^./, (l) => l.toUpperCase()), valor: arred(doDia(d.getTime()).reduce((s, v) => s + v.valor, 0)) });
+    const lista = doDia(d.getTime());
+    const nome = i === 0 ? 'Hoje' : i === 1 ? 'Ontem' : DIAS_CURTOS[d.getDay()];
+    return { rotulo: i === 0 ? 'Hoje' : DIAS_CURTOS[d.getDay()], data: dataCurta(d), titulo: `${nome}, ${dataCurta(d)}`,
+      valor: arred(lista.reduce((s, v) => s + v.valor, 0)), vendas: lista.length };
+  };
+  const dias = (n) => Array.from({ length: n }, (_, k) => pontoDoDia(n - 1 - k));
+  const semana = dias(7);
+  const mes = dias(30);
+  /* Hoje por hora: da abertura (ou da 1ª venda, se veio antes) até a hora atual */
+  const vendasHoje = doDia(hoje);
+  const agoraH = new Date().getHours();
+  const abreH = /^(\d{1,2}):/.test(cardapio.lanchonete?.abre || '') ? Number(cardapio.lanchonete.abre.split(':')[0]) : 0;
+  const de = Math.min(abreH, agoraH, ...vendasHoje.map((v) => v.hora));
+  const ate = Math.max(agoraH, de + 1);
+  const porHora = [];
+  for (let h = de; h <= ate; h++) {
+    const lista = vendasHoje.filter((v) => v.hora === h);
+    porHora.push({ rotulo: `${h}h`, data: `${h}h`, titulo: `Hoje, das ${h}h às ${h + 1}h`, valor: arred(lista.reduce((s, v) => s + v.valor, 0)), vendas: lista.length });
   }
 
   const itensHoje = doDia(hoje).flatMap((v) => v.itens);
@@ -146,7 +166,7 @@ async function relatorio(cardapio) {
   const somaCanais = canais.entrega + canais.local;
 
   return {
-    hoje: numeros(hoje), ontem: numeros(ontem), semana, categorias,
+    hoje: numeros(hoje), ontem: numeros(ontem), semana, grafico: { hoje: porHora, semana, mes }, categorias,
     entrega: somaCanais ? Math.round(canais.entrega * 100 / somaCanais) : 0,
     local: somaCanais ? Math.round(canais.local * 100 / somaCanais) : 0,
     maisVendidos: Object.entries(porProduto).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, qtd]) => [Number(id), qtd]),
