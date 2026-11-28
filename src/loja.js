@@ -30,6 +30,12 @@ async function carregar() {
     atual.cardapio.produtos.forEach((p) => delete p.avulsos);
     await db.query("UPDATE loja SET cardapio = $1 WHERE id = 1", [atual.cardapio]);
   }
+  /* Cardápio do primeiro restaurante cliente: entra uma vez só em cada banco (ver src/cargas/) */
+  const carga = require('./cargas/grupo3irmaos').montar(atual.cardapio, atual.config);
+  if (carga) {
+    await gravar(carga);
+    console.log('✓ Cardápio do Grupo 3 Irmãos cadastrado (os produtos antigos ficaram em cardapio.arquivados)');
+  }
   await garantirMesas(atual.cardapio.lanchonete.mesas);
   return atual;
 }
