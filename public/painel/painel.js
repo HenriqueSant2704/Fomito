@@ -52,13 +52,8 @@ const totalPedido = (p) => Fomito.pedidos.total(p);
 const comTotal = (p) => ({ ...p, total: totalPedido(p) });
 const nomeItem = (item) => item[5] || Fomito.produto(item[0]).nome;
 
-/* Pedido de exemplo para a prévia e o teste do cupom (quando ainda não há pedidos) */
-const pedidoExemplo = () => lerPedidos().find((x) => x.modo === "entrega") || {
-  num: 1001, modo: "entrega", criadoEm: Date.now(), cliente: "Cliente de teste", telefone: "(11) 90000-0000",
-  rua: "Rua Exemplo, 100", bairro: "Centro", compl: "", ref: "", endereco: "Rua Exemplo, 100, Centro", pag: "dinheiro", troco: 50,
-  itens: dados.produtos.slice(0, 2).map((p) => [p.id, 1, [], "", p.preco, p.nome]),
-  total: dados.produtos.slice(0, 2).reduce((s, p) => s + p.preco, 0) + dados.lanchonete.taxaEntrega,
-};
+/* Último pedido real de entrega (botão "Usar o último pedido real" da prévia da notinha) */
+const ultimoPedidoEntrega = () => lerPedidos().find((x) => x.modo === "entrega");
 
 const titulos = {
   dashboard: ["Visão geral", ""],
@@ -991,10 +986,18 @@ function garantirModeloEditavel() {
 
 /* --- Pedido de teste da notinha ---
    Os dados de exemplo (itens, adicionais, observação, valores, taxa, total, cliente e pagamento)
-   que aparecem na prévia e saem no "Imprimir cupom de teste". Ficam guardados só neste navegador:
-   não criam pedido, não entram no caixa e não mudam o cardápio. */
-const CHAVE_PEDIDO_TESTE = "fomito.pedidoTeste";
-let pedidoTeste = null;
+   que aparecem na prévia e saem no "Imprimir cupom de teste". Ficam no rascunho das configurações
+   (rascunho.impressao.pedidoTeste) e só são gravados ao clicar em "Salvar alterações".
+   Não criam pedido, não entram no caixa, não mudam o cardápio e NUNCA entram na notinha de um
+   pedido real: essa sai sempre com os itens e valores do próprio pedido. */
+/* Modelo padrão do exemplo (definido pelo Miguel): é para ele que "Voltar ao modelo padrão" volta */
+const PEDIDO_TESTE_PADRAO = Object.freeze({
+  num: "1001", modo: "entrega",
+  cliente: "Cliente de teste", telefone: "(11) 90000-0000", endereco: "Rua Exemplo, 100, Centro",
+  pag: "dinheiro", troco: "", taxa: "0,00", total: "",
+  itens: [{ qtd: "1", nome: "Cheeseburger", adicionais: "", obs: "", valor: "24,00" }],
+});
+const pedidoTestePadrao = () => structuredClone(PEDIDO_TESTE_PADRAO);
 const numBR = (v) => parseFloat(String(v ?? "").replace(/[^\d,.-]/g, "").replace(/\./g, (m, i, s) => (s.includes(",") ? "" : m)).replace(",", ".")) || 0;
 const valorBR = (n) => (Number(n) || 0).toFixed(2).replace(".", ",");
 
@@ -1014,14 +1017,11 @@ function pedidoTesteDe(p) {
     }),
   };
 }
+/** O exemplo que está na tela: o salvo (ou o que está sendo editado) ou, se não houver, o padrão */
 function lerPedidoTeste() {
-  if (pedidoTeste) return pedidoTeste;
-  try { pedidoTeste = JSON.parse(localStorage.getItem(CHAVE_PEDIDO_TESTE)); } catch { pedidoTeste = null; }
-  if (!Array.isArray(pedidoTeste?.itens) || !pedidoTeste.itens.length) pedidoTeste = pedidoTesteDe(pedidoExemplo());
-  return pedidoTeste;
-}
-function guardarPedidoTeste() {
-  try { localStorage.setItem(CHAVE_PEDIDO_TESTE, JSON.stringify(pedidoTeste)); } catch { /* sem armazenamento: vale só até recarregar */ }
+  const imp = rascunho.impressao;
+  if (!Array.isArray(imp.pedidoTeste?.itens) || !imp.pedidoTeste.itens.length) imp.pedidoTeste = pedidoTestePadrao();
+  return imp.pedidoTeste;
 }
 /** Converte o formulário no formato de pedido que a notinha usa: itens [id, qtd, extras, obs, preço unitário, nome] */
 function pedidoDoTeste() {
@@ -1143,7 +1143,6 @@ function gravarDadoTeste(campo, texto) {
     lista[Number(k)] = v.replace(/,/g, " ");
     item.adicionais = lista.filter(Boolean).join(", ");
   }
-  guardarPedidoTeste();
 }
 /** Coloca o cursor num pedaço da prévia, com o texto selecionado para digitar por cima */
 function focarDadoTeste(campo) {
@@ -1281,44 +1280,45 @@ function ligarConfig() {
     if (e.target.closest("[data-pteste-add]")) {
       const t = lerPedidoTeste();
       t.itens.push({ qtd: "1", nome: "Novo item", adicionais: "", obs: "", valor: "0,00" });
-      guardarPedidoTeste();
       return redesenharPreviaTeste(`item.${t.itens.length - 1}.nome`);
     }
     if (e.target.closest("[data-pteste-modo]")) {
       const t = lerPedidoTeste();
       t.modo = t.modo === "entrega" ? "retirada" : "entrega";
-      guardarPedidoTeste(); return redesenharPreviaTeste();
+      return redesenharPreviaTeste();
     }
     const maisAdicional = e.target.closest("[data-pteste-adicional]");
     if (maisAdicional) {
       const item = lerPedidoTeste().itens[Number(maisAdicional.dataset.ptesteAdicional)];
       const lista = String(item.adicionais || "").split(",").map((a) => a.trim()).filter(Boolean);
       item.adicionais = [...lista, "Adicional"].join(", ");
-      guardarPedidoTeste(); return redesenharPreviaTeste(`item.${maisAdicional.dataset.ptesteAdicional}.ad.${lista.length}`);
+      return redesenharPreviaTeste(`item.${maisAdicional.dataset.ptesteAdicional}.ad.${lista.length}`);
     }
     const maisObs = e.target.closest("[data-pteste-obs]");
     if (maisObs) {
       lerPedidoTeste().itens[Number(maisObs.dataset.ptesteObs)].obs = "Observação";
-      guardarPedidoTeste(); return redesenharPreviaTeste(`item.${maisObs.dataset.ptesteObs}.obs`);
+      return redesenharPreviaTeste(`item.${maisObs.dataset.ptesteObs}.obs`);
     }
     if (e.target.closest("[data-pteste-troco]")) {
       lerPedidoTeste().troco = valorBR(Math.ceil((pedidoDoTeste().total + 1) / 10) * 10);
-      guardarPedidoTeste(); return redesenharPreviaTeste("troco");
+      return redesenharPreviaTeste("troco");
     }
     if (e.target.closest("[data-pteste-total-auto]")) {
       lerPedidoTeste().total = "";
-      guardarPedidoTeste(); return redesenharPreviaTeste();
+      return redesenharPreviaTeste();
     }
     const remover = e.target.closest("[data-pteste-remover]");
     if (remover) {
       const t = lerPedidoTeste();
       if (t.itens.length > 1) t.itens.splice(Number(remover.dataset.ptesteRemover), 1);
-      guardarPedidoTeste(); return redesenharPreviaTeste();
+      return redesenharPreviaTeste();
     }
     if (e.target.closest("[data-pteste-reset]")) {
-      pedidoTeste = pedidoTesteDe(pedidoExemplo());
-      guardarPedidoTeste(); redesenharPreviaTeste();
-      return toast("Pedido de exemplo voltou ao último pedido de entrega", "info");
+      const real = ultimoPedidoEntrega();
+      if (!real) return toast("Ainda não há pedido de entrega para copiar", "info");
+      rascunho.impressao.pedidoTeste = pedidoTesteDe(real);
+      redesenharPreviaTeste();
+      return toast("Exemplo trocado pelo último pedido de entrega. Salve para gravar.", "info");
     }
     const ocultar = e.target.closest("[data-ocultar-cupom]");
     if (ocultar) { garantirModeloEditavel().mostrar[ocultar.dataset.ocultarCupom] = false; return atualizarPreviaCupom(); }
@@ -1327,7 +1327,9 @@ function ligarConfig() {
     if (e.target.closest("[data-restaurar-cupom]")) {
       rascunho.impressao.modelo = { topo: null, fim: null, rotulos: {}, mostrar: { telefoneCliente: true, enderecoCliente: true, observacoes: true } };
       rascunho.impressao.rodape = "Obrigado pela preferência!";
-      atualizarPreviaCupom();
+      /* O pedido de exemplo também volta ao padrão: some item, adicional, observação, retirada e valor editado */
+      rascunho.impressao.pedidoTeste = pedidoTestePadrao();
+      redesenharPreviaTeste();
       return toast("Modelo padrão de volta. Salve para gravar.", "info");
     }
     if (e.target.closest("#sTeste")) alertas.tocarAlerta(rascunho.som.volume);
@@ -1405,7 +1407,7 @@ function ligarConfig() {
     if (t.dataset.marca) { rascunho.marca[t.dataset.marca] = t.value; atualizarPrevia(); }
     if (t.dataset.modeloAtivo) rascunho.whatsapp.modelos[t.dataset.modeloAtivo].ativo = t.checked;
     if (t.id === "iAuto") rascunho.impressao.aoAceitar = t.checked;
-    if (t.dataset.ptestePag != null) { lerPedidoTeste().pag = t.value; guardarPedidoTeste(); redesenharPreviaTeste(); }
+    if (t.dataset.ptestePag != null) { lerPedidoTeste().pag = t.value; redesenharPreviaTeste(); }
     if (t.id === "iLargura") rascunho.impressao.largura = t.value;
 
     if (t.id === "sAtivo") rascunho.som.ativo = t.checked;
