@@ -104,8 +104,23 @@ async function salvarConfig(recebida) {
   rv.dias = Math.min(365, Math.max(7, parseInt(rv.dias, 10) || 30));
   rv.intervalo = Math.min(365, Math.max(7, parseInt(rv.intervalo, 10) || 30));
   rv.texto = texto(rv.texto, 600) || CONFIG_PADRAO.clientes.reativacao.texto;
+  config.impressao.pedidoTeste = pedidoTesteLimpo(config.impressao.pedidoTeste);
   const cardapio = { ...atual.cardapio, lanchonete: { ...atual.cardapio.lanchonete, nome: m.nome, slogan: m.slogan } };
   return gravar({ config, cardapio });
+}
+
+/** Pedido de exemplo da prévia da notinha (Configurações > Impressora e som).
+    Só texto curto: serve para a prévia e o cupom de teste, nunca para a notinha de um pedido real. */
+function pedidoTesteLimpo(t) {
+  if (!t || typeof t !== 'object' || !Array.isArray(t.itens) || !t.itens.length) return null;
+  return {
+    num: texto(t.num, 10), modo: t.modo === 'retirada' ? 'retirada' : 'entrega',
+    cliente: texto(t.cliente, 60), telefone: texto(t.telefone, 30), endereco: texto(t.endereco, 200),
+    pag: texto(t.pag, 30), troco: texto(t.troco, 15), taxa: texto(t.taxa, 15), total: texto(t.total, 15),
+    itens: t.itens.slice(0, 30).map((i) => ({
+      qtd: texto(i?.qtd, 5), nome: texto(i?.nome, 80), adicionais: texto(i?.adicionais, 300), obs: texto(i?.obs, 200), valor: texto(i?.valor, 15),
+    })),
+  };
 }
 
 /** Marca a conexão do WhatsApp (chamado pelo servidor, quando a conexão abre ou cai). */
@@ -134,7 +149,9 @@ async function marcarWhatsApp(conectado, numeroLoja = '') {
 /** O que as telas sem login (e garçom/motoboy) podem ver: sem a chave do WhatsApp. */
 function configPublica(config) {
   const { marca, impressao, som } = config;
-  return { marca, impressao, som };
+  /* O exemplo da prévia da notinha pode ter dados de um cliente de verdade ("Usar o último pedido real"): fica só com o administrador */
+  const { pedidoTeste: _exemplo, ...imp } = impressao || {};
+  return { marca, impressao: imp, som };
 }
 
 /* ---------- Cardápio ---------- */
