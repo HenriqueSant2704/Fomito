@@ -292,10 +292,10 @@ async function salvarProduto() {
   const p = cardapio.produto;
   if (p.nome.trim().length < 2) return toast("Dê um nome ao produto", "info");
   if (!(p.preco > 0)) return toast("Informe o preço", "info");
-  if (!p.fotos.length) p.fotos = [{ desenho: "xburguer", cena: "produto", legenda: "" }];
+  /* Sem foto fica sem foto: o cardápio mostra o fundo provisório até o restaurante colocar uma */
   const { entrega, local, ...produto } = p;
   if (produto.id) Object.assign(Fomito.produto(produto.id), produto);
-  else dados.produtos.push({ ...produto, id: Math.max(0, ...dados.produtos.map((x) => x.id)) + 1, desenho: produto.fotos[0].desenho });
+  else dados.produtos.push({ ...produto, id: Math.max(0, ...dados.produtos.map((x) => x.id)) + 1 });
   await Fomito.salvarCardapio();
   cardapio.produto = null;
   cardapio.filtro = produto.cat;
